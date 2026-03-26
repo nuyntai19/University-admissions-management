@@ -1,0 +1,16 @@
+# Bỏ qua thư mục build của Maven
+target/
+
+# Bỏ qua cấu hình cá nhân của NetBeans và VS Code
+nbproject/private/
+nbproject/project.xml
+nbproject/build-impl.xml
+.vscode/
+
+# Bỏ qua các file biên dịch
+*.class
+*.jar
+*.war
+
+# Bỏ qua các file tạm của Office/Windows
+~$*
