@@ -19,6 +19,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import vn.edu.sgu.phanmemtuyensinh.dal.ThiSinhDAO;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.ThiSinh;
+import vn.edu.sgu.phanmemtuyensinh.dal.DiemThiXetTuyenDAO;
+import vn.edu.sgu.phanmemtuyensinh.dal.entity.DiemThiXetTuyen;
 
 public class ThiSinhBUS {
 
@@ -30,6 +32,7 @@ public class ThiSinhBUS {
     private final ThiSinhDAO dao = new ThiSinhDAO();
     private String lastError = "";
     private String lastImportSummary = "";
+    private final DiemThiXetTuyenDAO diemDAO = new DiemThiXetTuyenDAO();
 
     public List<ThiSinh> getAll() {
         return dao.getAll();
@@ -96,19 +99,43 @@ public class ThiSinhBUS {
 
         int imported = 0;
         int failed = 0;
+        int diemSyncFailed = 0;
         for (ThiSinh ts : list) {
             if (add(ts)) {
+                if (!syncDiemThiRecord(ts)) {
+                    diemSyncFailed++;
+                }
                 imported++;
             } else {
                 failed++;
             }
         }
-        lastImportSummary = "Tổng đọc: " + list.size() + " | Thành công: " + imported + " | Thất bại: " + failed;
+        lastImportSummary = "Tổng đọc: " + list.size()
+                + " | Thành công: " + imported
+                + " | Thất bại: " + failed
+                + " | Lỗi đồng bộ điểm thi: " + diemSyncFailed;
         return imported;
     }
 
     public String getLastImportSummary() {
         return lastImportSummary == null ? "" : lastImportSummary;
+    }
+
+    private boolean syncDiemThiRecord(ThiSinh ts) {
+        if (ts == null || safe(ts.getCccd()).isEmpty()) {
+            return false;
+        }
+
+        DiemThiXetTuyen existing = diemDAO.getByCccd(ts.getCccd());
+        if (existing != null) {
+            existing.setSoBaoDanh(ts.getSoBaoDanh());
+            return diemDAO.update(existing);
+        }
+
+        DiemThiXetTuyen diem = new DiemThiXetTuyen();
+        diem.setCccd(ts.getCccd());
+        diem.setSoBaoDanh(ts.getSoBaoDanh());
+        return diemDAO.add(diem);
     }
 
     private List<ThiSinh> importFromExcel(String filePath) throws IOException {
@@ -133,7 +160,16 @@ public class ThiSinhBUS {
                 String gioiTinh = formatter.formatCellValue(row.getCell(4)).trim();
                 String doiTuong = formatter.formatCellValue(row.getCell(5)).trim();
                 String khuVuc = formatter.formatCellValue(row.getCell(6)).trim();
-                String noiSinh = formatter.formatCellValue(row.getCell(row.getLastCellNum() - 1)).trim();
+                
+                String maMonNn = row.getCell(16) != null ? formatter.formatCellValue(row.getCell(16)).trim() : "";
+                String chuongTrinhHoc = row.getCell(21) != null ? formatter.formatCellValue(row.getCell(21)).trim() : "";
+                
+                String danToc = row.getCell(row.getLastCellNum() - 3) != null 
+                    ? formatter.formatCellValue(row.getCell(row.getLastCellNum() - 3)).trim() : "";
+                String maDanToc = row.getCell(row.getLastCellNum() - 2) != null 
+                    ? formatter.formatCellValue(row.getCell(row.getLastCellNum() - 2)).trim() : "";
+                String noiSinh = row.getCell(row.getLastCellNum() - 1) != null 
+                    ? formatter.formatCellValue(row.getCell(row.getLastCellNum() - 1)).trim() : "";
 
                 ThiSinh ts = new ThiSinh();
                 ts.setCccd(cccd);
@@ -143,6 +179,10 @@ public class ThiSinhBUS {
                 ts.setGioiTinh(gioiTinh);
                 ts.setDoiTuong(doiTuong);
                 ts.setKhuVuc(khuVuc);
+                                ts.setMaMonNn(maMonNn);
+                                ts.setChuongTrinhHoc(chuongTrinhHoc);
+                ts.setDanToc(danToc);
+                ts.setMaDanToc(maDanToc);
                 ts.setNoiSinh(noiSinh);
                 ts.setPassword("123456");
                 ts.setUpdatedAt(LocalDate.now().toString());
@@ -174,11 +214,29 @@ public class ThiSinhBUS {
                 String cccd = parts[1].trim();
                 String hoTen = parts[2].trim();
                 String ngaySinh = parts[3].trim();
+                String gioiTinh = parts.length > 4 ? parts[4].trim() : "";
+                String doiTuong = parts.length > 5 ? parts[5].trim() : "";
+                String khuVuc = parts.length > 6 ? parts[6].trim() : "";
+                
+                String maMonNn = parts.length > 16 ? parts[16].trim() : "";
+                String chuongTrinhHoc = parts.length > 21 ? parts[21].trim() : "";
+                
+                String danToc = parts.length > 2 ? parts[parts.length - 3].trim() : "";
+                String maDanToc = parts.length > 1 ? parts[parts.length - 2].trim() : "";
+                String noiSinh = parts.length > 0 ? parts[parts.length - 1].trim() : "";
+                ts.setMaMonNn(maMonNn);
+                ts.setChuongTrinhHoc(chuongTrinhHoc);
 
                 ThiSinh ts = new ThiSinh();
                 ts.setCccd(cccd);
                 fillName(ts, hoTen);
                 ts.setNgaySinh(ngaySinh);
+                ts.setGioiTinh(gioiTinh);
+                ts.setDoiTuong(doiTuong);
+                ts.setKhuVuc(khuVuc);
+                ts.setDanToc(danToc);
+                ts.setMaDanToc(maDanToc);
+                ts.setNoiSinh(noiSinh);
                 ts.setPassword("123456");
                 ts.setUpdatedAt(LocalDate.now().toString());
 

@@ -50,6 +50,18 @@ public class ThiSinh {
     @Column(name = "khu_vuc", length = 45)
     private String khuVuc;
 
+    @Column(name = "dan_toc", length = 100)
+    private String danToc;
+
+    @Column(name = "ma_dan_toc", length = 20)
+    private String maDanToc;
+
+    @Column(name = "chuong_trinh_hoc", length = 50)
+    private String chuongTrinhHoc;
+
+    @Column(name = "ma_mon_nn", length = 20)
+    private String maMonNn;
+
     public ThiSinh() {
     }
 
@@ -94,4 +106,16 @@ public class ThiSinh {
 
     public String getKhuVuc() { return khuVuc; }
     public void setKhuVuc(String khuVuc) { this.khuVuc = khuVuc; }
+
+    public String getDanToc() { return danToc; }
+    public void setDanToc(String danToc) { this.danToc = danToc; }
+
+    public String getMaDanToc() { return maDanToc; }
+    public void setMaDanToc(String maDanToc) { this.maDanToc = maDanToc; }
+
+    public String getChuongTrinhHoc() { return chuongTrinhHoc; }
+    public void setChuongTrinhHoc(String chuongTrinhHoc) { this.chuongTrinhHoc = chuongTrinhHoc; }
+
+    public String getMaMonNn() { return maMonNn; }
+    public void setMaMonNn(String maMonNn) { this.maMonNn = maMonNn; }
 }

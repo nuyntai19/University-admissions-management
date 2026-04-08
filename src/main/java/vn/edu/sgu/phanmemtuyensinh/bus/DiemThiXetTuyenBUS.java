@@ -220,10 +220,20 @@ public class DiemThiXetTuyenBUS {
         d.setCncn(parseDecimal(readHeaderCell(row, headerMap, formatter, "cncn")));
         d.setCnnn(parseDecimal(readHeaderCell(row, headerMap, formatter, "cnnn")));
         d.setTi(parseDecimal(readHeaderCell(row, headerMap, formatter, "ti", "tin", "tinhoc")));
-        d.setKtpl(parseDecimal(readHeaderCell(row, headerMap, formatter, "ktpl", "gdcd", "kinhtephapluat")));
+        d.setGdcd(parseDecimal(readHeaderCell(row, headerMap, formatter, "gdcd", "giaoduccongdan")));
+        d.setKtpl(parseDecimal(readHeaderCell(row, headerMap, formatter, "ktpl", "kinhtephapluat")));
         d.setNl1(parseDecimal(readHeaderCell(row, headerMap, formatter, "nl1", "dgnl")));
         d.setNk1(parseDecimal(readHeaderCell(row, headerMap, formatter, "nk1")));
         d.setNk2(parseDecimal(readHeaderCell(row, headerMap, formatter, "nk2")));
+        d.setNk3(parseDecimal(readHeaderCell(row, headerMap, formatter, "nk3")));
+        d.setNk4(parseDecimal(readHeaderCell(row, headerMap, formatter, "nk4")));
+        d.setNk5(parseDecimal(readHeaderCell(row, headerMap, formatter, "nk5")));
+        d.setNk6(parseDecimal(readHeaderCell(row, headerMap, formatter, "nk6")));
+        d.setNk7(parseDecimal(readHeaderCell(row, headerMap, formatter, "nk7")));
+        d.setNk8(parseDecimal(readHeaderCell(row, headerMap, formatter, "nk8")));
+        d.setNk9(parseDecimal(readHeaderCell(row, headerMap, formatter, "nk9")));
+        d.setNk10(parseDecimal(readHeaderCell(row, headerMap, formatter, "nk10")));
+        d.setDiemXetTotNghiep(parseDecimal(readHeaderCell(row, headerMap, formatter, "diemxettotnghiep", "diemxettn")));
 
         // Fallback theo định dạng file mẫu khi không có header phù hợp.
         if (allSubjectScoresMissing(d)) {
@@ -234,11 +244,23 @@ public class DiemThiXetTuyenBUS {
             d.setSi(parseDecimal(readCell(row, 11, formatter)));
             d.setSu(parseDecimal(readCell(row, 12, formatter)));
             d.setDi(parseDecimal(readCell(row, 13, formatter)));
+            d.setGdcd(parseDecimal(readCell(row, 14, formatter)));
             d.setKtpl(parseDecimal(readCell(row, 17, formatter)));
             d.setTi(parseDecimal(readCell(row, 18, formatter)));
             d.setCncn(parseDecimal(readCell(row, 19, formatter)));
             d.setCnnn(parseDecimal(readCell(row, 20, formatter)));
             d.setN1Thi(parseDecimal(readCell(row, 15, formatter)));
+            d.setNk1(parseDecimal(readCell(row, 22, formatter)));
+            d.setNk2(parseDecimal(readCell(row, 23, formatter)));
+            d.setNk3(parseDecimal(readCell(row, 24, formatter)));
+            d.setNk4(parseDecimal(readCell(row, 25, formatter)));
+            d.setNk5(parseDecimal(readCell(row, 26, formatter)));
+            d.setNk6(parseDecimal(readCell(row, 27, formatter)));
+            d.setNk7(parseDecimal(readCell(row, 28, formatter)));
+            d.setNk8(parseDecimal(readCell(row, 29, formatter)));
+            d.setNk9(parseDecimal(readCell(row, 30, formatter)));
+            d.setNk10(parseDecimal(readCell(row, 31, formatter)));
+            d.setDiemXetTotNghiep(parseDecimal(readCell(row, 32, formatter)));
         }
 
         return d;
@@ -257,11 +279,23 @@ public class DiemThiXetTuyenBUS {
         d.setSi(parseDecimal(getPart(parts, 11)));
         d.setSu(parseDecimal(getPart(parts, 12)));
         d.setDi(parseDecimal(getPart(parts, 13)));
+        d.setGdcd(parseDecimal(getPart(parts, 14)));
         d.setKtpl(parseDecimal(getPart(parts, 17)));
         d.setTi(parseDecimal(getPart(parts, 18)));
         d.setCncn(parseDecimal(getPart(parts, 19)));
         d.setCnnn(parseDecimal(getPart(parts, 20)));
         d.setN1Thi(parseDecimal(getPart(parts, 15)));
+        d.setNk1(parseDecimal(getPart(parts, 22)));
+        d.setNk2(parseDecimal(getPart(parts, 23)));
+        d.setNk3(parseDecimal(getPart(parts, 24)));
+        d.setNk4(parseDecimal(getPart(parts, 25)));
+        d.setNk5(parseDecimal(getPart(parts, 26)));
+        d.setNk6(parseDecimal(getPart(parts, 27)));
+        d.setNk7(parseDecimal(getPart(parts, 28)));
+        d.setNk8(parseDecimal(getPart(parts, 29)));
+        d.setNk9(parseDecimal(getPart(parts, 30)));
+        d.setNk10(parseDecimal(getPart(parts, 31)));
+        d.setDiemXetTotNghiep(parseDecimal(getPart(parts, 32)));
 
         return d;
     }
@@ -302,9 +336,19 @@ public class DiemThiXetTuyenBUS {
                 || !checkScore(diem.getCncn(), 0, 10, "CNCN")
                 || !checkScore(diem.getCnnn(), 0, 10, "CNNN")
                 || !checkScore(diem.getTi(), 0, 10, "TI")
+                || !checkScore(diem.getGdcd(), 0, 10, "GDCD")
                 || !checkScore(diem.getKtpl(), 0, 10, "KTPL")
                 || !checkScore(diem.getNk1(), 0, 10, "NK1")
                 || !checkScore(diem.getNk2(), 0, 10, "NK2")
+                || !checkScore(diem.getNk3(), 0, 10, "NK3")
+                || !checkScore(diem.getNk4(), 0, 10, "NK4")
+                || !checkScore(diem.getNk5(), 0, 10, "NK5")
+                || !checkScore(diem.getNk6(), 0, 10, "NK6")
+                || !checkScore(diem.getNk7(), 0, 10, "NK7")
+                || !checkScore(diem.getNk8(), 0, 10, "NK8")
+                || !checkScore(diem.getNk9(), 0, 10, "NK9")
+                || !checkScore(diem.getNk10(), 0, 10, "NK10")
+                || !checkScore(diem.getDiemXetTotNghiep(), 0, 10, "DIEM_XET_TOT_NGHIEP")
                 || !checkScore(diem.getNl1(), 0, 1200, "NL1")) {
             return false;
         }
@@ -347,7 +391,10 @@ public class DiemThiXetTuyenBUS {
         return d.getTo() != null || d.getLi() != null || d.getHo() != null || d.getSi() != null
                 || d.getSu() != null || d.getDi() != null || d.getVa() != null || d.getN1Thi() != null
                 || d.getN1Cc() != null || d.getCncn() != null || d.getCnnn() != null || d.getTi() != null
-                || d.getKtpl() != null || d.getNl1() != null || d.getNk1() != null || d.getNk2() != null;
+                || d.getGdcd() != null || d.getKtpl() != null || d.getNl1() != null
+                || d.getNk1() != null || d.getNk2() != null || d.getNk3() != null || d.getNk4() != null
+                || d.getNk5() != null || d.getNk6() != null || d.getNk7() != null || d.getNk8() != null
+                || d.getNk9() != null || d.getNk10() != null || d.getDiemXetTotNghiep() != null;
     }
 
     private Map<String, Integer> buildHeaderMap(Row headerRow, DataFormatter formatter) {

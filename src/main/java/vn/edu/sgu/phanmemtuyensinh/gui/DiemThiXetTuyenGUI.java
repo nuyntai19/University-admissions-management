@@ -108,8 +108,10 @@ public class DiemThiXetTuyenGUI extends JPanel {
     private void buildTable() {
         String[] columns = {
                 "ID", "CCCD", "Số Báo Danh", "Phương Thức",
-                "TO", "LI", "HO", "SI", "SU", "DI", "VA",
-                "N1_THI", "N1_CC", "CNCN", "CNNN", "TI", "KTPL", "NL1", "NK1", "NK2"
+                "TO", "LI", "HO", "SI", "SU", "DI", "VA", "GDCD",
+                "N1_THI", "N1_CC", "CNCN", "CNNN", "TI", "KTPL", "NL1", 
+                "NK1", "NK2", "NK3", "NK4", "NK5", "NK6", "NK7", "NK8", "NK9", "NK10",
+                "Điểm xét TN"
         };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
@@ -120,8 +122,24 @@ public class DiemThiXetTuyenGUI extends JPanel {
 
         table = new JTable(tableModel);
         table.getSelectionModel().addListSelectionListener(e -> chonDong());
-
-        add(new JScrollPane(table), BorderLayout.CENTER);
+        
+        // Đặt độ rộng cột mặc định
+        table.getColumnModel().getColumn(0).setPreferredWidth(50);  // ID
+        table.getColumnModel().getColumn(1).setPreferredWidth(120); // CCCD
+        table.getColumnModel().getColumn(2).setPreferredWidth(100); // Số Báo Danh
+        table.getColumnModel().getColumn(3).setPreferredWidth(90);  // Phương Thức
+        
+        // Các cột điểm - đặt width nhỏ và không cho phép resize
+        for (int i = 4; i < columns.length; i++) {
+            table.getColumnModel().getColumn(i).setPreferredWidth(55);
+            table.getColumnModel().getColumn(i).setResizable(false);
+        }
+        
+        // Tắt tính năng auto-resize để giữ width cố định
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        
+        JScrollPane scrollPane = new JScrollPane(table, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
+        add(scrollPane, BorderLayout.CENTER);
     }
 
     private void buildBottom() {
@@ -178,6 +196,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
                     d.getSu(),
                     d.getDi(),
                     d.getVa(),
+                    d.getGdcd(),
                     d.getN1Thi(),
                     d.getN1Cc(),
                     d.getCncn(),
@@ -186,7 +205,16 @@ public class DiemThiXetTuyenGUI extends JPanel {
                     d.getKtpl(),
                     d.getNl1(),
                     d.getNk1(),
-                    d.getNk2()
+                    d.getNk2(),
+                    d.getNk3(),
+                    d.getNk4(),
+                    d.getNk5(),
+                    d.getNk6(),
+                    d.getNk7(),
+                    d.getNk8(),
+                    d.getNk9(),
+                    d.getNk10(),
+                    d.getDiemXetTotNghiep()
             });
         }
 

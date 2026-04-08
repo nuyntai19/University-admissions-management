@@ -91,7 +91,12 @@ public class DiemThiXetTuyenDAO {
             transaction.commit();
             return true;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            if (transaction != null) {
+                try {
+                    transaction.rollback();
+                } catch (Exception ignored) {
+                }
+            }
             System.err.println("Lỗi thêm điểm thi: " + e.getMessage());
             return false;
         }
@@ -105,7 +110,12 @@ public class DiemThiXetTuyenDAO {
             transaction.commit();
             return true;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            if (transaction != null) {
+                try {
+                    transaction.rollback();
+                } catch (Exception ignored) {
+                }
+            }
             System.err.println("Lỗi cập nhật điểm thi: " + e.getMessage());
             return false;
         }
@@ -123,7 +133,12 @@ public class DiemThiXetTuyenDAO {
             }
             return false;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            if (transaction != null) {
+                try {
+                    transaction.rollback();
+                } catch (Exception ignored) {
+                }
+            }
             System.err.println("Lỗi xóa điểm thi: " + e.getMessage());
             return false;
         }

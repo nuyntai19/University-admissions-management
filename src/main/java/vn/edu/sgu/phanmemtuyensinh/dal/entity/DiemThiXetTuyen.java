@@ -42,6 +42,9 @@ public class DiemThiXetTuyen {
     @Column(name = "VA")
     private BigDecimal va;
 
+    @Column(name = "GDCD")
+    private BigDecimal gdcd;
+
     @Column(name = "N1_THI")
     private BigDecimal n1Thi;
 
@@ -68,6 +71,33 @@ public class DiemThiXetTuyen {
 
     @Column(name = "NK2")
     private BigDecimal nk2;
+
+    @Column(name = "NK3")
+    private BigDecimal nk3;
+
+    @Column(name = "NK4")
+    private BigDecimal nk4;
+
+    @Column(name = "NK5")
+    private BigDecimal nk5;
+
+    @Column(name = "NK6")
+    private BigDecimal nk6;
+
+    @Column(name = "NK7")
+    private BigDecimal nk7;
+
+    @Column(name = "NK8")
+    private BigDecimal nk8;
+
+    @Column(name = "NK9")
+    private BigDecimal nk9;
+
+    @Column(name = "NK10")
+    private BigDecimal nk10;
+
+    @Column(name = "diem_xet_tot_nghiep")
+    private BigDecimal diemXetTotNghiep;
 
     public DiemThiXetTuyen() {
     }
@@ -105,6 +135,9 @@ public class DiemThiXetTuyen {
     public BigDecimal getVa() { return va; }
     public void setVa(BigDecimal va) { this.va = va; }
 
+    public BigDecimal getGdcd() { return gdcd; }
+    public void setGdcd(BigDecimal gdcd) { this.gdcd = gdcd; }
+
     public BigDecimal getN1Thi() { return n1Thi; }
     public void setN1Thi(BigDecimal n1Thi) { this.n1Thi = n1Thi; }
 
@@ -128,6 +161,33 @@ public class DiemThiXetTuyen {
 
     public BigDecimal getNk1() { return nk1; }
     public void setNk1(BigDecimal nk1) { this.nk1 = nk1; }
+
+    public BigDecimal getNk3() { return nk3; }
+    public void setNk3(BigDecimal nk3) { this.nk3 = nk3; }
+
+    public BigDecimal getNk4() { return nk4; }
+    public void setNk4(BigDecimal nk4) { this.nk4 = nk4; }
+
+    public BigDecimal getNk5() { return nk5; }
+    public void setNk5(BigDecimal nk5) { this.nk5 = nk5; }
+
+    public BigDecimal getNk6() { return nk6; }
+    public void setNk6(BigDecimal nk6) { this.nk6 = nk6; }
+
+    public BigDecimal getNk7() { return nk7; }
+    public void setNk7(BigDecimal nk7) { this.nk7 = nk7; }
+
+    public BigDecimal getNk8() { return nk8; }
+    public void setNk8(BigDecimal nk8) { this.nk8 = nk8; }
+
+    public BigDecimal getNk9() { return nk9; }
+    public void setNk9(BigDecimal nk9) { this.nk9 = nk9; }
+
+    public BigDecimal getNk10() { return nk10; }
+    public void setNk10(BigDecimal nk10) { this.nk10 = nk10; }
+
+    public BigDecimal getDiemXetTotNghiep() { return diemXetTotNghiep; }
+    public void setDiemXetTotNghiep(BigDecimal diemXetTotNghiep) { this.diemXetTotNghiep = diemXetTotNghiep; }
 
     public BigDecimal getNk2() { return nk2; }
     public void setNk2(BigDecimal nk2) { this.nk2 = nk2; }
