@@ -1,0 +1,12 @@
+ID	CCCD	Mã ngành	Tên ngành	NV Thứ	PT	Điểm THXT	Điểm Cộng	Điểm ƯT	Điểm XT	Kết quả
+(tự sinh)	nn_cccd (*)	nv_manganh (*)	nv_manganh (*)	nv_tt (*)	phuongthuc (*)					
+1	001207004846	7610302	Thú y	1	PT2					
+2	001207005157	7510301	Công nghệ kỹ thuật	1	PT2					
+3	001207005157	7510302	Kỹ thuật điện tử	25	PT2					
+4	001207005157	7510302	Kỹ thuật điện tử	27	PT2					
+5	001207005157	7220201	Luật		PT2					
+6	001207008593	7310401	Luật	4	PT2					
+7	001207008630	7310401	Luật		PT2					
+8	001207009704	7310401	Luật		PT2					
+9	001207012341	7380101	Luật Kinh tế	1	PT2					
+10	001207012439	7480201	Công nghệ thông tin	1	PT2					

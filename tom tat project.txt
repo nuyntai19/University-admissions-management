@@ -1,0 +1,55 @@
+DỰ ÁN PHẦN MỀM TUYỂN SINH GỒM: APP ,WEB – MOBILE ( responsive cho mobile)
+
+1. Quản lý người dùng, có 2 loại quyền: user và admin
+- xem danh sách, sửa thông tin, thay đổi password
+- đổi quyền user, admin
+- Khoá, mở khoá tài khoản
+2. Quản lý thí sinh
+- Nhập thông tin thí sinh
+- Xem danh sách ( 20 dòng 1 trang)
+- tìm kiếm theo CCCD, họ tên
+- sửa thông tin thí sinh
+Table xt_thisinhxettuyen25
+
+3.quản lý nghành tuyển sinh
+- Nhập danh sách
+- Xem danh sách, sửa thông tin, xóa, thêm mới
+Table xt_nganh
+Các n_tohopgoc n_chitieu,… là gì? Ý nghĩa của nó là gì
+
+4. Quản lý tổ hợp môn xét tuyển
++ Nhập danh sách
++ Xem danh sách, sửa thông tin, xóa, thêm mới
+Table xt_tohop_monthi
+
+5. Quản lý danh sách ngành - tổ hợp
+Table xt_nganh_tohop
+•	N1 là mã môn Ngoại ngữ 1, trong dữ liệu này hầu như là tiếng Anh.
+•	KTPL là Kinh tế và Pháp luật.
+•	TO, LI, HO, SU, DI, VA, TI, CNCN, CNNN là mã các môn tương ứng trong danh sách tổ hợp.
+•	dolech là độ lệch điểm của tổ hợp đó so với tổ hợp gốc của ngành. Nó dùng để quy đổi điểm giữa các tổ hợp khác nhau. Ví dụ trong tohopmon.txt, cùng một ngành có tổ hợp gốc B03 thì các tổ hợp khác như C01 hoặc D01 có dolech khác 0; khi xét tuyển phải trừ hoặc cộng chênh lệch này để đưa về thang của tổ hợp gốc.
+
+6. Quản lý điểm thí sinh: có 3 loại điểm THPT, VSAT, ĐGNL
+- nhập danh sách điểm
+- Xem danh sách, sửa thông tin, xóa, thêm mới
+- Thống kê điểm theo loại điểm, môn
+Table xt_diemthixettuyen
+N1_cc là gì? NL1, NK1, NK2 là gì?
+
+7. Quản lý điểm cộng
+- Xem danh sách điểm cộng
+- nhập danh sách
+- Thêm, xóa, sửa
+Table xt_diemcongxetuyen
+DiemCC , dc_keys là gì? Có tác dụng gì?
+
+8. Quản lý nguyện vọng và xét tuyển.
+Table xt_nguyenvongxettuyen
+
+9. Quản lý bảng quy đổi
+- nhập danh sách
+- Xem, thêm, sửa, xóa, tìm kiếm
+Table xt_bangquydoi
+D_phanvi là gì?
+•	d_phanvi là mức phân vị, tức nhãn của khoảng percentile dùng để quy đổi.
+•	Nó đi cùng với d_diema, d_diemb, d_diemc, d_diemd để nội suy điểm trong từng khoảng.
