@@ -12,6 +12,7 @@ import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -43,11 +44,13 @@ public class DiemThiXetTuyenGUI extends JPanel {
     private JLabel lblThongTinTrang;
     private JTable table;
     private DefaultTableModel tableModel;
+    private JComboBox<String> cbbSort;
 
     private int currentId = -1;
     private int currentPage = 1;
     private long totalItems = 0;
     private String currentKeyword = "";
+    private String currentSortOrder = "DESC";
 
     public DiemThiXetTuyenGUI() {
         setLayout(new BorderLayout(10, 10));
@@ -77,6 +80,20 @@ public class DiemThiXetTuyenGUI extends JPanel {
         pnlActions.add(btnImport);
         pnlActions.add(btnLamMoi);
 
+        JPanel pnlSort = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
+        pnlSort.setOpaque(false);
+        cbbSort = new JComboBox<>(new String[]{"Lớn nhất đến bé nhất", "Bé nhất đến lớn nhất"});
+        cbbSort.setSelectedIndex(0);
+        cbbSort.addActionListener(e -> {
+            String selected = (String) cbbSort.getSelectedItem();
+            currentSortOrder = "Bé nhất đến lớn nhất".equals(selected) ? "ASC" : "DESC";
+            currentPage = 1;
+            currentId = -1;
+            table.clearSelection();
+            loadPage();
+        });
+        pnlSort.add(cbbSort);
+
         JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         pnlSearch.setOpaque(false);
         pnlSearch.add(new JLabel("Tìm CCCD / SBD:"));
@@ -85,15 +102,16 @@ public class DiemThiXetTuyenGUI extends JPanel {
         pnlSearch.add(txtTimKiem);
         pnlSearch.add(btnTim);
 
-        JPanel pnlActionSearch = new JPanel(new BorderLayout(8, 8));
-        pnlActionSearch.setOpaque(false);
-        pnlActionSearch.add(pnlActions, BorderLayout.WEST);
-        pnlActionSearch.add(pnlSearch, BorderLayout.EAST);
+        JPanel pnlActionSearchSort = new JPanel(new BorderLayout(8, 8));
+        pnlActionSearchSort.setOpaque(false);
+        pnlActionSearchSort.add(pnlActions, BorderLayout.WEST);
+        pnlActionSearchSort.add(pnlSort, BorderLayout.CENTER);
+        pnlActionSearchSort.add(pnlSearch, BorderLayout.EAST);
 
         JPanel pnlTop = new JPanel(new BorderLayout(0, 8));
         pnlTop.setOpaque(false);
         pnlTop.add(lblTitle, BorderLayout.NORTH);
-        pnlTop.add(pnlActionSearch, BorderLayout.CENTER);
+        pnlTop.add(pnlActionSearchSort, BorderLayout.CENTER);
 
         btnThem.addActionListener(e -> themDiem());
         btnSua.addActionListener(e -> suaDiem());
@@ -124,7 +142,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
         table.getSelectionModel().addListSelectionListener(e -> chonDong());
         
         // Đặt độ rộng cột mặc định
-        table.getColumnModel().getColumn(0).setPreferredWidth(50);  // ID
+        table.getColumnModel().getColumn(0).setPreferredWidth(120); // ID - ngang với CCCD
         table.getColumnModel().getColumn(1).setPreferredWidth(120); // CCCD
         table.getColumnModel().getColumn(2).setPreferredWidth(100); // Số Báo Danh
         table.getColumnModel().getColumn(3).setPreferredWidth(90);  // Phương Thức
@@ -177,7 +195,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
         List<DiemThiXetTuyen> list;
         if (currentKeyword == null || currentKeyword.isBlank()) {
             totalItems = bus.countAll();
-            list = bus.getPage(currentPage, PAGE_SIZE);
+            list = bus.getPageWithSort(currentPage, PAGE_SIZE, currentSortOrder);
         } else {
             totalItems = bus.countByKeyword(currentKeyword);
             list = bus.searchByKeyword(currentKeyword, currentPage, PAGE_SIZE);
@@ -382,6 +400,16 @@ public class DiemThiXetTuyenGUI extends JPanel {
         JTextField txtNl1 = new JTextField();
         JTextField txtNk1 = new JTextField();
         JTextField txtNk2 = new JTextField();
+        JTextField txtNk3 = new JTextField();
+        JTextField txtNk4 = new JTextField();
+        JTextField txtNk5 = new JTextField();
+        JTextField txtNk6 = new JTextField();
+        JTextField txtNk7 = new JTextField();
+        JTextField txtNk8 = new JTextField();
+        JTextField txtNk9 = new JTextField();
+        JTextField txtNk10 = new JTextField();
+        JTextField txtDiemXetTotNghiep = new JTextField();
+        JTextField txtGdcd = new JTextField();
 
         if (source != null) {
             txtCccd.setText(nullToEmpty(source.getCccd()));
@@ -403,11 +431,21 @@ public class DiemThiXetTuyenGUI extends JPanel {
             txtNl1.setText(source.getNl1() == null ? "" : source.getNl1().toPlainString());
             txtNk1.setText(source.getNk1() == null ? "" : source.getNk1().toPlainString());
             txtNk2.setText(source.getNk2() == null ? "" : source.getNk2().toPlainString());
+            txtNk3.setText(source.getNk3() == null ? "" : source.getNk3().toPlainString());
+            txtNk4.setText(source.getNk4() == null ? "" : source.getNk4().toPlainString());
+            txtNk5.setText(source.getNk5() == null ? "" : source.getNk5().toPlainString());
+            txtNk6.setText(source.getNk6() == null ? "" : source.getNk6().toPlainString());
+            txtNk7.setText(source.getNk7() == null ? "" : source.getNk7().toPlainString());
+            txtNk8.setText(source.getNk8() == null ? "" : source.getNk8().toPlainString());
+            txtNk9.setText(source.getNk9() == null ? "" : source.getNk9().toPlainString());
+            txtNk10.setText(source.getNk10() == null ? "" : source.getNk10().toPlainString());
+            txtDiemXetTotNghiep.setText(source.getDiemXetTotNghiep() == null ? "" : source.getDiemXetTotNghiep().toPlainString());
+            txtGdcd.setText(source.getGdcd() == null ? "" : source.getGdcd().toPlainString());
         }
 
         JPanel panel = new JPanel(new BorderLayout(0, 10));
         panel.setBackground(new Color(245, 249, 255));
-        panel.setPreferredSize(new Dimension(720, 520));
+        panel.setPreferredSize(new Dimension(720, 700));
 
         JPanel pnlHeader = new JPanel(new BorderLayout());
         pnlHeader.setBackground(source == null ? new Color(30, 136, 229) : new Color(243, 156, 18));
@@ -445,6 +483,8 @@ public class DiemThiXetTuyenGUI extends JPanel {
         form.add(txtDi);
         form.add(new JLabel("Điểm VA:"));
         form.add(txtVa);
+        form.add(new JLabel("Điểm GDCD:"));
+        form.add(txtGdcd);
         form.add(new JLabel("Điểm N1_THI:"));
         form.add(txtN1Thi);
         form.add(new JLabel("Điểm N1_CC:"));
@@ -463,6 +503,24 @@ public class DiemThiXetTuyenGUI extends JPanel {
         form.add(txtNk1);
         form.add(new JLabel("Điểm NK2:"));
         form.add(txtNk2);
+        form.add(new JLabel("Điểm NK3:"));
+        form.add(txtNk3);
+        form.add(new JLabel("Điểm NK4:"));
+        form.add(txtNk4);
+        form.add(new JLabel("Điểm NK5:"));
+        form.add(txtNk5);
+        form.add(new JLabel("Điểm NK6:"));
+        form.add(txtNk6);
+        form.add(new JLabel("Điểm NK7:"));
+        form.add(txtNk7);
+        form.add(new JLabel("Điểm NK8:"));
+        form.add(txtNk8);
+        form.add(new JLabel("Điểm NK9:"));
+        form.add(txtNk9);
+        form.add(new JLabel("Điểm NK10:"));
+        form.add(txtNk10);
+        form.add(new JLabel("Điểm xét TN:"));
+        form.add(txtDiemXetTotNghiep);
 
         JScrollPane formScroll = new JScrollPane(form);
         formScroll.setBorder(null);
@@ -492,6 +550,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
             d.setSu(parseDecimal(txtSu.getText().trim()));
             d.setDi(parseDecimal(txtDi.getText().trim()));
             d.setVa(parseDecimal(txtVa.getText().trim()));
+            d.setGdcd(parseDecimal(txtGdcd.getText().trim()));
             d.setN1Thi(parseDecimal(txtN1Thi.getText().trim()));
             d.setN1Cc(parseDecimal(txtN1Cc.getText().trim()));
             d.setCncn(parseDecimal(txtCncn.getText().trim()));
@@ -501,6 +560,15 @@ public class DiemThiXetTuyenGUI extends JPanel {
             d.setNl1(parseDecimal(txtNl1.getText().trim()));
             d.setNk1(parseDecimal(txtNk1.getText().trim()));
             d.setNk2(parseDecimal(txtNk2.getText().trim()));
+            d.setNk3(parseDecimal(txtNk3.getText().trim()));
+            d.setNk4(parseDecimal(txtNk4.getText().trim()));
+            d.setNk5(parseDecimal(txtNk5.getText().trim()));
+            d.setNk6(parseDecimal(txtNk6.getText().trim()));
+            d.setNk7(parseDecimal(txtNk7.getText().trim()));
+            d.setNk8(parseDecimal(txtNk8.getText().trim()));
+            d.setNk9(parseDecimal(txtNk9.getText().trim()));
+            d.setNk10(parseDecimal(txtNk10.getText().trim()));
+            d.setDiemXetTotNghiep(parseDecimal(txtDiemXetTotNghiep.getText().trim()));
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Điểm phải là số hợp lệ!");
             return null;

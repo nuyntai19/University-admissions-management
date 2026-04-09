@@ -224,10 +224,10 @@ public class ThiSinhBUS {
                 String danToc = parts.length > 2 ? parts[parts.length - 3].trim() : "";
                 String maDanToc = parts.length > 1 ? parts[parts.length - 2].trim() : "";
                 String noiSinh = parts.length > 0 ? parts[parts.length - 1].trim() : "";
+                
+                ThiSinh ts = new ThiSinh();
                 ts.setMaMonNn(maMonNn);
                 ts.setChuongTrinhHoc(chuongTrinhHoc);
-
-                ThiSinh ts = new ThiSinh();
                 ts.setCccd(cccd);
                 fillName(ts, hoTen);
                 ts.setNgaySinh(ngaySinh);

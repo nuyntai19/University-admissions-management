@@ -32,6 +32,17 @@ public class DiemThiXetTuyenDAO {
         }
     }
 
+    public List<DiemThiXetTuyen> getPageWithSort(int page, int pageSize, String sortOrder) {
+        int offset = Math.max(0, (page - 1) * pageSize);
+        String orderClause = "ASC".equals(sortOrder) ? "ORDER BY idDiemThi ASC" : "ORDER BY idDiemThi DESC";
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery("FROM DiemThiXetTuyen " + orderClause, DiemThiXetTuyen.class)
+                    .setFirstResult(offset)
+                    .setMaxResults(pageSize)
+                    .list();
+        }
+    }
+
     public long countAll() {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             Long total = session.createQuery("SELECT COUNT(d) FROM DiemThiXetTuyen d", Long.class)
@@ -141,6 +152,24 @@ public class DiemThiXetTuyenDAO {
             }
             System.err.println("Lỗi xóa điểm thi: " + e.getMessage());
             return false;
+        }
+    }
+
+    public java.util.Set<String> getAllCccd() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            List<String> cccdList = session.createQuery("SELECT d.cccd FROM DiemThiXetTuyen d", String.class).list();
+            return new java.util.HashSet<>(cccdList);
+        }
+    }
+
+    public java.util.Map<String, DiemThiXetTuyen> getAllDiemMap() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            List<DiemThiXetTuyen> list = session.createQuery("FROM DiemThiXetTuyen", DiemThiXetTuyen.class).list();
+            java.util.Map<String, DiemThiXetTuyen> map = new java.util.HashMap<>();
+            for (DiemThiXetTuyen d : list) {
+                map.put(d.getCccd(), d);
+            }
+            return map;
         }
     }
 }

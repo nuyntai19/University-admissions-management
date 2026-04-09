@@ -44,6 +44,10 @@ public class DiemThiXetTuyenBUS {
         return dao.getPage(page, pageSize);
     }
 
+    public List<DiemThiXetTuyen> getPageWithSort(int page, int pageSize, String sortOrder) {
+        return dao.getPageWithSort(page, pageSize, sortOrder);
+    }
+
     public long countAll() {
         return dao.countAll();
     }
@@ -91,8 +95,13 @@ public class DiemThiXetTuyenBUS {
             records = importFromTextLike(filePath);
         }
 
+        // Load tất cả CCCD và DiemThiXetTuyen hiện có để tránh query từng bản ghi
+        java.util.Set<String> existingCccd = dao.getAllCccd();
+        java.util.Map<String, DiemThiXetTuyen> existingDiemMap = dao.getAllDiemMap();
+
         int success = 0;
         int failed = 0;
+        int skipped = 0;
         List<String> sampleErrors = new ArrayList<>();
 
         for (ImportRecord record : records) {
@@ -104,13 +113,25 @@ public class DiemThiXetTuyenBUS {
                 continue;
             }
 
-            DiemThiXetTuyen existing = dao.getByCccd(record.diem.getCccd());
-            boolean ok;
-            if (existing != null) {
-                record.diem.setIdDiemThi(existing.getIdDiemThi());
-                ok = dao.update(record.diem);
-            } else {
+            String cccd = record.diem.getCccd();
+            boolean isNew = !existingCccd.contains(cccd);
+            
+            boolean ok = false;
+            if (isNew) {
+                // Bản ghi mới - thêm vào DB
                 ok = dao.add(record.diem);
+            } else {
+                // Bản ghi đã tồn tại - kiểm tra xem dữ liệu có thay đổi không
+                DiemThiXetTuyen existing = existingDiemMap.get(cccd);
+                if (existing != null && isDiemChanged(existing, record.diem)) {
+                    // Dữ liệu có thay đổi - cập nhật DB
+                    record.diem.setIdDiemThi(existing.getIdDiemThi());
+                    ok = dao.update(record.diem);
+                } else {
+                    // Dữ liệu không thay đổi - bỏ qua
+                    skipped++;
+                    continue;
+                }
             }
 
             if (ok) {
@@ -125,7 +146,8 @@ public class DiemThiXetTuyenBUS {
 
         StringBuilder summary = new StringBuilder();
         summary.append("Tổng đọc: ").append(records.size())
-                .append(" | Thành công: ").append(success)
+                .append(" | Mới: ").append(success)
+                .append(" | Bỏ qua (không thay đổi): ").append(skipped)
                 .append(" | Thất bại: ").append(failed);
         if (!sampleErrors.isEmpty()) {
             summary.append("\nMột số lỗi:\n- ").append(String.join("\n- ", sampleErrors));
@@ -136,6 +158,46 @@ public class DiemThiXetTuyenBUS {
 
     public String getLastImportSummary() {
         return lastImportSummary == null ? "" : lastImportSummary;
+    }
+
+    private boolean isDiemChanged(DiemThiXetTuyen existing, DiemThiXetTuyen newDiem) {
+        // So sánh các trường điểm để kiểm tra xem có thay đổi không
+        return !compareDecimal(existing.getTo(), newDiem.getTo())
+                || !compareDecimal(existing.getVa(), newDiem.getVa())
+                || !compareDecimal(existing.getLi(), newDiem.getLi())
+                || !compareDecimal(existing.getHo(), newDiem.getHo())
+                || !compareDecimal(existing.getSi(), newDiem.getSi())
+                || !compareDecimal(existing.getSu(), newDiem.getSu())
+                || !compareDecimal(existing.getDi(), newDiem.getDi())
+                || !compareDecimal(existing.getN1Thi(), newDiem.getN1Thi())
+                || !compareDecimal(existing.getN1Cc(), newDiem.getN1Cc())
+                || !compareDecimal(existing.getCncn(), newDiem.getCncn())
+                || !compareDecimal(existing.getCnnn(), newDiem.getCnnn())
+                || !compareDecimal(existing.getTi(), newDiem.getTi())
+                || !compareDecimal(existing.getGdcd(), newDiem.getGdcd())
+                || !compareDecimal(existing.getKtpl(), newDiem.getKtpl())
+                || !compareDecimal(existing.getNl1(), newDiem.getNl1())
+                || !compareDecimal(existing.getNk1(), newDiem.getNk1())
+                || !compareDecimal(existing.getNk2(), newDiem.getNk2())
+                || !compareDecimal(existing.getNk3(), newDiem.getNk3())
+                || !compareDecimal(existing.getNk4(), newDiem.getNk4())
+                || !compareDecimal(existing.getNk5(), newDiem.getNk5())
+                || !compareDecimal(existing.getNk6(), newDiem.getNk6())
+                || !compareDecimal(existing.getNk7(), newDiem.getNk7())
+                || !compareDecimal(existing.getNk8(), newDiem.getNk8())
+                || !compareDecimal(existing.getNk9(), newDiem.getNk9())
+                || !compareDecimal(existing.getNk10(), newDiem.getNk10())
+                || !compareDecimal(existing.getDiemXetTotNghiep(), newDiem.getDiemXetTotNghiep());
+    }
+
+    private boolean compareDecimal(BigDecimal d1, BigDecimal d2) {
+        if (d1 == null && d2 == null) {
+            return true;
+        }
+        if (d1 == null || d2 == null) {
+            return false;
+        }
+        return d1.compareTo(d2) == 0;
     }
 
     private List<ImportRecord> importFromExcel(String filePath) throws IOException {
