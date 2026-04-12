@@ -1,10 +1,12 @@
 package vn.edu.sgu.phanmemtuyensinh.dal;
 
+import java.util.List;
+
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.ToHopMon;
 import vn.edu.sgu.phanmemtuyensinh.utils.HibernateUtil;
-import java.util.List;
 
 public class ToHopMonDAO {
 
@@ -13,6 +15,14 @@ public class ToHopMonDAO {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             // Câu lệnh HQL (Hibernate Query Language) query trên Entity thay vì Table
             return session.createQuery("FROM ToHopMon", ToHopMon.class).list();
+        }
+    }
+
+    public ToHopMon getByMaToHop(String maToHop) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery("FROM ToHopMon WHERE maToHop = :ma", ToHopMon.class)
+                    .setParameter("ma", maToHop)
+                    .uniqueResult();
         }
     }
 
