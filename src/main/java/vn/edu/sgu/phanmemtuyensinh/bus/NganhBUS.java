@@ -344,8 +344,8 @@ public class NganhBUS {
             return false;
         }
 
-        String maNganh = safe(nganh.getMaNganh());
-        String tenNganh = safe(nganh.getTenNganh());
+        String maNganh = normalizeMaNganh(nganh.getMaNganh());
+        String tenNganh = normalizeTenNganh(nganh.getTenNganh());
 
         if (maNganh.isBlank()) {
             lastError = "Mã ngành không được để trống";
@@ -361,16 +361,102 @@ public class NganhBUS {
             return false;
         }
 
+        if (nganh.getChiTieu() < 0) {
+            lastError = "Chỉ tiêu phải là số nguyên lớn hơn hoặc bằng 0";
+            return false;
+        }
+
+        if (!isNonNegativeDecimal(nganh.getDiemSan())) {
+            lastError = "Điểm sàn phải là số không âm hoặc để trống";
+            return false;
+        }
+
+        if (!isNonNegativeDecimal(nganh.getDiemTrungTuyen())) {
+            lastError = "Điểm trúng tuyển phải là số không âm hoặc để trống";
+            return false;
+        }
+
+        String tuyenThang = normalizeFlag(nganh.getTuyenThang());
+        String dgnl = normalizeFlag(nganh.getDgnl());
+        String thpt = normalizeFlag(nganh.getThpt());
+        String vsat = normalizeFlag(nganh.getVsat());
+
+        if (!isBinaryFlag(tuyenThang)) {
+            lastError = "Cờ N_TuyểnThẳng chỉ nhận giá trị 0 hoặc 1";
+            return false;
+        }
+        if (!isBinaryFlag(dgnl)) {
+            lastError = "Cờ N_DGNL chỉ nhận giá trị 0 hoặc 1";
+            return false;
+        }
+        if (!isBinaryFlag(thpt)) {
+            lastError = "Cờ N_THPT chỉ nhận giá trị 0 hoặc 1";
+            return false;
+        }
+        if (!isBinaryFlag(vsat)) {
+            lastError = "Cờ N_VSAT chỉ nhận giá trị 0 hoặc 1";
+            return false;
+        }
+
         nganh.setMaNganh(trimMax(maNganh, 45));
         nganh.setTenNganh(trimMax(tenNganh, 100));
         nganh.setToHopGoc(trimMax(safe(nganh.getToHopGoc()), 3));
-        nganh.setTuyenThang(trimMax(safe(nganh.getTuyenThang()), 1));
-        nganh.setDgnl(trimMax(safe(nganh.getDgnl()), 1));
-        nganh.setThpt(trimMax(safe(nganh.getThpt()), 1));
-        nganh.setVsat(trimMax(safe(nganh.getVsat()), 1));
+        nganh.setTuyenThang(tuyenThang);
+        nganh.setDgnl(dgnl);
+        nganh.setThpt(thpt);
+        nganh.setVsat(vsat);
         nganh.setSlThpt(trimMax(safe(nganh.getSlThpt()), 45));
         lastError = "";
         return true;
+    }
+
+    private String normalizeMaNganh(String value) {
+        String text = safe(value).replaceAll("\\s+", "").toUpperCase();
+        return text.replace("CLC", "CLC");
+    }
+
+    private String normalizeTenNganh(String value) {
+        String text = safe(value).replaceAll("\\s+", " ").trim();
+        if (text.isBlank()) {
+            return "";
+        }
+        StringBuilder result = new StringBuilder();
+        for (String part : text.split(" ")) {
+            if (result.length() > 0) {
+                result.append(' ');
+            }
+            result.append(capitalizeWord(part));
+        }
+        return result.toString();
+    }
+
+    private String capitalizeWord(String word) {
+        if (word == null || word.isBlank()) {
+            return "";
+        }
+        if (word.length() == 1) {
+            return word.toUpperCase();
+        }
+        if (word.equals(word.toUpperCase())) {
+            return word;
+        }
+        return Character.toUpperCase(word.charAt(0)) + word.substring(1).toLowerCase();
+    }
+
+    private boolean isNonNegativeDecimal(BigDecimal value) {
+        return value == null || value.compareTo(BigDecimal.ZERO) >= 0;
+    }
+
+    private boolean isBinaryFlag(String value) {
+        return value == null || value.isBlank() || "0".equals(value) || "1".equals(value);
+    }
+
+    private String normalizeFlag(String value) {
+        String normalized = safe(value);
+        if (normalized.isBlank()) {
+            return "";
+        }
+        return normalized.length() > 1 ? normalized.substring(0, 1) : normalized;
     }
 
     private String readCell(Row row, int index, DataFormatter formatter) {
