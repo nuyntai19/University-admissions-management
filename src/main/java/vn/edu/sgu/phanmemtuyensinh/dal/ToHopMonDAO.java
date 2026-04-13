@@ -16,6 +16,14 @@ public class ToHopMonDAO {
         }
     }
 
+    public ToHopMon getByMaToHop(String maToHop) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery("FROM ToHopMon WHERE maToHop = :ma", ToHopMon.class)
+                    .setParameter("ma", maToHop)
+                    .uniqueResult();
+        }
+    }
+
     // 2. Thêm mới một tổ hợp
     public boolean add(ToHopMon toHop) {
         Transaction transaction = null;
@@ -25,7 +33,8 @@ public class ToHopMonDAO {
             transaction.commit();
             return true;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            if (transaction != null)
+                transaction.rollback();
             e.printStackTrace();
             return false;
         }
@@ -40,7 +49,8 @@ public class ToHopMonDAO {
             transaction.commit();
             return true;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            if (transaction != null)
+                transaction.rollback();
             e.printStackTrace();
             return false;
         }
@@ -59,7 +69,8 @@ public class ToHopMonDAO {
             }
             return false;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            if (transaction != null)
+                transaction.rollback();
             e.printStackTrace();
             return false;
         }

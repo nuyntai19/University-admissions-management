@@ -87,6 +87,78 @@ mvn clean package -DskipTests
 java -jar target/PhanMemTuyenSinh-1.0-SNAPSHOT.jar
 ```
 
+### Option D: Docker (build image)
+
+Project đã có sẵn `Dockerfile` để **build JAR + gom đủ thư viện runtime**.
+
+```bash
+# Build image
+docker build -t phanmemtuyensinh:latest .
+```
+
+#### Cấu hình kết nối MySQL khi chạy trong container
+
+Ứng dụng hỗ trợ override cấu hình DB bằng biến môi trường (không cần sửa `hibernate.cfg.xml`):
+
+- `DB_URL` (ưu tiên cao nhất) — ví dụ: `jdbc:mysql://host.docker.internal:3306/xettuyen2026?...`
+- hoặc tách rời: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`
+
+Ví dụ chạy (chỉ minh hoạ cấu hình DB):
+
+```bash
+docker run --rm \
+  -e DB_HOST=host.docker.internal \
+  -e DB_PORT=3306 \
+  -e DB_NAME=xettuyen2026 \
+  -e DB_USER=root \
+  -e DB_PASS=12345678 \
+  phanmemtuyensinh:latest
+```
+
+Lưu ý: đây là ứng dụng **Java Swing (GUI)**, nên để hiển thị giao diện trong Docker bạn cần cấu hình thêm X server/GUI forwarding (phụ thuộc hệ điều hành). Trên Windows thường sẽ tiện hơn nếu chạy GUI trực tiếp trên máy host và chỉ dùng Docker cho MySQL/build.
+
+### Option E: Docker Compose (MySQL cho dự án)
+
+Repo có sẵn `docker-compose.yml` để khởi động MySQL và tự tạo database `xettuyen2026`.
+
+```bash
+# Start MySQL
+docker compose up -d db
+
+# Stop
+docker compose down
+```
+
+Mặc định MySQL sẽ được map ra host port `3307` (để tránh đụng MySQL local). Nếu muốn dùng port `3306`:
+
+```powershell
+$env:MYSQL_HOST_PORT=3306
+docker compose up -d db
+```
+
+CMD (Command Prompt):
+
+```bat
+set MYSQL_HOST_PORT=3306
+docker compose up -d db
+```
+
+Bạn cũng có thể đổi mật khẩu root của MySQL:
+
+```powershell
+$env:MYSQL_ROOT_PASSWORD="your_password"
+docker compose up -d db
+```
+
+Nếu bạn chạy app trên máy host và DB chạy trong Docker ở port `3307`, hãy cấu hình lại DB bằng biến môi trường (ví dụ `DB_PORT=3307` hoặc `DB_URL=...`).
+
+Ghi chú: file SQL init trong `docker-compose.yml` chỉ chạy **lần đầu** khi volume DB còn trống. Nếu muốn import lại từ đầu:
+
+```bash
+docker compose down -v
+docker compose up -d db
+```
+
 ## 5. Giao Diện Chính
 
 Sau khi chạy, bạn sẽ thấy cửa sổ với các tab:
@@ -137,6 +209,22 @@ Khi tạo tài khoản, chọn **Phân Quyền**:
 ### Lỗi Maven `release version 21 not supported`
 
 → Cập nhật Maven hoặc Java version lên >= 21
+
+### Maven đang dùng Java 8 (mở ra lỗi cú pháp như `')' expected`, `illegal start of expression`)
+
+→ Kiểm tra `mvn -v` xem đang chạy Java version nào.
+
+- Nếu thấy `Java version: 1.8...` thì Maven đang dùng JDK 8 (không phù hợp với dự án).
+- Cách nhanh (PowerShell) để build/chạy bằng JDK mới trong phiên terminal hiện tại:
+
+```bash
+$env:JAVA_HOME="C:\\Path\\To\\JDK"  # ví dụ JDK 21 hoặc JDK 17
+$env:Path="$env:JAVA_HOME\\bin;" + $env:Path
+mvn -v
+mvn -DskipTests package
+```
+
+→ Để fix lâu dài: đặt biến môi trường `JAVA_HOME` của Windows trỏ tới JDK mới (>= 17, khuyến nghị 21) và đảm bảo `%JAVA_HOME%\\bin` đứng trước Java cũ trong `Path`.
 
 ## 9. Mô Tả Dự Án
 

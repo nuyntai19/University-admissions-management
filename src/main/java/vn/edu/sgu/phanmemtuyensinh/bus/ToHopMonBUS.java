@@ -27,6 +27,13 @@ public class ToHopMonBUS {
         return dao.getAll();
     }
 
+    public ToHopMon getByMaToHop(String maToHop) {
+        if (maToHop == null || maToHop.trim().isEmpty()) {
+            return null;
+        }
+        return dao.getByMaToHop(maToHop.trim());
+    }
+
     // Logic xử lý trước khi thêm mới
     public boolean add(ToHopMon toHop) {
         // Tầng BUS sẽ kiểm tra dữ liệu hợp lệ trước khi gọi DAO
@@ -53,7 +60,7 @@ public class ToHopMonBUS {
         DataFormatter formatter = new DataFormatter();
 
         try (FileInputStream fis = new FileInputStream(filePath);
-             Workbook workbook = new XSSFWorkbook(fis)) {
+                Workbook workbook = new XSSFWorkbook(fis)) {
             Sheet sheet = workbook.getSheetAt(0);
             int lastRowNum = sheet.getLastRowNum();
 
@@ -128,7 +135,8 @@ public class ToHopMonBUS {
             }
         }
 
-        System.out.println("Import kết thúc: " + countSuccess + " thành công, " + countSkipped + " bị bỏ qua (trùng hoặc lỗi)");
+        System.out.println(
+                "Import kết thúc: " + countSuccess + " thành công, " + countSkipped + " bị bỏ qua (trùng hoặc lỗi)");
         return countSuccess;
     }
 }
