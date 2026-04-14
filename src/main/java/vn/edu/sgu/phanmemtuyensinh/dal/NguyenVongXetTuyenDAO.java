@@ -66,4 +66,8 @@ public class NguyenVongXetTuyenDAO {
             return false;
         }
     }
+    
+//    public boolean exists(){
+//        
+//    }
 }
