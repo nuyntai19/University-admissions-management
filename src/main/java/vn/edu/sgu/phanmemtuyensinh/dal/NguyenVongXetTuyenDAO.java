@@ -23,15 +23,28 @@ public class NguyenVongXetTuyenDAO {
 
     public boolean add(NguyenVongXetTuyen nv) {
         Transaction transaction = null;
-        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+        Session session = null;
+
+        try {
+            session = HibernateUtil.getSessionFactory().openSession();
             transaction = session.beginTransaction();
+
             session.persist(nv);
+
             transaction.commit();
             return true;
+
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            if (transaction != null && transaction.isActive()) {
+                transaction.rollback(); 
+            }
             e.printStackTrace();
             return false;
+
+        } finally {
+            if (session != null && session.isOpen()) {
+                session.close(); 
+            }
         }
     }
 

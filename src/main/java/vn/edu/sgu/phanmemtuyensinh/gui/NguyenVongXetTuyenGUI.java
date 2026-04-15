@@ -51,9 +51,9 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         btnThem = createButton("Thêm", new Color(40, 167, 69));
         btnSua = createButton("Sửa", new Color(255, 193, 7));
         btnXoa = createButton("Xóa", new Color(220, 53, 69));
-        btnImport = createButton("Import Excel", new Color(0, 123, 255));
+        btnImport = createButton("Import", new Color(0, 123, 255));
         btnLamMoi = createButton("Làm mới", new Color(23, 162, 184));
-        btnXetTuyen = createButton("Xét tuyển", new Color(108, 117, 125));
+        btnXetTuyen = createButton("Xét tuyển / Cập nhật điểm", new Color(108, 117, 125));
 
         pnlLeft.add(btnThem);
         pnlLeft.add(btnSua);
@@ -67,7 +67,7 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         txtSearch = new JTextField(18);
         JButton btnSearch = new JButton("Tìm");
 
-        pnlRight.add(new JLabel("Tìm CCCD / Ngành:"));
+        pnlRight.add(new JLabel("Tìm CCCD / Số báo danh:"));
         pnlRight.add(txtSearch);
         pnlRight.add(btnSearch);
 
@@ -91,8 +91,8 @@ public class NguyenVongXetTuyenGUI extends JPanel {
     private JScrollPane createTablePanel() {
 
         String[] columns = {
-                "ID", "Họ tên", "CCCD", "Số Báo Danh", "Phương Thức",
-                "Mã Ngành", "Tên Ngành", "Nguyện Vọng",
+                "ID", "CCCD", "Số Báo Danh", "Nguyện Vọng", "Phương Thức",
+                "Mã Ngành", "Tên Ngành",
                 "Điểm THXT", "Điểm UTQD", "Điểm Cộng",
                 "Điểm Xét Tuyển", "Kết Quả"
         };
@@ -107,7 +107,7 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         table.setRowHeight(28);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 
-        int[] widths = {50,150,130,130,180,120,280,100,100,100,100,130,120};
+        int[] widths = {50,130,130,130,180,120,280,130,130,130,130,130};
         for (int i = 0; i < widths.length; i++) {
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
         }
@@ -124,13 +124,12 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         for (NguyenVongXetTuyen nv : list) {
             tableModel.addRow(new Object[]{
                     nv.getIdNv(),
-//                    nv.getHoTen(),
-                    nv.getNnCccd(),
-//                    nv.getSoBaoDanh(),
-//                    nv.getPhuongThucXetTuyen(),
-                    nv.getNvMaNganh(),
-//                    nv.getTenNganh(),
+                    nv.getNvCccd(),
+                    nv.getNvSoBaoDanh(),
                     nv.getNvTt(),
+                    nv.getTtPhuongThuc(),
+                    nv.getNvMaNganh(),
+                    nv.getNvTenMaNganh(),
                     nv.getDiemThxt(),
                     nv.getDiemUtqd(),
                     nv.getDiemCong(),
@@ -145,18 +144,18 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         tableModel.setRowCount(0);
 
         for (NguyenVongXetTuyen nv : bus.getAll()) {
-            if (nv.getNnCccd().toLowerCase().contains(keyword)
+            if (nv.getNvCccd().toLowerCase().contains(keyword)
 //                    || nv.getTenNganh().toLowerCase().contains(keyword)
                     ) {
 
                 tableModel.addRow(new Object[]{
                         nv.getIdNv(),
-//                        nv.getHoTen(),
-                        nv.getNnCccd(),
-//                        nv.getSoBaoDanh(),
-//                        nv.getPhuongThucXetTuyen(),
+                        nv.getNvCccd(),
+                        nv.getNvSoBaoDanh(),
+                        nv.getNvTt(),
+                        nv.getTtPhuongThuc(),
                         nv.getNvMaNganh(),
-//                        nv.getTenNganh(),
+                        nv.getNvTenMaNganh(),
                         nv.getNvTt(),
                         nv.getDiemThxt(),
                         nv.getDiemUtqd(),
@@ -192,7 +191,7 @@ public class NguyenVongXetTuyenGUI extends JPanel {
 
         NguyenVongXetTuyen nv = new NguyenVongXetTuyen();
 
-        nv.setNnCccd(dialog.getCccd().split(" - ")[0]);
+        nv.setNvCccd(dialog.getCccd().split(" - ")[0]);
         nv.setNvMaNganh(dialog.getMaNganh().split(" - ")[0]);
         nv.setNvTt(dialog.getThuTu());
 
@@ -216,13 +215,29 @@ public class NguyenVongXetTuyenGUI extends JPanel {
 
     private void xetTuyen() {
         loadDuLieu();
-        JOptionPane.showMessageDialog(this, "Đã chạy xét tuyển!");
+        JOptionPane.showMessageDialog(this, "Đã chạy xét tuyển / cập nhật điểm!");
     }
 
     private void importExcel() {
         JFileChooser fileChooser = new JFileChooser();
-        if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            JOptionPane.showMessageDialog(this, "Import thành công (demo)");
+
+        int result = fileChooser.showOpenDialog(this);
+        if (result != JFileChooser.APPROVE_OPTION) return;
+
+        String filePath = fileChooser.getSelectedFile().getAbsolutePath();
+
+        try {
+            int count = bus.importNguyenVongFromExcel(filePath);
+
+            JOptionPane.showMessageDialog(this,
+                    "Import thành công " + count + " dòng!");
+
+            loadDuLieu(); // reload table
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this,
+                    "Lỗi import: " + ex.getMessage());
         }
     }
 }

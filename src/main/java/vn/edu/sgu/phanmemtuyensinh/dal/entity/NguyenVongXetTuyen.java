@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "nguyenvongxettuyen")
+@Table(name = "xt_nguyenvongxettuyen")
 public class NguyenVongXetTuyen {
 
     @Id
@@ -12,17 +12,14 @@ public class NguyenVongXetTuyen {
     @Column(name = "idnv")
     private int idNv;
 
-    @Column(name = "nn_cccd", nullable = false, length = 45)
-    private String nnCccd;
-
+    @Column(name = "nv_cccd", nullable = false, length = 45)
+    private String nvCccd;
+    
+    @Column(name = "nv_sobaodanh", nullable = false, length = 45)
+    private String nvSoBaoDanh;
+    
     @Column(name = "nv_tt", nullable = false)
     private int nvTt;
-
-    @Column(name = "nv_matruong", length = 20)
-    private String nvMaTruong;
-
-    @Column(name = "nv_tentruong", length = 255)
-    private String nvTenTruong;
 
     @Column(name = "nv_manganh", nullable = false, length = 45)
     private String nvMaNganh;
@@ -65,17 +62,14 @@ public class NguyenVongXetTuyen {
     public int getIdNv() { return idNv; }
     public void setIdNv(int idNv) { this.idNv = idNv; }
 
-    public String getNnCccd() { return nnCccd; }
-    public void setNnCccd(String nnCccd) { this.nnCccd = nnCccd; }
-
+    public String getNvCccd() { return nvCccd; }
+    public void setNvCccd(String nvCccd) { this.nvCccd = nvCccd; }
+    
+    public String getNvSoBaoDanh() { return nvSoBaoDanh; }
+    public void setNvSoBaoDanh(String nvSoBaoDanh) { this.nvSoBaoDanh = nvSoBaoDanh; }
+    
     public int getNvTt() { return nvTt; }
     public void setNvTt(int nvTt) { this.nvTt = nvTt; }
-
-    public String getNvMaTruong() { return nvMaTruong; }
-    public void setNvMaTruong(String nvMaTruong) { this.nvMaTruong = nvMaTruong; }
-
-    public String getNvTenTruong() { return nvTenTruong; }
-    public void setNvTenTruong(String nvTenTruong) { this.nvTenTruong = nvTenTruong; }
 
     public String getNvMaNganh() { return nvMaNganh; }
     public void setNvMaNganh(String nvMaNganh) { this.nvMaNganh = nvMaNganh; }

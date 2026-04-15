@@ -1,6 +1,7 @@
 package vn.edu.sgu.phanmemtuyensinh.gui;
 
 import vn.edu.sgu.phanmemtuyensinh.utils.AutoSuggestComboBox;
+import vn.edu.sgu.phanmemtuyensinh.bus.NguyenVongXetTuyenBUS;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -13,79 +14,136 @@ public class NguyenVongXetTuyenDialog extends JDialog {
     private AutoSuggestComboBox cbCccd;
     private AutoSuggestComboBox cbNganh;
     private JComboBox<String> cbPhuongThuc;
+
     private JTextField txtThuTu;
+    private JTextField txtDiemThxt;
+    private JTextField txtDiemUtqd;
+    private JTextField txtDiemCong;
+    private JTextField txtDiemXet;
 
     private boolean isConfirm = false;
 
+    private NguyenVongXetTuyenBUS bus = new NguyenVongXetTuyenBUS();
+
     public NguyenVongXetTuyenDialog(Frame parent) {
         super(parent, "Thêm nguyện vọng", true);
-        setSize(550, 360);
-        setLocationRelativeTo(null);
+
+        setSize(950, 700);
+        setMinimumSize(new Dimension(850, 600));
+        setLocationRelativeTo(parent);
 
         setLayout(new BorderLayout());
-        getContentPane().setBackground(Color.WHITE);
+        getContentPane().setBackground(new Color(245, 249, 255));
 
-        add(createForm(), BorderLayout.CENTER);
+        add(createContent(), BorderLayout.CENTER);
         add(createButtons(), BorderLayout.SOUTH);
     }
 
-    private JPanel createForm() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(Color.WHITE);
-        panel.setBorder(new EmptyBorder(25, 30, 15, 30));
+    private JPanel createContent() {
+        JPanel panel = new JPanel(new BorderLayout(0, 10));
+        panel.setOpaque(false);
+        panel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        panel.setPreferredSize(new Dimension(900, 600));
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(12, 10, 12, 10);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        JPanel pnlHeader = new JPanel(new BorderLayout());
+        pnlHeader.setBackground(new Color(30, 136, 229));
+        pnlHeader.setBorder(new EmptyBorder(12, 16, 12, 16));
 
-        int y = 0;
+        JLabel lblHeader = new JLabel("THÊM NGUYỆN VỌNG");
+        lblHeader.setForeground(Color.WHITE);
+        lblHeader.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        pnlHeader.add(lblHeader, BorderLayout.WEST);
 
-        // CCCD
-        gbc.gridx = 0; gbc.gridy = y;
-        panel.add(label("CCCD"), gbc);
+        JPanel pnlCard = new JPanel(new BorderLayout());
+        pnlCard.setBackground(Color.WHITE);
+        pnlCard.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(213, 223, 240)),
+                new EmptyBorder(15, 15, 15, 15)
+        ));
+
+        JPanel form = new JPanel(new GridLayout(0, 2, 15, 15));
+        form.setOpaque(false);
+
+        Dimension inputSize = new Dimension(380, 36);
 
         cbCccd = new AutoSuggestComboBox(this::mockSearchCccd);
-        styleInput(cbCccd);
-
-        gbc.gridx = 1;
-        panel.add(cbCccd, gbc);
-        y++;
-
-        // Phương thức
-        gbc.gridx = 0; gbc.gridy = y;
-        panel.add(label("Phương thức"), gbc);
+        cbNganh = new AutoSuggestComboBox(this::mockSearchNganh);
 
         cbPhuongThuc = new JComboBox<>(new String[]{
-                "THPT", "Học bạ", "ĐGNL"
+                "THPT", "DGNL", "V-SAT"
         });
-        styleInput(cbPhuongThuc);
-
-        gbc.gridx = 1;
-        panel.add(cbPhuongThuc, gbc);
-        y++;
-
-        // Ngành
-        gbc.gridx = 0; gbc.gridy = y;
-        panel.add(label("Ngành"), gbc);
-
-        cbNganh = new AutoSuggestComboBox(this::mockSearchNganh);
-        styleInput(cbNganh);
-
-        gbc.gridx = 1;
-        panel.add(cbNganh, gbc);
-        y++;
-
-        // Nguyện vọng
-        gbc.gridx = 0; gbc.gridy = y;
-        panel.add(label("Nguyện vọng"), gbc);
 
         txtThuTu = new JTextField();
-        styleInput(txtThuTu);
+        txtThuTu.setEditable(false);
 
-        gbc.gridx = 1;
-        panel.add(txtThuTu, gbc);
+        txtDiemThxt = createReadOnlyField();
+        txtDiemUtqd = createReadOnlyField();
+        txtDiemCong = createReadOnlyField();
+        txtDiemXet = createReadOnlyField();
+
+        styleInput(cbCccd, inputSize);
+        styleInput(cbNganh, inputSize);
+        styleInput(cbPhuongThuc, inputSize);
+        styleInput(txtThuTu, inputSize);
+        styleInput(txtDiemThxt, inputSize);
+        styleInput(txtDiemUtqd, inputSize);
+        styleInput(txtDiemCong, inputSize);
+        styleInput(txtDiemXet, inputSize);
+
+        // ===== FORM =====
+        form.add(label("CCCD/Số báo danh:"));
+        form.add(cbCccd);
+
+        form.add(label("Nguyện vọng:"));
+        form.add(txtThuTu);
+
+        form.add(label("Phương thức:"));
+        form.add(cbPhuongThuc);
+
+        form.add(label("Ngành:"));
+        form.add(cbNganh);
+
+        form.add(label("Điểm THXT:"));
+        form.add(txtDiemThxt);
+
+        form.add(label("Điểm UTQD:"));
+        form.add(txtDiemUtqd);
+
+        form.add(label("Điểm cộng:"));
+        form.add(txtDiemCong);
+
+        form.add(label("Điểm xét tuyển:"));
+        form.add(txtDiemXet);
+
+        JScrollPane scroll = new JScrollPane(form);
+        scroll.setBorder(null);
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+
+        pnlCard.add(scroll, BorderLayout.CENTER);
+
+        panel.add(pnlHeader, BorderLayout.NORTH);
+        panel.add(pnlCard, BorderLayout.CENTER);
+
+//        cbCccd.addActionListener(e -> updateNvThuTu());
 
         return panel;
+    }
+
+    private JTextField createReadOnlyField() {
+        JTextField txt = new JTextField();
+        txt.setEditable(false);
+        txt.setBackground(new Color(245, 245, 245));
+        return txt;
+    }
+
+    private void updateNvThuTu() {
+        String text = cbCccd.getText();
+        if (text.isEmpty() || !text.contains("-")) return;
+
+        String cccd = text.split(" - ")[0];
+//        int next = bus.getNextNvThuTu(cccd);
+
+//        txtThuTu.setText(String.valueOf(next));
     }
 
     private JLabel label(String text) {
@@ -95,20 +153,19 @@ public class NguyenVongXetTuyenDialog extends JDialog {
         return lbl;
     }
 
-    // 🎨 STYLE INPUT (QUAN TRỌNG NHẤT)
-    private void styleInput(JComponent comp) {
-        comp.setPreferredSize(new Dimension(260, 36));
+    private void styleInput(JComponent comp, Dimension size) {
+        comp.setPreferredSize(size);
         comp.setBackground(Color.WHITE);
 
         Border line = new LineBorder(new Color(200, 200, 200), 1, true);
-        Border padding = new EmptyBorder(5, 10, 5, 10);
+        Border padding = new EmptyBorder(6, 12, 6, 12);
 
         comp.setBorder(new CompoundBorder(line, padding));
     }
 
     private JPanel createButtons() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
-        panel.setBackground(Color.WHITE);
+        panel.setBackground(new Color(245, 249, 255));
 
         JButton btnCancel = createButton("Hủy", new Color(200, 200, 200), Color.BLACK);
         JButton btnOk = createButton("Lưu", new Color(33, 150, 243), Color.WHITE);
@@ -132,7 +189,7 @@ public class NguyenVongXetTuyenDialog extends JDialog {
 
     private JButton createButton(String text, Color bg, Color fg) {
         JButton btn = new JButton(text);
-        btn.setPreferredSize(new Dimension(100, 36));
+        btn.setPreferredSize(new Dimension(120, 38));
         btn.setBackground(bg);
         btn.setForeground(fg);
         btn.setFocusPainted(false);
@@ -141,27 +198,14 @@ public class NguyenVongXetTuyenDialog extends JDialog {
         return btn;
     }
 
-    // ===== VALIDATE =====
     private boolean validateInput() {
         if (cbCccd.getText().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Nhập CCCD!");
+            JOptionPane.showMessageDialog(this, "Chọn CCCD!");
             return false;
         }
 
         if (cbNganh.getText().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Nhập ngành!");
-            return false;
-        }
-
-        if (txtThuTu.getText().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Nhập nguyện vọng!");
-            return false;
-        }
-
-        try {
-            Integer.parseInt(txtThuTu.getText());
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Nguyện vọng phải là số!");
+            JOptionPane.showMessageDialog(this, "Chọn ngành!");
             return false;
         }
 
@@ -169,16 +213,14 @@ public class NguyenVongXetTuyenDialog extends JDialog {
     }
 
     // ===== GETTER =====
-    public boolean isConfirm() {
-        return isConfirm;
-    }
+    public boolean isConfirm() { return isConfirm; }
 
     public String getCccd() {
-        return cbCccd.getText();
+        return cbCccd.getText().split(" - ")[0];
     }
 
     public String getMaNganh() {
-        return cbNganh.getText();
+        return cbNganh.getText().split(" - ")[0];
     }
 
     public int getThuTu() {
