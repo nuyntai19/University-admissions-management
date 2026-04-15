@@ -6,6 +6,7 @@ import org.hibernate.query.Query;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.DiemCongXetTuyen;
 import vn.edu.sgu.phanmemtuyensinh.utils.HibernateUtil;
 import java.util.List;
+import vn.edu.sgu.phanmemtuyensinh.dal.entity.ThiSinh;
 
 public class DiemCongXetTuyenDAO {
 
@@ -20,15 +21,31 @@ public class DiemCongXetTuyenDAO {
             return null;
         }
     }
+    
+    /**
+    * Lấy một bản ghi điểm cộng duy nhất dựa trên ID
+    * @param idDiemCong ID cần tìm
+    * @return Đối tượng DiemCongXetTuyen hoặc null nếu không tìm thấy
+    */
+   public DiemCongXetTuyen getById(int idDiemCong) {
+       try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+           // session.get sẽ trả về null nếu ID không tồn tại trong DB
+           return session.get(DiemCongXetTuyen.class, idDiemCong);
+       } catch (Exception e) {
+           e.printStackTrace();
+           return null;
+       }
+   }
 
     /**
      * Tìm kiếm CCCD từ bảng thí sinh để phục vụ chức năng Suggestions trên GUI
      * Lưu ý: "ThiSinhXetTuyen25" là tên Class Entity tương ứng với bảng thí sinh của bạn
      */
-    public List<String> searchCccd(String keyword) {
+    public List<ThiSinh> searchThiSinh(String keyword) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-            String hql = "SELECT t.cccd FROM ThiSinh t WHERE t.cccd LIKE :kw";
-            return session.createQuery(hql, String.class)
+            // Tìm theo CCCD hoặc Số báo danh
+            String hql = "FROM ThiSinh t WHERE t.cccd LIKE :kw OR t.soBaoDanh LIKE :kw";
+            return session.createQuery(hql, ThiSinh.class)
                           .setParameter("kw", keyword + "%")
                           .setMaxResults(10)
                           .list();
@@ -108,6 +125,21 @@ public class DiemCongXetTuyenDAO {
                                 .setParameter("key", dcKey)
                                 .uniqueResult();
             return count != null && count > 0;
+        }
+    }
+    
+    // Thêm vào file DiemCongXetTuyenDAO.java
+    public Object[] getThongTinUuTienByCccd(String cccd) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            // Giả sử thực thể thí sinh là "ThiSinh" và có các field: khuVuc, doiTuong
+            // Thay đổi tên field nếu thực tế trong code của bạn khác (ví dụ: khu_vuc)
+            String hql = "SELECT t.khuVuc, t.doiTuong FROM ThiSinh t WHERE t.cccd = :cccd";
+            return session.createQuery(hql, Object[].class)
+                          .setParameter("cccd", cccd)
+                          .uniqueResult();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
     }
 }

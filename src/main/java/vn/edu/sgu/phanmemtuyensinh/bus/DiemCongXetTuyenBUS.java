@@ -5,12 +5,12 @@ import vn.edu.sgu.phanmemtuyensinh.dal.entity.DiemCongXetTuyen;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import vn.edu.sgu.phanmemtuyensinh.dal.entity.ThiSinh;
 
 public class DiemCongXetTuyenBUS {
     private DiemCongXetTuyenDAO dao = new DiemCongXetTuyenDAO();
 
     public List<DiemCongXetTuyen> getAll() { return dao.getAll(); }
-    public List<String> suggestCccd(String kw) { return dao.searchCccd(kw); }
 
     public void tinhToanDiemCongVaUuTien(DiemCongXetTuyen d, String loaiCC, String mucCC, String loaiGiai, String kv, String dt, BigDecimal diemThiGoc) {
         // 1. Quy đổi điểm cộng (Max 3.0)
@@ -38,4 +38,20 @@ public class DiemCongXetTuyenBUS {
 
     public boolean save(DiemCongXetTuyen d) { return dao.saveOrUpdate(d); }
     public boolean delete(int id) { return dao.delete(id); }
+    
+    public Object[] layThongTinThiSinh(String cccd) {
+        return dao.getThongTinUuTienByCccd(cccd);
+    }
+
+    public List<ThiSinh> timKiemThiSinh(String kw) {
+        return dao.searchThiSinh(kw);
+    }
+
+    public boolean update(DiemCongXetTuyen d) {
+        return dao.saveOrUpdate(d); // Hibernate merge xử lý cả update
+    }
+
+    public DiemCongXetTuyen getById(int id) {
+        return dao.getById(id); 
+}
 }
