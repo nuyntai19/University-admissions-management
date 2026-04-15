@@ -130,6 +130,7 @@ public class NguyenVongXetTuyenGUI extends JPanel {
                     nv.getTtPhuongThuc(),
                     nv.getNvMaNganh(),
                     nv.getNvTenMaNganh(),
+                    nv.getNvTt(),
                     nv.getDiemThxt(),
                     nv.getDiemUtqd(),
                     nv.getDiemCong(),

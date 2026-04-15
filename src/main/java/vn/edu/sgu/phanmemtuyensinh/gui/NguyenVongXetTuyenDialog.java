@@ -8,6 +8,7 @@ import javax.swing.border.*;
 import java.awt.*;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class NguyenVongXetTuyenDialog extends JDialog {
 
@@ -43,7 +44,6 @@ public class NguyenVongXetTuyenDialog extends JDialog {
         JPanel panel = new JPanel(new BorderLayout(0, 10));
         panel.setOpaque(false);
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
-        panel.setPreferredSize(new Dimension(900, 600));
 
         JPanel pnlHeader = new JPanel(new BorderLayout());
         pnlHeader.setBackground(new Color(30, 136, 229));
@@ -69,9 +69,7 @@ public class NguyenVongXetTuyenDialog extends JDialog {
         cbCccd = new AutoSuggestComboBox(this::mockSearchCccd);
         cbNganh = new AutoSuggestComboBox(this::mockSearchNganh);
 
-        cbPhuongThuc = new JComboBox<>(new String[]{
-                "THPT", "DGNL", "V-SAT"
-        });
+        cbPhuongThuc = new JComboBox<>(new String[]{"THPT", "DGNL", "V-SAT"});
 
         txtThuTu = new JTextField();
         txtThuTu.setEditable(false);
@@ -100,7 +98,7 @@ public class NguyenVongXetTuyenDialog extends JDialog {
         form.add(label("Phương thức:"));
         form.add(cbPhuongThuc);
 
-        form.add(label("Ngành:"));
+        form.add(label("Ngành (Mã - Tên - Tổ hợp):"));
         form.add(cbNganh);
 
         form.add(label("Điểm THXT:"));
@@ -124,8 +122,6 @@ public class NguyenVongXetTuyenDialog extends JDialog {
         panel.add(pnlHeader, BorderLayout.NORTH);
         panel.add(pnlCard, BorderLayout.CENTER);
 
-//        cbCccd.addActionListener(e -> updateNvThuTu());
-
         return panel;
     }
 
@@ -134,16 +130,6 @@ public class NguyenVongXetTuyenDialog extends JDialog {
         txt.setEditable(false);
         txt.setBackground(new Color(245, 245, 245));
         return txt;
-    }
-
-    private void updateNvThuTu() {
-        String text = cbCccd.getText();
-        if (text.isEmpty() || !text.contains("-")) return;
-
-        String cccd = text.split(" - ")[0];
-//        int next = bus.getNextNvThuTu(cccd);
-
-//        txtThuTu.setText(String.valueOf(next));
     }
 
     private JLabel label(String text) {
@@ -236,19 +222,51 @@ public class NguyenVongXetTuyenDialog extends JDialog {
         return Arrays.asList(
                 "089307000001 - Nguyễn Văn A",
                 "084307000002 - Trần Thị B",
-                "079307000003 - Lê Văn C"
+                "079307000003 - Lê Văn C",
+                "077307000004 - Phạm Thị D",
+                "078307000005 - Lê Minh E"
         ).stream()
                 .filter(s -> s.toLowerCase().contains(keyword.toLowerCase()))
-                .toList();
+                .collect(Collectors.toList());
     }
 
     private List<String> mockSearchNganh(String keyword) {
         return Arrays.asList(
-                "7140201 - Giáo dục Tiểu học",
-                "7140211 - Sư phạm Vật lý",
-                "7340201 - Tài chính ngân hàng"
+                "7140201 - Giáo dục Tiểu học - A00",
+                "7140201 - Giáo dục Tiểu học - A01",
+
+                "7140211 - Sư phạm Vật lý - A00",
+                "7140211 - Sư phạm Vật lý - A01",
+                "7140211 - Sư phạm Vật lý - A02",
+
+                "7340201 - Tài chính ngân hàng - A00",
+                "7340201 - Tài chính ngân hàng - D01",
+
+                "7480201 - Công nghệ thông tin - A00",
+                "7480201 - Công nghệ thông tin - A01",
+                "7480201 - Công nghệ thông tin - D01",
+
+                "7480101 - Khoa học máy tính - A00",
+                "7480101 - Khoa học máy tính - A01",
+
+                "7220201 - Ngôn ngữ Anh - D01",
+                "7220201 - Ngôn ngữ Anh - D14",
+
+                "7310101 - Kinh tế - A00",
+                "7310101 - Kinh tế - D01",
+
+                "7340101 - Quản trị kinh doanh - A00",
+                "7340101 - Quản trị kinh doanh - D01",
+                "7340101 - Quản trị kinh doanh - C01",
+
+                "7510201 - Kỹ thuật cơ khí - A00",
+                "7510201 - Kỹ thuật cơ khí - A01",
+
+                "7510301 - Kỹ thuật điện - A00",
+                "7510301 - Kỹ thuật điện - A01",
+                "7510301 - Kỹ thuật điện - A02"
         ).stream()
                 .filter(s -> s.toLowerCase().contains(keyword.toLowerCase()))
-                .toList();
+                .collect(Collectors.toList());
     }
 }
