@@ -53,7 +53,7 @@ public class NguyenVongXetTuyenBUS {
         try (FileInputStream fis = new FileInputStream(filePath);
              Workbook workbook = new XSSFWorkbook(fis)) {
 
-            Sheet sheet = workbook.getSheetAt(0);
+            Sheet sheet = workbook.getSheetAt(2);
 
             Row headerRow = sheet.getRow(4);
             Map<String, Integer> headerMap = new HashMap<>();
