@@ -1,0 +1,39 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: xettuyen2026-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-12345678}"
+      MYSQL_DATABASE: "xettuyen2026"
+      TZ: "UTC"
+    ports:
+      - "${MYSQL_HOST_PORT:-3307}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      # Runs only on first startup (when db_data is empty)
+      - ./database/xettuyen2026_v2_with_users.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  app:
+    build: .
+    image: phanmemtuyensinh:latest
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_NAME: xettuyen2026
+      DB_USER: root
+      DB_PASS: "${MYSQL_ROOT_PASSWORD:-12345678}"
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: [ "app" ]
+
+volumes:
+  db_data:

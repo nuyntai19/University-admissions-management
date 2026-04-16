@@ -21,6 +21,26 @@ public class NganhToHopDAO {
         }
     }
 
+    public NganhToHop getByTbKeys(String tbKeys) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery("FROM NganhToHop WHERE tbKeys = :k", NganhToHop.class)
+                    .setParameter("k", tbKeys)
+                    .uniqueResult();
+        }
+    }
+
+    public boolean existsTbKeysExceptId(String tbKeys, int exceptId) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            Long count = session.createQuery(
+                    "SELECT COUNT(n) FROM NganhToHop n WHERE n.tbKeys = :k AND n.id <> :id",
+                    Long.class)
+                    .setParameter("k", tbKeys)
+                    .setParameter("id", exceptId)
+                    .uniqueResult();
+            return count != null && count > 0;
+        }
+    }
+
     public boolean add(NganhToHop nganhToHop) {
         Transaction transaction = null;
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
@@ -29,7 +49,8 @@ public class NganhToHopDAO {
             transaction.commit();
             return true;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            if (transaction != null)
+                transaction.rollback();
             e.printStackTrace();
             return false;
         }
@@ -43,7 +64,8 @@ public class NganhToHopDAO {
             transaction.commit();
             return true;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            if (transaction != null)
+                transaction.rollback();
             e.printStackTrace();
             return false;
         }
@@ -61,7 +83,8 @@ public class NganhToHopDAO {
             }
             return false;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            if (transaction != null)
+                transaction.rollback();
             e.printStackTrace();
             return false;
         }
