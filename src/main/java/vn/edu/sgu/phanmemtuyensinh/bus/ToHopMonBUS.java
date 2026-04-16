@@ -547,4 +547,9 @@ public class ToHopMonBUS {
         }
         return value.substring(0, maxLength);
     }
+    
+    public ToHopMon getByMaToHop(String maToHop)
+    {
+        return dao.getByMaToHop(maToHop);
+    }
 }
