@@ -7,21 +7,31 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.io.IOException;
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.SwingWorker;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumnModel;
+
+import com.toedter.calendar.JDateChooser;
 
 import vn.edu.sgu.phanmemtuyensinh.bus.ThiSinhBUS;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.ThiSinh;
@@ -29,6 +39,11 @@ import vn.edu.sgu.phanmemtuyensinh.dal.entity.ThiSinh;
 public class ThiSinhGUI extends JPanel {
 
     private static final int PAGE_SIZE = 20;
+    private static final Pattern CCCD_PATTERN = Pattern.compile("^\\d{12}$");
+    private static final Pattern SO_BAO_DANH_PATTERN = Pattern.compile("^TS_\\d{1,20}$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PHONE_PATTERN = Pattern.compile("^(0|\\+84)\\d{9,10}$");
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
+    private static final Pattern NUMERIC_PATTERN = Pattern.compile("^\\d+$");
 
     private final ThiSinhBUS bus = new ThiSinhBUS();
 
@@ -298,20 +313,84 @@ public class ThiSinhGUI extends JPanel {
             return;
         }
 
-        try {
-            int imported = bus.importAndSaveToDatabase(chooser.getSelectedFile().getAbsolutePath());
-            JOptionPane.showMessageDialog(this,
-                "Import hoàn tất!\n"
-                    + bus.getLastImportSummary()
-                    + "\n(Đã thêm vào DB: " + imported + ")");
-            currentPage = 1;
-            loadPage();
-        } catch (IOException ex) {
-            JOptionPane.showMessageDialog(this,
-                    "Lỗi import: " + ex.getMessage(),
-                    "Lỗi",
-                    JOptionPane.ERROR_MESSAGE);
-        }
+        final String importPath = chooser.getSelectedFile().getAbsolutePath();
+
+        JDialog progressDialog = new JDialog((java.awt.Frame) null, "Đang import thí sinh...", true);
+        progressDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        progressDialog.setLayout(new BorderLayout(10, 10));
+
+        JLabel lblStatus = new JLabel("Đang chuẩn bị import...");
+        JProgressBar progressBar = new JProgressBar(0, 100);
+        progressBar.setValue(0);
+        progressBar.setStringPainted(true);
+
+        JPanel content = new JPanel(new BorderLayout(8, 8));
+        content.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        content.add(lblStatus, BorderLayout.NORTH);
+        content.add(progressBar, BorderLayout.CENTER);
+        progressDialog.add(content, BorderLayout.CENTER);
+        progressDialog.setSize(420, 120);
+        progressDialog.setLocationRelativeTo(this);
+
+        SwingWorker<Integer, String> worker = new SwingWorker<>() {
+            private String errorMessage;
+
+            @Override
+            protected Integer doInBackground() {
+                try {
+                    return bus.importAndSaveToDatabase(importPath, (percent, message) -> {
+                        setProgress(percent);
+                        publish(message);
+                    });
+                } catch (IOException ex) {
+                    errorMessage = ex.getMessage();
+                    return -1;
+                }
+            }
+
+            @Override
+            protected void process(List<String> chunks) {
+                if (!chunks.isEmpty()) {
+                    lblStatus.setText(chunks.get(chunks.size() - 1));
+                }
+            }
+
+            @Override
+            protected void done() {
+                progressDialog.dispose();
+                if (errorMessage != null) {
+                    JOptionPane.showMessageDialog(ThiSinhGUI.this,
+                            "Lỗi import: " + errorMessage,
+                            "Lỗi",
+                            JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                try {
+                    int imported = get();
+                    JOptionPane.showMessageDialog(ThiSinhGUI.this,
+                            "Import hoàn tất!\n"
+                                    + bus.getLastImportSummary()
+                                    + "\n(Đã thêm vào DB: " + imported + ")");
+                    currentPage = 1;
+                    loadPage();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(ThiSinhGUI.this,
+                            "Lỗi import: " + ex.getMessage(),
+                            "Lỗi",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+
+        worker.addPropertyChangeListener(evt -> {
+            if ("progress".equals(evt.getPropertyName())) {
+                progressBar.setValue((Integer) evt.getNewValue());
+            }
+        });
+
+        worker.execute();
+        progressDialog.setVisible(true);
     }
 
     private void xoaThiSinh() {
@@ -339,7 +418,9 @@ public class ThiSinhGUI extends JPanel {
         JTextField txtSoBaoDanh = new JTextField();
         JTextField txtHo = new JTextField();
         JTextField txtTen = new JTextField();
-        JTextField txtNgaySinh = new JTextField();
+        JDateChooser dcNgaySinh = new JDateChooser();
+        dcNgaySinh.setDateFormatString("dd/MM/yyyy");
+        ((JTextField) dcNgaySinh.getDateEditor().getUiComponent()).setEditable(false);
         JTextField txtDienThoai = new JTextField();
         JTextField txtMatKhau = new JTextField();
         JComboBox<String> cboGioiTinh = new JComboBox<>(new String[]{"Nam", "Nữ", "Khác"});
@@ -347,13 +428,17 @@ public class ThiSinhGUI extends JPanel {
         JTextField txtNoiSinh = new JTextField();
         JTextField txtDoiTuong = new JTextField();
         JTextField txtKhuVuc = new JTextField();
+        JTextField txtDanToc = new JTextField();
+        JTextField txtMaDanToc = new JTextField();
+        JTextField txtChuongTrinhHoc = new JTextField();
+        JTextField txtMaMonNn = new JTextField();
 
         Dimension inputSize = new Dimension(300, 30);
         txtCccd.setPreferredSize(inputSize);
         txtSoBaoDanh.setPreferredSize(inputSize);
         txtHo.setPreferredSize(inputSize);
         txtTen.setPreferredSize(inputSize);
-        txtNgaySinh.setPreferredSize(inputSize);
+        dcNgaySinh.setPreferredSize(inputSize);
         txtDienThoai.setPreferredSize(inputSize);
         txtMatKhau.setPreferredSize(inputSize);
         cboGioiTinh.setPreferredSize(inputSize);
@@ -361,18 +446,29 @@ public class ThiSinhGUI extends JPanel {
         txtNoiSinh.setPreferredSize(inputSize);
         txtDoiTuong.setPreferredSize(inputSize);
         txtKhuVuc.setPreferredSize(inputSize);
+        txtDanToc.setPreferredSize(inputSize);
+        txtMaDanToc.setPreferredSize(inputSize);
+        txtChuongTrinhHoc.setPreferredSize(inputSize);
+        txtMaMonNn.setPreferredSize(inputSize);
 
         if (source != null) {
             txtCccd.setText(nullToEmpty(source.getCccd()));
             txtSoBaoDanh.setText(nullToEmpty(source.getSoBaoDanh()));
             txtHo.setText(nullToEmpty(source.getHo()));
             txtTen.setText(nullToEmpty(source.getTen()));
-            txtNgaySinh.setText(nullToEmpty(source.getNgaySinh()));
+            Date ngaySinh = parseDateFlexible(source.getNgaySinh());
+            if (ngaySinh != null) {
+                dcNgaySinh.setDate(ngaySinh);
+            }
             txtDienThoai.setText(nullToEmpty(source.getDienThoai()));
             txtEmail.setText(nullToEmpty(source.getEmail()));
             txtNoiSinh.setText(nullToEmpty(source.getNoiSinh()));
             txtDoiTuong.setText(nullToEmpty(source.getDoiTuong()));
             txtKhuVuc.setText(nullToEmpty(source.getKhuVuc()));
+            txtDanToc.setText(nullToEmpty(source.getDanToc()));
+            txtMaDanToc.setText(nullToEmpty(source.getMaDanToc()));
+            txtChuongTrinhHoc.setText(nullToEmpty(source.getChuongTrinhHoc()));
+            txtMaMonNn.setText(nullToEmpty(source.getMaMonNn()));
             if (source.getGioiTinh() != null && !source.getGioiTinh().isBlank()) {
                 cboGioiTinh.setSelectedItem(source.getGioiTinh());
             }
@@ -407,8 +503,8 @@ public class ThiSinhGUI extends JPanel {
         form.add(txtHo);
         form.add(new JLabel("Tên:"));
         form.add(txtTen);
-        form.add(new JLabel("Ngày sinh:"));
-        form.add(txtNgaySinh);
+        form.add(new JLabel("Ngày sinh (dd/MM/yyyy):"));
+        form.add(dcNgaySinh);
         form.add(new JLabel("Điện thoại:"));
         form.add(txtDienThoai);
         form.add(new JLabel("Mật khẩu (để trống nếu giữ nguyên):"));
@@ -423,6 +519,14 @@ public class ThiSinhGUI extends JPanel {
         form.add(txtDoiTuong);
         form.add(new JLabel("Khu vực:"));
         form.add(txtKhuVuc);
+        form.add(new JLabel("Dân tộc:"));
+        form.add(txtDanToc);
+        form.add(new JLabel("Mã dân tộc:"));
+        form.add(txtMaDanToc);
+        form.add(new JLabel("Chương trình học:"));
+        form.add(txtChuongTrinhHoc);
+        form.add(new JLabel("Mã môn NN:"));
+        form.add(txtMaMonNn);
 
         JScrollPane formScroll = new JScrollPane(form);
         formScroll.setBorder(null);
@@ -435,38 +539,162 @@ public class ThiSinhGUI extends JPanel {
         panel.add(pnlCard, BorderLayout.CENTER);
         ModernTheme.styleDialogContent(panel);
 
-        int result = JOptionPane.showConfirmDialog(this, panel,
-                source == null ? "Thêm thí sinh" : "Sửa thí sinh",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        while (true) {
+            int result = JOptionPane.showConfirmDialog(this, panel,
+                    source == null ? "Thêm thí sinh" : "Sửa thí sinh",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
 
-        if (result != JOptionPane.OK_OPTION) {
+            if (result != JOptionPane.OK_OPTION) {
+                return null;
+            }
+
+            ThiSinh ts = new ThiSinh();
+            ts.setCccd(txtCccd.getText().trim());
+            ts.setSoBaoDanh(txtSoBaoDanh.getText().trim());
+            ts.setHo(txtHo.getText().trim());
+            ts.setTen(txtTen.getText().trim());
+            Date selectedNgaySinh = dcNgaySinh.getDate();
+            ts.setNgaySinh(selectedNgaySinh == null ? "" : new SimpleDateFormat("dd/MM/yyyy").format(selectedNgaySinh));
+            ts.setDienThoai(txtDienThoai.getText().trim());
+            ts.setPassword(txtMatKhau.getText().trim());
+            ts.setGioiTinh(String.valueOf(cboGioiTinh.getSelectedItem()));
+            ts.setEmail(txtEmail.getText().trim());
+            ts.setNoiSinh(txtNoiSinh.getText().trim());
+            ts.setDoiTuong(txtDoiTuong.getText().trim());
+            ts.setKhuVuc(txtKhuVuc.getText().trim());
+            ts.setDanToc(txtDanToc.getText().trim());
+            ts.setMaDanToc(txtMaDanToc.getText().trim());
+            ts.setChuongTrinhHoc(txtChuongTrinhHoc.getText().trim());
+            ts.setMaMonNn(txtMaMonNn.getText().trim());
+
+            if (validateFormInput(ts)) {
+                return ts;
+            }
+        }
+    }
+
+    private boolean validateFormInput(ThiSinh ts) {
+        if (ts.getCccd().isBlank()) {
+            JOptionPane.showMessageDialog(this, "CCCD không được để trống!");
+            return false;
+        }
+        if (!CCCD_PATTERN.matcher(ts.getCccd()).matches()) {
+            JOptionPane.showMessageDialog(this, "CCCD chỉ được phép gồm đúng 12 chữ số!");
+            return false;
+        }
+        if (ts.getSoBaoDanh().isBlank()) {
+            JOptionPane.showMessageDialog(this, "Số báo danh không được để trống!");
+            return false;
+        }
+        if (!SO_BAO_DANH_PATTERN.matcher(ts.getSoBaoDanh()).matches()) {
+            JOptionPane.showMessageDialog(this, "Số báo danh phải theo mẫu TS_<số> (ví dụ: TS_20260001)!");
+            return false;
+        }
+        if (ts.getHo().isBlank() || ts.getTen().isBlank()) {
+            JOptionPane.showMessageDialog(this, "Họ và Tên không được để trống!");
+            return false;
+        }
+        if (isNumericOnly(ts.getHo()) || isNumericOnly(ts.getTen())) {
+            JOptionPane.showMessageDialog(this, "Họ và Tên không được chỉ gồm chữ số!");
+            return false;
+        }
+        if (ts.getNgaySinh().isBlank()) {
+            JOptionPane.showMessageDialog(this, "Ngày sinh không được để trống!");
+            return false;
+        }
+        if (!ts.getDienThoai().isBlank() && !PHONE_PATTERN.matcher(ts.getDienThoai()).matches()) {
+            JOptionPane.showMessageDialog(this, "Số điện thoại không hợp lệ!");
+            return false;
+        }
+        if (!ts.getEmail().isBlank() && !EMAIL_PATTERN.matcher(ts.getEmail()).matches()) {
+            JOptionPane.showMessageDialog(this, "Email không đúng định dạng!");
+            return false;
+        }
+        String kv = normalizeKhuVuc(ts.getKhuVuc());
+        if (kv == null) {
+            JOptionPane.showMessageDialog(this, "Khu vực chỉ chấp nhận: KV1, KV2-NT, KV2, KV3!");
+            return false;
+        }
+        ts.setKhuVuc(kv);
+
+        String dt = normalizeDoiTuong(ts.getDoiTuong());
+        if (dt == null) {
+            JOptionPane.showMessageDialog(this, "Đối tượng phải thuộc: 01, 02, 03, 04, 05, 06, 06a, 07, 07a (hoặc để trống)!");
+            return false;
+        }
+        ts.setDoiTuong(dt);
+        return true;
+    }
+
+    private boolean isNumericOnly(String value) {
+        String compact = value == null ? "" : value.replaceAll("\\s+", "");
+        return !compact.isBlank() && NUMERIC_PATTERN.matcher(compact).matches();
+    }
+
+    private String normalizeKhuVuc(String value) {
+        if (value == null || value.isBlank()) {
             return null;
         }
-
-        ThiSinh ts = source == null ? new ThiSinh() : source;
-        ts.setCccd(txtCccd.getText().trim());
-        ts.setSoBaoDanh(txtSoBaoDanh.getText().trim());
-        ts.setHo(txtHo.getText().trim());
-        ts.setTen(txtTen.getText().trim());
-        ts.setNgaySinh(txtNgaySinh.getText().trim());
-        ts.setDienThoai(txtDienThoai.getText().trim());
-        ts.setPassword(txtMatKhau.getText().trim());
-        ts.setGioiTinh(String.valueOf(cboGioiTinh.getSelectedItem()));
-        ts.setEmail(txtEmail.getText().trim());
-        ts.setNoiSinh(txtNoiSinh.getText().trim());
-        ts.setDoiTuong(txtDoiTuong.getText().trim());
-        ts.setKhuVuc(txtKhuVuc.getText().trim());
-
-        if (ts.getCccd().isBlank() || ts.getHo().isBlank() || ts.getTen().isBlank()) {
-            JOptionPane.showMessageDialog(this, "CCCD, Họ, Tên không được để trống!");
-            return null;
+        String v = value.trim().toUpperCase(Locale.ROOT).replace("_", "").replace(" ", "");
+        if ("KV1".equals(v) || "1".equals(v)) {
+            return "KV1";
         }
+        if ("KV2NT".equals(v) || "KV2-NT".equals(v) || "2NT".equals(v)) {
+            return "KV2-NT";
+        }
+        if ("KV2".equals(v) || "2".equals(v)) {
+            return "KV2";
+        }
+        if ("KV3".equals(v) || "3".equals(v)) {
+            return "KV3";
+        }
+        return null;
+    }
 
-        return ts;
+    private String normalizeDoiTuong(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String v = value.trim().toUpperCase(Locale.ROOT).replace(" ", "");
+        if (v.startsWith("DT")) {
+            v = v.substring(2);
+        }
+        if ("06A".equals(v) || "6A".equals(v)) {
+            return "06a";
+        }
+        if ("07A".equals(v) || "7A".equals(v)) {
+            return "07a";
+        }
+        if (v.matches("\\d{1,2}")) {
+            int code = Integer.parseInt(v);
+            if (code >= 1 && code <= 7) {
+                return String.format("%02d", code);
+            }
+        }
+        return null;
     }
 
     private String nullToEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private Date parseDateFlexible(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        String text = value.trim();
+        String[] patterns = {"dd/MM/yyyy", "dd/MM/yy", "yyyy-MM-dd"};
+        for (String pattern : patterns) {
+            SimpleDateFormat sdf = new SimpleDateFormat(pattern);
+            sdf.setLenient(false);
+            ParsePosition pos = new ParsePosition(0);
+            Date parsed = sdf.parse(text, pos);
+            if (parsed != null && pos.getIndex() == text.length()) {
+                return parsed;
+            }
+        }
+        return null;
     }
 
     private void configureColumnWidths() {

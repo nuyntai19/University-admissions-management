@@ -1,10 +1,12 @@
 package vn.edu.sgu.phanmemtuyensinh.dal;
 
+import java.util.List;
+
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.ToHopMon;
 import vn.edu.sgu.phanmemtuyensinh.utils.HibernateUtil;
-import java.util.List;
 
 public class ToHopMonDAO {
 
