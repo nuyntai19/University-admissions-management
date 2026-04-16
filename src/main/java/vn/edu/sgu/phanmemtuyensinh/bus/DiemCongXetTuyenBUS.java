@@ -9,7 +9,7 @@ import vn.edu.sgu.phanmemtuyensinh.dal.entity.ThiSinh;
 
 public class DiemCongXetTuyenBUS {
     private DiemCongXetTuyenDAO dao = new DiemCongXetTuyenDAO();
-
+    private vn.edu.sgu.phanmemtuyensinh.dal.DiemThiXetTuyenDAO diemThiDao = new vn.edu.sgu.phanmemtuyensinh.dal.DiemThiXetTuyenDAO();
     public List<DiemCongXetTuyen> getAll() { return dao.getAll(); }
 
     public void tinhToanDiemCongVaUuTien(DiemCongXetTuyen d, String loaiCC, String mucCC, String loaiGiai, String kv, String dt, BigDecimal diemThiGoc) {
@@ -53,5 +53,21 @@ public class DiemCongXetTuyenBUS {
 
     public DiemCongXetTuyen getById(int id) {
         return dao.getById(id); 
+    }   
+    
+    public BigDecimal layDiemThiGocThucTe(String cccd) {
+    // Gọi hàm getByCccd đã có sẵn trong DiemThiXetTuyenDAO của bạn
+    vn.edu.sgu.phanmemtuyensinh.dal.entity.DiemThiXetTuyen dt = diemThiDao.getByCccd(cccd);
+    
+    if (dt != null) {
+        // Bạn có thể chọn tổng điểm 3 môn hoặc một môn cụ thể tùy quy định
+        // Ở đây tôi ví dụ cộng 3 môn cơ bản TO + VA + N1_THI (hoặc dùng hàm tinhDiemGoc bạn đã viết)
+        BigDecimal toan = dt.getTo() != null ? dt.getTo() : BigDecimal.ZERO;
+        BigDecimal van = dt.getVa() != null ? dt.getVa() : BigDecimal.ZERO;
+        BigDecimal anh = dt.getN1Thi() != null ? dt.getN1Thi() : BigDecimal.ZERO;
+        
+        return toan.add(van).add(anh);
+    }
+    return BigDecimal.ZERO;
 }
 }

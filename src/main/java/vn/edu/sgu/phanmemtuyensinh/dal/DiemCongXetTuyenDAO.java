@@ -131,8 +131,6 @@ public class DiemCongXetTuyenDAO {
     // Thêm vào file DiemCongXetTuyenDAO.java
     public Object[] getThongTinUuTienByCccd(String cccd) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-            // Giả sử thực thể thí sinh là "ThiSinh" và có các field: khuVuc, doiTuong
-            // Thay đổi tên field nếu thực tế trong code của bạn khác (ví dụ: khu_vuc)
             String hql = "SELECT t.khuVuc, t.doiTuong FROM ThiSinh t WHERE t.cccd = :cccd";
             return session.createQuery(hql, Object[].class)
                           .setParameter("cccd", cccd)

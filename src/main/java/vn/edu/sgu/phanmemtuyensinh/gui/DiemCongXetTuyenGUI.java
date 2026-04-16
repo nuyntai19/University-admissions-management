@@ -154,26 +154,20 @@ public class DiemCongXetTuyenGUI extends JPanel {
     private void fillFormFromSelectedRow() {
         int row = table.getSelectedRow();
         if (row != -1) {
-            // Lấy ID từ cột 0 (ẩn hoặc hiện tùy bạn thiết kế)
             selectedId = (int) model.getValueAt(row, 0);
-            
-            // Điền thông tin cơ bản
+
             txtCccd.setText(model.getValueAt(row, 1).toString());
             txtDcKeys.setText(model.getValueAt(row, 5).toString());
-            
-            // Gọi BUS để lấy thông tin Khu vực/Đối tượng từ bảng thí sinh
+
             Object[] thongTin = bus.layThongTinThiSinh(txtCccd.getText());
             if (thongTin != null) {
                 txtKhuVuc.setText(thongTin[0] != null ? thongTin[0].toString() : "");
                 txtDoiTuong.setText(thongTin[1] != null ? thongTin[1].toString() : "");
             }
-            
-            // Lưu ý: Các ComboBox và mức điểm CC bạn có thể cần lấy từ 
-            // đối tượng DiemCongXetTuyen đầy đủ nếu bảng không hiển thị hết
+
         }
     }
 
-    // 2. HÀM XỬ LÝ SỬA
     private void updateAction() {
         if (selectedId == -1) {
             JOptionPane.showMessageDialog(this, "Vui lòng chọn một dòng để sửa!");
@@ -197,7 +191,6 @@ public class DiemCongXetTuyenGUI extends JPanel {
         }
     }
 
-    // 3. HÀM XỬ LÝ XÓA
     private void deleteAction() {
         if (selectedId == -1) {
             JOptionPane.showMessageDialog(this, "Vui lòng chọn dòng cần xóa!");
@@ -216,7 +209,6 @@ public class DiemCongXetTuyenGUI extends JPanel {
         }
     }
 
-    // 4. HÀM LÀM MỚI (RESET)
     private void resetForm() {
         selectedId = -1;
         txtCccd.setText("");
