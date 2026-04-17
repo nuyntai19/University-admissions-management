@@ -21,6 +21,52 @@ public class BangQuyDoiDAO {
         }
     }
 
+    public List<BangQuyDoi> getByPhuongThuc(String phuongThuc) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery("FROM BangQuyDoi WHERE dPhuongThuc = :pt ORDER BY dPhanVi ASC", BangQuyDoi.class)
+                    .setParameter("pt", phuongThuc)
+                    .list();
+        }
+    }
+
+    public BangQuyDoi findIntervalExclusiveLower(String phuongThuc, String toHop, String mon, java.math.BigDecimal x) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery(
+                    "FROM BangQuyDoi b " +
+                            "WHERE b.dPhuongThuc = :pt " +
+                            "AND ((:th IS NULL AND b.dToHop IS NULL) OR b.dToHop = :th) " +
+                            "AND ((:m IS NULL AND b.dMon IS NULL) OR b.dMon = :m) " +
+                            "AND :x > b.dDiemA AND :x <= b.dDiemB " +
+                            "ORDER BY b.dDiemB ASC",
+                    BangQuyDoi.class)
+                    .setParameter("pt", phuongThuc)
+                    .setParameter("th", toHop)
+                    .setParameter("m", mon)
+                    .setParameter("x", x)
+                    .setMaxResults(1)
+                    .uniqueResult();
+        }
+    }
+
+    public BangQuyDoi findIntervalInclusive(String phuongThuc, String toHop, String mon, java.math.BigDecimal x) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery(
+                    "FROM BangQuyDoi b " +
+                            "WHERE b.dPhuongThuc = :pt " +
+                            "AND ((:th IS NULL AND b.dToHop IS NULL) OR b.dToHop = :th) " +
+                            "AND ((:m IS NULL AND b.dMon IS NULL) OR b.dMon = :m) " +
+                            "AND :x >= b.dDiemA AND :x <= b.dDiemB " +
+                            "ORDER BY b.dDiemB ASC",
+                    BangQuyDoi.class)
+                    .setParameter("pt", phuongThuc)
+                    .setParameter("th", toHop)
+                    .setParameter("m", mon)
+                    .setParameter("x", x)
+                    .setMaxResults(1)
+                    .uniqueResult();
+        }
+    }
+
     public boolean add(BangQuyDoi bqd) {
         Transaction transaction = null;
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
@@ -29,7 +75,8 @@ public class BangQuyDoiDAO {
             transaction.commit();
             return true;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            if (transaction != null)
+                transaction.rollback();
             e.printStackTrace();
             return false;
         }
@@ -43,7 +90,8 @@ public class BangQuyDoiDAO {
             transaction.commit();
             return true;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            if (transaction != null)
+                transaction.rollback();
             e.printStackTrace();
             return false;
         }
@@ -61,7 +109,8 @@ public class BangQuyDoiDAO {
             }
             return false;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            if (transaction != null)
+                transaction.rollback();
             e.printStackTrace();
             return false;
         }
