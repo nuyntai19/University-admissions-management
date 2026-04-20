@@ -62,6 +62,10 @@ public class NganhBUS {
         return dao.delete(idNganh);
     }
 
+    public boolean clearAndResetId() {
+        return dao.clearAndResetId();
+    }
+
     public String getLastError() {
         return lastError == null ? "" : lastError;
     }
