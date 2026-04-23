@@ -46,15 +46,20 @@ mysql -u root -p xettuyen2026 < database/xettuyen2026_v2_with_users.sql
 
 ### File: `src/main/resources/hibernate.cfg.xml`
 
-Kiểm tra thông tin kết nối database:
+File này đã được đổi sang placeholder và sẽ được `HibernateUtil` override từ biến môi trường/System property:
 
 ```xml
-<property name="hibernate.connection.url">jdbc:mysql://localhost:3306/xettuyen2026?useSSL=false&serverTimezone=UTC</property>
-<property name="hibernate.connection.username">root</property>
-<property name="hibernate.connection.password">12345678</property>
+<property name="hibernate.connection.url">${db.url}</property>
+<property name="hibernate.connection.username">${db.user}</property>
+<property name="hibernate.connection.password">${db.pass}</property>
 ```
 
-**Là đổi `username` và `password` cho phù hợp với MySQL setup của bạn!**
+Có thể cấu hình bằng một trong 2 cách:
+
+- Biến môi trường: `DB_URL` hoặc bộ `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`
+- JVM args: `-Ddb.url=... -Ddb.user=... -Ddb.pass=...`
+
+Nếu không truyền `DB_URL`, hệ thống sẽ tự động ghép URL MySQL và bổ sung các tham số kết nối an toàn như `allowPublicKeyRetrieval=true`.
 
 ## 4. Chạy Ứng Dụng
 
@@ -66,8 +71,20 @@ Kiểm tra thông tin kết nối database:
 # Build project
 mvn clean compile
 
-# Chạy ứng dụng
-mvn exec:java -Dexec.mainClass="vn.edu.sgu.phanmemtuyensinh.PhanMemTuyenSinh"
+# Chạy ứng dụng (đã có cấu hình DB mặc định trong pom.xml)
+mvn exec:java
+```
+
+Mặc định `mvn exec:java` sẽ dùng:
+
+- `db.url=jdbc:mysql://localhost:3306/xettuyen2026`
+- `db.user=root`
+- `db.pass=12345678`
+
+Nếu muốn override tạm thời theo máy khác:
+
+```bash
+mvn exec:java "-Ddb.url=jdbc:mysql://localhost:3307/xettuyen2026" "-Ddb.user=root" "-Ddb.pass=mat_khau_khac"
 ```
 
 ### Option B: Chạy với IDE (NetBeans / VS Code + Maven Extension)
@@ -200,7 +217,7 @@ Khi tạo tài khoản, chọn **Phân Quyền**:
 
 ### Lỗi "Access denied for user 'root'@'localhost'"
 
-→ Sửa password trong `hibernate.cfg.xml` phù hợp với MySQL setup
+→ Kiểm tra thông tin `db.user` và `db.pass` trong `pom.xml` (hoặc truyền `-Ddb.user/-Ddb.pass` khi chạy)
 
 ### Lỗi "Unknown database 'xettuyen2026'"
 

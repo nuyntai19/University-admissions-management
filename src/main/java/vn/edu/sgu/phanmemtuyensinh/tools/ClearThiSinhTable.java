@@ -4,15 +4,17 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import vn.edu.sgu.phanmemtuyensinh.utils.DatabaseConfig;
 
 public class ClearThiSinhTable {
 
-    private static final String JDBC_URL = "jdbc:mysql://localhost:3306/xettuyen2026?useSSL=false&serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8";
-    private static final String DB_USER = "root";
-    private static final String DB_PASSWORD = "12345678";
-
     public static void main(String[] args) {
-        try (Connection conn = DriverManager.getConnection(JDBC_URL, DB_USER, DB_PASSWORD);
+        DatabaseConfig config = DatabaseConfig.resolve();
+
+        try (Connection conn = DriverManager.getConnection(
+                config.getUrl(),
+                config.getUsername(),
+                config.getPassword());
              Statement stmt = conn.createStatement()) {
 
             long before = getCount(stmt);
