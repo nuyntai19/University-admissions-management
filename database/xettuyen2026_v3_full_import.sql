@@ -7,6 +7,9 @@
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
+CREATE DATABASE IF NOT EXISTS `xettuyen2026` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `xettuyen2026`;
+
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";

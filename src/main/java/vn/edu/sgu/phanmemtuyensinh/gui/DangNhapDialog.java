@@ -15,6 +15,9 @@ import java.awt.Image;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.io.File;
+import java.io.InputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
@@ -33,7 +36,16 @@ import vn.edu.sgu.phanmemtuyensinh.dal.entity.NguoiDung;
 
 public class DangNhapDialog extends JDialog {
 
-    private static final String BACKGROUND_IMAGE_PATH = "D:\\PhanMemPhanLop\\PhanMemTuyenSinh\\data\\truong-dai-hoc-sai-gon-1.jpg";
+    private static final String[] BACKGROUND_IMAGE_RESOURCE_CANDIDATES = {
+        "/images/truong-dai-hoc-sai-gon-1.jpg",
+        "/truong-dai-hoc-sai-gon-1.jpg"
+    };
+
+    private static final String[] BACKGROUND_IMAGE_FILE_CANDIDATES = {
+        "data/truong-dai-hoc-sai-gon-1.jpg",
+        "src/main/resources/images/truong-dai-hoc-sai-gon-1.jpg",
+        "src/main/resources/truong-dai-hoc-sai-gon-1.jpg"
+    };
 
     private final NguoiDungBUS nguoiDungBUS = new NguoiDungBUS();
     private final JTextField txtTaiKhoan = new JTextField();
@@ -302,9 +314,23 @@ public class DangNhapDialog extends JDialog {
 
     private Image loadBackgroundImage() {
         try {
-            File file = new File(BACKGROUND_IMAGE_PATH);
-            if (file.exists()) {
-                return ImageIO.read(file);
+            for (String resourcePath : BACKGROUND_IMAGE_RESOURCE_CANDIDATES) {
+                try (InputStream is = DangNhapDialog.class.getResourceAsStream(resourcePath)) {
+                    if (is != null) {
+                        Image image = ImageIO.read(is);
+                        if (image != null) {
+                            return image;
+                        }
+                    }
+                }
+            }
+
+            Path projectRoot = Paths.get("").toAbsolutePath();
+            for (String relativePath : BACKGROUND_IMAGE_FILE_CANDIDATES) {
+                File file = projectRoot.resolve(relativePath).toFile();
+                if (file.exists()) {
+                    return ImageIO.read(file);
+                }
             }
         } catch (Exception ignored) {
         }
