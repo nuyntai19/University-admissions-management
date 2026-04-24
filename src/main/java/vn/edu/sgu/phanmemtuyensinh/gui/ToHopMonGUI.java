@@ -204,7 +204,7 @@ public class ToHopMonGUI extends JPanel {
                     loadDataToTable();
                     clearForm();
                 } else {
-                    JOptionPane.showMessageDialog(this, "Xóa thất bại!");
+                    JOptionPane.showMessageDialog(this, "Xóa thất bại: " + bus.getLastError(), "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
             }
         });

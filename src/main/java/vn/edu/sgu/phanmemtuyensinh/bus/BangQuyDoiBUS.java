@@ -33,6 +33,9 @@ public class BangQuyDoiBUS {
     }
 
     public boolean add(BangQuyDoi bqd) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         if (!validateAndNormalize(bqd, true)) {
             return false;
         }
@@ -40,6 +43,9 @@ public class BangQuyDoiBUS {
     }
 
     public boolean update(BangQuyDoi bqd) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         if (!validateAndNormalize(bqd, false)) {
             return false;
         }
@@ -47,6 +53,9 @@ public class BangQuyDoiBUS {
     }
 
     public boolean delete(int idQd) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         return dao.delete(idQd);
     }
 

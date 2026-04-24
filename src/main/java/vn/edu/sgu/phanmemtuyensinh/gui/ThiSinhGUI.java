@@ -410,6 +410,8 @@ public class ThiSinhGUI extends JPanel {
             loadPage();
             table.clearSelection();
             currentId = -1;
+        } else {
+            JOptionPane.showMessageDialog(this, "Xóa thất bại: " + bus.getLastError());
         }
     }
 

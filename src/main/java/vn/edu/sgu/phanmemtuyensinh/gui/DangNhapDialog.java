@@ -31,6 +31,7 @@ import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 
+import vn.edu.sgu.phanmemtuyensinh.bus.AuthorizationContext;
 import vn.edu.sgu.phanmemtuyensinh.bus.NguoiDungBUS;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.NguoiDung;
 
@@ -348,6 +349,7 @@ public class DangNhapDialog extends JDialog {
 
         NguoiDung nd = nguoiDungBUS.authenticateAndGetUser(taiKhoan, matKhau);
         if (nd == null) {
+            AuthorizationContext.clear();
             JOptionPane.showMessageDialog(this,
                     "Đăng nhập thất bại hoặc tài khoản đã bị khóa!",
                     "Thông báo",
@@ -355,6 +357,7 @@ public class DangNhapDialog extends JDialog {
             return;
         }
 
+        AuthorizationContext.setCurrentUser(nd);
         loggedInUser = nd;
         dispose();
     }
@@ -364,6 +367,7 @@ public class DangNhapDialog extends JDialog {
     }
 
     public static NguoiDung showLogin(Frame owner) {
+        AuthorizationContext.clear();
         DangNhapDialog dialog = new DangNhapDialog(owner);
         dialog.setVisible(true);
         return dialog.getLoggedInUser();

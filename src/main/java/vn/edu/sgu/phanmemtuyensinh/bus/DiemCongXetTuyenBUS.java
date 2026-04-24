@@ -10,6 +10,12 @@ import vn.edu.sgu.phanmemtuyensinh.dal.entity.ThiSinh;
 public class DiemCongXetTuyenBUS {
     private DiemCongXetTuyenDAO dao = new DiemCongXetTuyenDAO();
     private vn.edu.sgu.phanmemtuyensinh.dal.DiemThiXetTuyenDAO diemThiDao = new vn.edu.sgu.phanmemtuyensinh.dal.DiemThiXetTuyenDAO();
+    private String lastError = "";
+
+    public String getLastError() {
+        return lastError == null ? "" : lastError;
+    }
+
     public List<DiemCongXetTuyen> getAll() { return dao.getAll(); }
 
     public void tinhToanDiemCongVaUuTien(DiemCongXetTuyen d, String loaiCC, String mucCC, String loaiGiai, String kv, String dt, BigDecimal diemThiGoc) {
@@ -36,8 +42,23 @@ public class DiemCongXetTuyenBUS {
         d.setDiemTong(d.getDiemCC().add(d.getDiemUtxt()));
     }
 
-    public boolean save(DiemCongXetTuyen d) { return dao.saveOrUpdate(d); }
-    public boolean delete(int id) { return dao.delete(id); }
+    public boolean save(DiemCongXetTuyen d) {
+        lastError = "";
+        if (!AuthorizationContext.ensureWritePermission()) {
+            lastError = AuthorizationContext.WRITE_PERMISSION_DENIED;
+            return false;
+        }
+        return dao.saveOrUpdate(d);
+    }
+
+    public boolean delete(int id) {
+        lastError = "";
+        if (!AuthorizationContext.ensureWritePermission()) {
+            lastError = AuthorizationContext.WRITE_PERMISSION_DENIED;
+            return false;
+        }
+        return dao.delete(id);
+    }
     
     public Object[] layThongTinThiSinh(String cccd) {
         return dao.getThongTinUuTienByCccd(cccd);
@@ -48,6 +69,11 @@ public class DiemCongXetTuyenBUS {
     }
 
     public boolean update(DiemCongXetTuyen d) {
+        lastError = "";
+        if (!AuthorizationContext.ensureWritePermission()) {
+            lastError = AuthorizationContext.WRITE_PERMISSION_DENIED;
+            return false;
+        }
         return dao.saveOrUpdate(d); // Hibernate merge xử lý cả update
     }
 

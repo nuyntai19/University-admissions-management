@@ -346,6 +346,8 @@ public class DiemThiXetTuyenGUI extends JPanel {
             loadPage();
             table.clearSelection();
             currentId = -1;
+        } else {
+            JOptionPane.showMessageDialog(this, "Xóa thất bại: " + bus.getLastError());
         }
     }
 

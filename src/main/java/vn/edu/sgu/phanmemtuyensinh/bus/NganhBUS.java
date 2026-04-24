@@ -45,6 +45,9 @@ public class NganhBUS {
     }
 
     public boolean add(Nganh nganh) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         if (!validateNganh(nganh, true)) {
             return false;
         }
@@ -52,6 +55,9 @@ public class NganhBUS {
     }
 
     public boolean update(Nganh nganh) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         if (!validateNganh(nganh, false)) {
             return false;
         }
@@ -59,10 +65,16 @@ public class NganhBUS {
     }
 
     public boolean delete(int idNganh) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         return dao.delete(idNganh);
     }
 
     public boolean clearAndResetId() {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         return dao.clearAndResetId();
     }
 
@@ -71,6 +83,11 @@ public class NganhBUS {
     }
 
     public int importAndSaveToDatabase(String filePath) throws IOException {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            lastImportSummary = lastError;
+            return 0;
+        }
+
         List<ImportRecord> records = filePath.toLowerCase().endsWith(".xlsx")
                 ? importFromExcel(filePath)
                 : importFromTextLike(filePath);

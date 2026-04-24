@@ -29,7 +29,7 @@ public class NguoiDungDAO {
             transaction.commit();
             return true;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            safeRollback(transaction);
             e.printStackTrace();
             return false;
         }
@@ -43,7 +43,7 @@ public class NguoiDungDAO {
             transaction.commit();
             return true;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            safeRollback(transaction);
             e.printStackTrace();
             return false;
         }
@@ -61,9 +61,22 @@ public class NguoiDungDAO {
             }
             return false;
         } catch (Exception e) {
-            if (transaction != null) transaction.rollback();
+            safeRollback(transaction);
             e.printStackTrace();
             return false;
+        }
+    }
+
+    private void safeRollback(Transaction transaction) {
+        if (transaction == null) {
+            return;
+        }
+        try {
+            if (transaction.getStatus() != null && transaction.getStatus().canRollback()) {
+                transaction.rollback();
+            }
+        } catch (Exception ignored) {
+            // Không ném thêm lỗi rollback để tránh che khuất lỗi gốc
         }
     }
 }

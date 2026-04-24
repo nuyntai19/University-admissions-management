@@ -65,6 +65,9 @@ public class DiemThiXetTuyenBUS {
     }
 
     public boolean add(DiemThiXetTuyen diem) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         if (!validateDiemThi(diem, true)) {
             return false;
         }
@@ -72,6 +75,9 @@ public class DiemThiXetTuyenBUS {
     }
 
     public boolean update(DiemThiXetTuyen diem) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         if (!validateDiemThi(diem, false)) {
             return false;
         }
@@ -79,6 +85,9 @@ public class DiemThiXetTuyenBUS {
     }
 
     public boolean delete(int idDiemThi) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         return dao.delete(idDiemThi);
     }
 
@@ -87,6 +96,11 @@ public class DiemThiXetTuyenBUS {
     }
 
     public int importAndSaveToDatabase(String filePath) throws IOException {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            lastImportSummary = lastError;
+            return 0;
+        }
+
         List<ImportRecord> records;
         String lowerPath = filePath.toLowerCase();
         if (lowerPath.endsWith(".xlsx")) {

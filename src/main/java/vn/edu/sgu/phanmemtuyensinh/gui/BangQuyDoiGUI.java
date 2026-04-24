@@ -185,7 +185,7 @@ public class BangQuyDoiGUI extends JPanel {
             loadDuLieu();
             lamMoi();
         } else {
-            JOptionPane.showMessageDialog(this, "Xóa thất bại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Xóa thất bại: " + bus.getLastError(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 

@@ -164,6 +164,8 @@ public class NganhGUI extends JPanel {
             JOptionPane.showMessageDialog(this, "Xóa thành công!");
             loadDuLieu();
             lamMoi();
+        } else {
+            JOptionPane.showMessageDialog(this, "Xóa thất bại: " + bus.getLastError());
         }
     }
 

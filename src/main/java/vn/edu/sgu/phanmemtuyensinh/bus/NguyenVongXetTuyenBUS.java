@@ -17,6 +17,11 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 public class NguyenVongXetTuyenBUS {
     private NguyenVongXetTuyenDAO dao = new NguyenVongXetTuyenDAO();
+    private String lastError = "";
+
+    public String getLastError() {
+        return lastError == null ? "" : lastError;
+    }
 
     public List<NguyenVongXetTuyen> getAll() {
         return dao.getAll();
@@ -27,25 +32,45 @@ public class NguyenVongXetTuyenBUS {
     }
 
     public boolean add(NguyenVongXetTuyen nv) {
+        lastError = "";
+        if (!AuthorizationContext.ensureWritePermission()) {
+            lastError = AuthorizationContext.WRITE_PERMISSION_DENIED;
+            return false;
+        }
         if (nv.getNvCccd() == null || nv.getNvCccd().trim().isEmpty()) {
-            System.out.println("CCCD không được để trống!");
+            lastError = "CCCD không được để trống!";
             return false;
         }
         if (nv.getNvMaNganh() == null || nv.getNvMaNganh().trim().isEmpty()) {
-            System.out.println("Mã ngành không được để trống!");
+            lastError = "Mã ngành không được để trống!";
             return false;
         }
         return dao.add(nv);
     }
 
     public boolean update(NguyenVongXetTuyen nv) {
+        lastError = "";
+        if (!AuthorizationContext.ensureWritePermission()) {
+            lastError = AuthorizationContext.WRITE_PERMISSION_DENIED;
+            return false;
+        }
         return dao.update(nv);
     }
 
     public boolean delete(int idNv) {
+        lastError = "";
+        if (!AuthorizationContext.ensureWritePermission()) {
+            lastError = AuthorizationContext.WRITE_PERMISSION_DENIED;
+            return false;
+        }
         return dao.delete(idNv);
     }
     public int importNguyenVongFromExcel(String filePath) throws IOException {
+        lastError = "";
+        if (!AuthorizationContext.ensureWritePermission()) {
+            lastError = AuthorizationContext.WRITE_PERMISSION_DENIED;
+            return 0;
+        }
 
         List<NguyenVongXetTuyen> result = new ArrayList<>();
         DataFormatter formatter = new DataFormatter();

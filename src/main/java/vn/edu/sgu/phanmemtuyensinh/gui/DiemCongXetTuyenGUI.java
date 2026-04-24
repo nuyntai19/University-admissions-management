@@ -148,6 +148,8 @@ public class DiemCongXetTuyenGUI extends JPanel {
         if(bus.save(d)) {
             JOptionPane.showMessageDialog(this, "Thành công!");
             loadData();
+        } else {
+            JOptionPane.showMessageDialog(this, "Thất bại: " + bus.getLastError(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
     
@@ -188,6 +190,8 @@ public class DiemCongXetTuyenGUI extends JPanel {
             JOptionPane.showMessageDialog(this, "Cập nhật thành công!");
             loadData();
             resetForm();
+        } else {
+            JOptionPane.showMessageDialog(this, "Cập nhật thất bại: " + bus.getLastError(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -204,7 +208,7 @@ public class DiemCongXetTuyenGUI extends JPanel {
                 loadData();
                 resetForm();
             } else {
-                JOptionPane.showMessageDialog(this, "Xóa thất bại!");
+                JOptionPane.showMessageDialog(this, "Xóa thất bại: " + bus.getLastError(), "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         }
     }

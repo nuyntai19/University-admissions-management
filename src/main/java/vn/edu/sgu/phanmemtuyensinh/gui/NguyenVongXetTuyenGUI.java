@@ -197,6 +197,8 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         if (bus.add(nv)) {
             JOptionPane.showMessageDialog(this, "Thêm thành công!");
             loadDuLieu();
+        } else {
+            JOptionPane.showMessageDialog(this, "Thêm thất bại: " + bus.getLastError(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -209,6 +211,8 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         if (bus.delete(id)) {
             JOptionPane.showMessageDialog(this, "Đã xóa!");
             loadDuLieu();
+        } else {
+            JOptionPane.showMessageDialog(this, "Xóa thất bại: " + bus.getLastError(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -227,6 +231,14 @@ public class NguyenVongXetTuyenGUI extends JPanel {
 
         try {
             int count = bus.importNguyenVongFromExcel(filePath);
+
+            if (count == 0 && !bus.getLastError().isBlank()) {
+                JOptionPane.showMessageDialog(this,
+                        "Import thất bại: " + bus.getLastError(),
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
 
             JOptionPane.showMessageDialog(this,
                     "Import thành công " + count + " dòng!");

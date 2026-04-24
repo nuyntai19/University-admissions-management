@@ -96,6 +96,9 @@ public class ThiSinhBUS {
     }
 
     public boolean add(ThiSinh ts) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         if (!validateThiSinh(ts, true)) {
             return false;
         }
@@ -103,6 +106,9 @@ public class ThiSinhBUS {
     }
 
     public boolean update(ThiSinh ts) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         if (!validateThiSinh(ts, false)) {
             return false;
         }
@@ -110,6 +116,9 @@ public class ThiSinhBUS {
     }
 
     public boolean delete(int idThiSinh) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         return dao.delete(idThiSinh);
     }
 
@@ -122,6 +131,12 @@ public class ThiSinhBUS {
     }
 
     public int importAndSaveToDatabase(String filePath, ImportProgressListener progressListener) throws IOException {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            lastImportSummary = lastError;
+            reportProgress(progressListener, 100, lastError);
+            return 0;
+        }
+
         lastImportRowErrors.clear();
         lastImportSourceRows = 0;
         reportProgress(progressListener, 1, "Đang đọc file import...");

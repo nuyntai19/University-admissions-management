@@ -44,6 +44,9 @@ public class NganhToHopBUS {
     }
 
     public boolean add(NganhToHop nth) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         if (!validateAndNormalize(nth, true)) {
             return false;
         }
@@ -51,6 +54,9 @@ public class NganhToHopBUS {
     }
 
     public boolean update(NganhToHop nth) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         if (!validateAndNormalize(nth, false)) {
             return false;
         }
@@ -58,6 +64,9 @@ public class NganhToHopBUS {
     }
 
     public boolean delete(int id) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         return dao.delete(id);
     }
 

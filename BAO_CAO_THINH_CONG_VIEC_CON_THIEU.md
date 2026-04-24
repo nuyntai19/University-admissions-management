@@ -53,6 +53,15 @@ Nếu bám đúng file phân công, phần của Thịnh đã có khung chính, 
 
 ## 5. Thứ Tự Bắt Đầu
 
+1.Sửa cấu hình kết nối MySQL/Hibernate trước. File hibernate.cfg.xml:6 vẫn đang hardcode và còn thiếu đồng bộ với cách override trong HibernateUtil.java:51, trong khi ClearThiSinhTable.java:10 cũng đang hardcode. Đây là bước chặn toàn app, vì login và toàn bộ DAO đều phụ thuộc vào nó.
+
+2.Chốt luồng đăng nhập và phân quyền. Phần này đã có ở DangNhapDialog.java:342 và cơ chế khóa nút ở PhanMemTuyenSinh.java:194, nhưng mới là chặn ở giao diện. Nếu muốn chắc hơn, nên bổ sung kiểm tra quyền ở tầng bus cho các thao tác ghi.
+
+3.Rà lại module điểm thi. DiemThiXetTuyenBUS.java đã có import, thêm/sửa/xóa và xử lý trùng, nên việc còn lại là test kỹ các case lỗi, dữ liệu thiếu, header sai, trùng CCCD, và đối chiếu với màn DiemThiXetTuyenGUI.java:1.
+
+4.Sau đó mới làm kiểm thử end-to-end đúng nghĩa. Hiện tôi không thấy bộ test trong src/test, nên nên tạo một luồng smoke test hoặc test tích hợp để chạy lại các bước: login, load dữ liệu, CRUD, import, reset dữ liệu.
+
+
 Nếu bắt đầu lại từ đầu, nên đi theo thứ tự này:
 
 1. Chốt cấu hình kết nối MySQL/Hibernate để app chạy được ổn định.
