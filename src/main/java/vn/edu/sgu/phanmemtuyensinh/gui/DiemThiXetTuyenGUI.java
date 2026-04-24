@@ -13,13 +13,16 @@ import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.SwingWorker;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
 
@@ -367,19 +370,86 @@ public class DiemThiXetTuyenGUI extends JPanel {
             return;
         }
 
-        try {
-            int success = bus.importAndSaveToDatabase(selectedFile.getAbsolutePath());
-            JOptionPane.showMessageDialog(this,
-                    "Import điểm thi hoàn tất.\n"
-                            + bus.getLastImportSummary()
-                            + "\nSố bản ghi ghi nhận thành công: " + success);
-            currentPage = 1;
-            currentId = -1;
-            table.clearSelection();
-            loadPage();
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Import thất bại: " + ex.getMessage());
-        }
+        final String importPath = selectedFile.getAbsolutePath();
+
+        JDialog progressDialog = new JDialog((java.awt.Frame) null, "Đang import điểm thi...", true);
+        progressDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        progressDialog.setLayout(new BorderLayout(10, 10));
+
+        JLabel lblStatus = new JLabel("Đang chuẩn bị import...");
+        JProgressBar progressBar = new JProgressBar(0, 100);
+        progressBar.setValue(0);
+        progressBar.setStringPainted(true);
+
+        JPanel content = new JPanel(new BorderLayout(8, 8));
+        content.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        content.add(lblStatus, BorderLayout.NORTH);
+        content.add(progressBar, BorderLayout.CENTER);
+        progressDialog.add(content, BorderLayout.CENTER);
+        progressDialog.setSize(420, 120);
+        progressDialog.setLocationRelativeTo(this);
+
+        SwingWorker<Integer, String> worker = new SwingWorker<>() {
+            private String errorMessage;
+
+            @Override
+            protected Integer doInBackground() {
+                try {
+                    return bus.importAndSaveToDatabase(importPath, (percent, message) -> {
+                        setProgress(percent);
+                        publish(message);
+                    });
+                } catch (Exception ex) {
+                    errorMessage = ex.getMessage();
+                    return -1;
+                }
+            }
+
+            @Override
+            protected void process(List<String> chunks) {
+                if (!chunks.isEmpty()) {
+                    lblStatus.setText(chunks.get(chunks.size() - 1));
+                }
+            }
+
+            @Override
+            protected void done() {
+                progressDialog.dispose();
+                if (errorMessage != null) {
+                    JOptionPane.showMessageDialog(DiemThiXetTuyenGUI.this,
+                            "Import thất bại: " + errorMessage,
+                            "Lỗi",
+                            JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                try {
+                    int success = get();
+                    JOptionPane.showMessageDialog(DiemThiXetTuyenGUI.this,
+                            "Import điểm thi hoàn tất.\n"
+                                    + bus.getLastImportSummary()
+                                    + "\nSố bản ghi ghi nhận thành công: " + success);
+                    currentPage = 1;
+                    currentId = -1;
+                    table.clearSelection();
+                    loadPage();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(DiemThiXetTuyenGUI.this,
+                            "Import thất bại: " + ex.getMessage(),
+                            "Lỗi",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+
+        worker.addPropertyChangeListener(evt -> {
+            if ("progress".equals(evt.getPropertyName())) {
+                progressBar.setValue((Integer) evt.getNewValue());
+            }
+        });
+
+        worker.execute();
+        progressDialog.setVisible(true);
     }
 
     private DiemThiXetTuyen hienThiFormDiem(DiemThiXetTuyen source) {

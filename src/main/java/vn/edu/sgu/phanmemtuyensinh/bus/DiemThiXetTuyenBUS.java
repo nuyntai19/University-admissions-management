@@ -28,6 +28,11 @@ public class DiemThiXetTuyenBUS {
     private String lastError = "";
     private String lastImportSummary = "";
 
+    @FunctionalInterface
+    public interface ImportProgressListener {
+        void onProgress(int percent, String message);
+    }
+
     public List<DiemThiXetTuyen> getAll() {
         return dao.getAll();
     }
@@ -96,10 +101,17 @@ public class DiemThiXetTuyenBUS {
     }
 
     public int importAndSaveToDatabase(String filePath) throws IOException {
+        return importAndSaveToDatabase(filePath, null);
+    }
+
+    public int importAndSaveToDatabase(String filePath, ImportProgressListener progressListener) throws IOException {
         if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
             lastImportSummary = lastError;
+            reportProgress(progressListener, 100, lastError);
             return 0;
         }
+
+        reportProgress(progressListener, 1, "Đang đọc file import...");
 
         List<ImportRecord> records;
         String lowerPath = filePath.toLowerCase();
@@ -108,6 +120,9 @@ public class DiemThiXetTuyenBUS {
         } else {
             records = importFromTextLike(filePath);
         }
+
+        reportProgress(progressListener, 45,
+                "Đã đọc " + records.size() + " dòng hợp lệ. Đang lưu vào DB...");
 
         // Load tất cả CCCD và DiemThiXetTuyen hiện có để tránh query từng bản ghi
         java.util.Set<String> existingCccd = dao.getAllCccd();
@@ -118,11 +133,18 @@ public class DiemThiXetTuyenBUS {
         int skipped = 0;
         List<String> sampleErrors = new ArrayList<>();
 
-        for (ImportRecord record : records) {
+        int total = records.size();
+        for (int i = 0; i < total; i++) {
+            ImportRecord record = records.get(i);
             if (!validateDiemThi(record.diem, false)) {
                 failed++;
                 if (sampleErrors.size() < 8) {
                     sampleErrors.add("Dòng " + record.lineNo + ": " + getLastError());
+                }
+                if (total > 0) {
+                    int percent = Math.max(45, 45 + (int) (((i + 1) * 55.0) / total));
+                    reportProgress(progressListener, percent,
+                            "Đang lưu vào DB " + (i + 1) + "/" + total + " bản ghi...");
                 }
                 continue;
             }
@@ -156,6 +178,12 @@ public class DiemThiXetTuyenBUS {
                     sampleErrors.add("Dòng " + record.lineNo + ": Lỗi lưu dữ liệu vào cơ sở dữ liệu");
                 }
             }
+
+            if (total > 0) {
+                int percent = Math.max(45, 45 + (int) (((i + 1) * 55.0) / total));
+                reportProgress(progressListener, percent,
+                        "Đang lưu vào DB " + (i + 1) + "/" + total + " bản ghi...");
+            }
         }
 
         StringBuilder summary = new StringBuilder();
@@ -167,11 +195,18 @@ public class DiemThiXetTuyenBUS {
             summary.append("\nMột số lỗi:\n- ").append(String.join("\n- ", sampleErrors));
         }
         lastImportSummary = summary.toString();
+        reportProgress(progressListener, 100, "Import điểm thi hoàn tất.");
         return success;
     }
 
     public String getLastImportSummary() {
         return lastImportSummary == null ? "" : lastImportSummary;
+    }
+
+    private void reportProgress(ImportProgressListener listener, int percent, String message) {
+        if (listener != null) {
+            listener.onProgress(percent, message);
+        }
     }
 
     private boolean isDiemChanged(DiemThiXetTuyen existing, DiemThiXetTuyen newDiem) {
