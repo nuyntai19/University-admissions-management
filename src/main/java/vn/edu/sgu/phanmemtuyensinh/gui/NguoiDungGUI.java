@@ -6,8 +6,12 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.text.Normalizer;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 import javax.swing.BorderFactory;
@@ -28,13 +32,22 @@ import vn.edu.sgu.phanmemtuyensinh.dal.entity.NguoiDung;
 
 public class NguoiDungGUI extends JPanel {
 
+    private static final int PAGE_SIZE = 20;
+
     private final NguoiDungBUS bus = new NguoiDungBUS();
     private JButton btnThem, btnSua, btnXoa, btnLamMoi;
+    private JButton btnTim, btnTrangTruoc, btnTrangSau;
+    private JLabel lblThongTinTrang;
+    private JTextField txtTimKiem;
     private JTable table;
     private DefaultTableModel tableModel;
     private int currentId = -1;
+    private int currentPage = 1;
+    private long totalItems = 0;
+    private String currentKeyword = "";
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
     private static final Pattern PHONE_PATTERN = Pattern.compile("^0\\d{0,9}$");
+    private static final DateTimeFormatter DISPLAY_DATE_TIME = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
 
     public NguoiDungGUI() {
         setLayout(new BorderLayout(10, 10));
@@ -56,7 +69,20 @@ public class NguoiDungGUI extends JPanel {
         pnlButtons.add(btnSua);
         pnlButtons.add(btnXoa);
         pnlButtons.add(btnLamMoi);
-        pnlTop.add(pnlButtons, BorderLayout.CENTER);
+
+        JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        pnlSearch.setOpaque(false);
+        pnlSearch.add(new JLabel("Tìm kiếm:"));
+        txtTimKiem = new JTextField(28);
+        btnTim = new JButton("Tìm");
+        pnlSearch.add(txtTimKiem);
+        pnlSearch.add(btnTim);
+
+        JPanel pnlActionRow = new JPanel(new BorderLayout(8, 0));
+        pnlActionRow.setOpaque(false);
+        pnlActionRow.add(pnlButtons, BorderLayout.WEST);
+        pnlActionRow.add(pnlSearch, BorderLayout.EAST);
+        pnlTop.add(pnlActionRow, BorderLayout.CENTER);
 
         add(pnlTop, BorderLayout.NORTH);
 
@@ -80,28 +106,67 @@ public class NguoiDungGUI extends JPanel {
         btnSua.addActionListener(e -> suaNguoiDung());
         btnXoa.addActionListener(e -> xoaNguoiDung());
         btnLamMoi.addActionListener(e -> lamMoi());
+        btnTim.addActionListener(e -> timKiem());
+        txtTimKiem.addActionListener(e -> timKiem());
         table.getSelectionModel().addListSelectionListener(e -> chonDong());
+
+        JPanel pnlPaging = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        pnlPaging.setOpaque(false);
+        btnTrangTruoc = new JButton("Trang trước");
+        btnTrangSau = new JButton("Trang sau");
+        lblThongTinTrang = new JLabel("Trang 1/1");
+        pnlPaging.add(btnTrangTruoc);
+        pnlPaging.add(lblThongTinTrang);
+        pnlPaging.add(btnTrangSau);
+
+        btnTrangTruoc.addActionListener(e -> {
+            if (currentPage > 1) {
+                currentPage--;
+                loadDuLieu();
+            }
+        });
+
+        btnTrangSau.addActionListener(e -> {
+            if (currentPage < getTotalPages()) {
+                currentPage++;
+                loadDuLieu();
+            }
+        });
+
+        add(pnlPaging, BorderLayout.SOUTH);
 
         loadDuLieu();
     }
 
     private void loadDuLieu() {
         tableModel.setRowCount(0);
-        List<NguoiDung> list = bus.getAll();
-        for (NguoiDung nd : list) {
-            tableModel.addRow(new Object[]{
-                    nd.getIdNguoiDung(),
-                    nd.getTaiKhoan(),
-                    nd.getMatKhau(),
-                    nd.getHoTen(),
-                    nd.getEmail(),
-                    nd.getDienThoai(),
-                    nd.getPhanQuyen(),
-                    nd.getTrangThaiHoatDong() == 1 ? "Hoạt động" : "Khóa",
-                    nd.getNgayTao(),
-                    nd.getNgaySua()
-            });
+        List<NguoiDung> filtered = filterNguoiDung(bus.getAll(), currentKeyword);
+        totalItems = filtered.size();
+        int totalPages = getTotalPages();
+        if (currentPage > totalPages) {
+            currentPage = Math.max(1, totalPages);
         }
+
+        int startIndex = Math.max(0, (currentPage - 1) * PAGE_SIZE);
+        int endIndex = Math.min(startIndex + PAGE_SIZE, filtered.size());
+        if (startIndex < endIndex) {
+            for (NguoiDung nd : filtered.subList(startIndex, endIndex)) {
+                tableModel.addRow(new Object[]{
+                        nd.getIdNguoiDung(),
+                        nd.getTaiKhoan(),
+                        nd.getMatKhau(),
+                        nd.getHoTen(),
+                        nd.getEmail(),
+                        nd.getDienThoai(),
+                        nd.getPhanQuyen(),
+                        nd.getTrangThaiHoatDong() == 1 ? "Hoạt động" : "Khóa",
+                        nd.getNgayTao(),
+                        nd.getNgaySua()
+                });
+            }
+        }
+
+        updatePagingInfo();
     }
 
     private void themNguoiDung() {
@@ -119,8 +184,9 @@ public class NguoiDungGUI extends JPanel {
 
         if (bus.add(nd)) {
             JOptionPane.showMessageDialog(this, "Thêm thành công!");
+            currentPage = 1;
             loadDuLieu();
-            lamMoi();
+            currentId = -1;
         } else {
             JOptionPane.showMessageDialog(this, "Thêm thất bại: " + bus.getLastError());
         }
@@ -160,7 +226,8 @@ public class NguoiDungGUI extends JPanel {
         if (bus.update(updated)) {
             JOptionPane.showMessageDialog(this, "Cập nhật thành công!");
             loadDuLieu();
-            lamMoi();
+            currentId = -1;
+            table.clearSelection();
         } else {
             JOptionPane.showMessageDialog(this, "Cập nhật thất bại: " + bus.getLastError());
         }
@@ -175,8 +242,10 @@ public class NguoiDungGUI extends JPanel {
         if (confirm == JOptionPane.YES_OPTION) {
             if (bus.delete(currentId)) {
                 JOptionPane.showMessageDialog(this, "Xóa thành công!");
+                currentPage = 1;
                 loadDuLieu();
-                lamMoi();
+                currentId = -1;
+                table.clearSelection();
             } else {
                 JOptionPane.showMessageDialog(this, "Xóa thất bại: " + bus.getLastError());
             }
@@ -189,9 +258,98 @@ public class NguoiDungGUI extends JPanel {
         }
     }
 
-    private void lamMoi() {
+    private void timKiem() {
+        currentKeyword = txtTimKiem.getText().trim();
+        currentPage = 1;
         currentId = -1;
         table.clearSelection();
+        loadDuLieu();
+    }
+
+    private void lamMoi() {
+        currentId = -1;
+        currentPage = 1;
+        currentKeyword = "";
+        txtTimKiem.setText("");
+        table.clearSelection();
+        loadDuLieu();
+    }
+
+    private int getTotalPages() {
+        if (totalItems <= 0) {
+            return 1;
+        }
+        return (int) Math.ceil((double) totalItems / PAGE_SIZE);
+    }
+
+    private void updatePagingInfo() {
+        int totalPages = getTotalPages();
+        lblThongTinTrang.setText("Trang " + currentPage + "/" + totalPages + " (" + totalItems + " dòng)");
+        btnTrangTruoc.setEnabled(currentPage > 1);
+        btnTrangSau.setEnabled(currentPage < totalPages);
+    }
+
+    private List<NguoiDung> filterNguoiDung(List<NguoiDung> source, String keyword) {
+        if (source == null || source.isEmpty()) {
+            return new ArrayList<>();
+        }
+        String normalizedKeyword = normalizeSearch(keyword);
+        if (normalizedKeyword.isEmpty()) {
+            return new ArrayList<>(source);
+        }
+
+        List<NguoiDung> result = new ArrayList<>();
+        for (NguoiDung nd : source) {
+            if (matchesKeyword(nd, normalizedKeyword)) {
+                result.add(nd);
+            }
+        }
+        return result;
+    }
+
+    private boolean matchesKeyword(NguoiDung nd, String normalizedKeyword) {
+        if (nd == null || normalizedKeyword == null || normalizedKeyword.isEmpty()) {
+            return true;
+        }
+
+        return containsMatch(String.valueOf(nd.getIdNguoiDung()), normalizedKeyword)
+            || containsMatch(nd.getTaiKhoan(), normalizedKeyword)
+            || containsMatch(nd.getMatKhau(), normalizedKeyword)
+            || containsMatch(nd.getHoTen(), normalizedKeyword)
+            || containsMatch(nd.getEmail(), normalizedKeyword)
+            || containsMatch(nd.getDienThoai(), normalizedKeyword)
+            || containsMatch(nd.getPhanQuyen(), normalizedKeyword)
+            || containsMatch(statusText(nd.getTrangThaiHoatDong()), normalizedKeyword)
+            || containsMatch(formatDateTime(nd.getNgayTao()), normalizedKeyword)
+            || containsMatch(formatDateTime(nd.getNgaySua()), normalizedKeyword);
+    }
+
+    private boolean containsMatch(String value, String keyword) {
+        String normalizedValue = normalizeSearch(value);
+        return !normalizedValue.isEmpty() && normalizedValue.contains(keyword);
+    }
+
+    private String statusText(int status) {
+        return status == 1 ? "Hoạt động" : "Khóa";
+    }
+
+    private String formatDateTime(LocalDateTime value) {
+        if (value == null) {
+            return "";
+        }
+        return value.format(DISPLAY_DATE_TIME);
+    }
+
+    private String normalizeSearch(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String text = value.toLowerCase(Locale.ROOT).trim();
+        text = Normalizer.normalize(text, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replace('đ', 'd');
+        text = text.replaceAll("\\s+", " ");
+        return text;
     }
 
     private NguoiDung hienThiFormNguoiDung(NguoiDung source) {

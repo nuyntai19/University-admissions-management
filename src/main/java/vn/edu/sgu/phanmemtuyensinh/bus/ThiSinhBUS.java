@@ -36,8 +36,10 @@ import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
 
 import vn.edu.sgu.phanmemtuyensinh.dal.DiemThiXetTuyenDAO;
+import vn.edu.sgu.phanmemtuyensinh.dal.NguoiDungDAO;
 import vn.edu.sgu.phanmemtuyensinh.dal.ThiSinhDAO;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.DiemThiXetTuyen;
+import vn.edu.sgu.phanmemtuyensinh.dal.entity.NguoiDung;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.ThiSinh;
 
 public class ThiSinhBUS {
@@ -52,6 +54,8 @@ public class ThiSinhBUS {
     private static boolean poiMaxOverrideConfigured = false;
 
     private final ThiSinhDAO dao = new ThiSinhDAO();
+    private final vn.edu.sgu.phanmemtuyensinh.bus.NguoiDungBUS nguoiDungBUS = new vn.edu.sgu.phanmemtuyensinh.bus.NguoiDungBUS();
+    private final NguoiDungDAO nguoiDungDAO = new NguoiDungDAO();
     private String lastError = "";
     private String lastImportSummary = "";
     private final List<String> lastImportRowErrors = new ArrayList<>();
@@ -102,7 +106,11 @@ public class ThiSinhBUS {
         if (!validateThiSinh(ts, true)) {
             return false;
         }
-        return dao.add(ts);
+        boolean ok = dao.add(ts);
+        if (ok) {
+            createStudentAccountIfMissing(ts);
+        }
+        return ok;
     }
 
     public boolean update(ThiSinh ts) {
@@ -112,7 +120,11 @@ public class ThiSinhBUS {
         if (!validateThiSinh(ts, false)) {
             return false;
         }
-        return dao.update(ts);
+        boolean ok = dao.update(ts);
+        if (ok) {
+            createStudentAccountIfMissing(ts);
+        }
+        return ok;
     }
 
     public boolean delete(int idThiSinh) {
@@ -220,6 +232,85 @@ public class ThiSinhBUS {
 
     public String getLastImportSummary() {
         return lastImportSummary == null ? "" : lastImportSummary;
+    }
+
+    /**
+     * Quét toàn bộ danh sách thí sinh và tạo tài khoản cho những thí sinh chưa có.
+     * Trả về số tài khoản mới được tạo.
+     */
+    public int createAccountsForAll(ImportProgressListener progressListener) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            reportProgress(progressListener, 100, lastError);
+            return 0;
+        }
+        List<ThiSinh> list = dao.getAll();
+        int total = list.size();
+        int created = 0;
+        for (int i = 0; i < total; i++) {
+            ThiSinh ts = list.get(i);
+            try {
+                boolean ok = createStudentAccountIfMissing(ts);
+                if (ok) created++;
+            } catch (Exception ignored) {
+            }
+            int percent = total == 0 ? 100 : Math.min(100, 1 + (int) (((i + 1) * 99.0) / total));
+            reportProgress(progressListener, percent, "Đã quét " + (i + 1) + "/" + total);
+        }
+        reportProgress(progressListener, 100, "Hoàn tất tạo tài khoản. Tạo mới: " + created);
+        return created;
+    }
+
+    private boolean createStudentAccountIfMissing(ThiSinh ts) {
+        if (ts == null || safe(ts.getCccd()).isEmpty()) {
+            return false;
+        }
+
+        String taiKhoan = ts.getCccd().trim();
+        if (nguoiDungDAO.getByTaiKhoan(taiKhoan) != null) {
+            return false;
+        }
+
+        NguoiDung nd = new NguoiDung();
+        nd.setTaiKhoan(taiKhoan);
+        nd.setMatKhau(deriveStudentPassword(ts));
+        nd.setHoTen(buildStudentFullName(ts));
+        nd.setEmail(safe(ts.getEmail()));
+        nd.setDienThoai(safe(ts.getDienThoai()));
+        nd.setPhanQuyen("student");
+        nd.setTrangThaiHoatDong(1);
+        nd.setNgayTao(java.time.LocalDateTime.now());
+        return nguoiDungDAO.addDirect(nd);
+    }
+
+    private String deriveStudentPassword(ThiSinh ts) {
+        String ngaySinh = safe(ts == null ? null : ts.getNgaySinh());
+        if (ngaySinh.isEmpty()) {
+            return safe(ts == null ? null : ts.getPassword());
+        }
+
+        String[] patterns = {"dd/MM/yyyy", "dd/MM/yy", "yyyy-MM-dd"};
+        for (String pattern : patterns) {
+            try {
+                java.text.SimpleDateFormat input = new java.text.SimpleDateFormat(pattern);
+                input.setLenient(false);
+                java.text.ParsePosition pos = new java.text.ParsePosition(0);
+                java.util.Date date = input.parse(ngaySinh, pos);
+                if (date != null && pos.getIndex() == ngaySinh.length()) {
+                    return new java.text.SimpleDateFormat("ddMMyyyy").format(date);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return safe(ts == null ? null : ts.getPassword());
+    }
+
+    private String buildStudentFullName(ThiSinh ts) {
+        String ho = safe(ts == null ? null : ts.getHo());
+        String ten = safe(ts == null ? null : ts.getTen());
+        if (ho.isEmpty() && ten.isEmpty()) {
+            return safe(ts == null ? null : ts.getCccd());
+        }
+        return (ho + " " + ten).trim();
     }
 
     public int chuanHoaCccdTrongXlsx(String inputPath, String outputPath) throws IOException {

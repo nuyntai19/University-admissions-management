@@ -195,7 +195,7 @@ public class PhanMemTuyenSinh extends JFrame {
     }
 
     private void applyRolePermissions() {
-        if (currentUser == null || "admin".equalsIgnoreCase(currentUser.getPhanQuyen())) {
+        if (currentUser != null && "admin".equalsIgnoreCase(currentUser.getPhanQuyen())) {
             return;
         }
         setMutationButtonsEnabled(contentPanel, false);
@@ -204,7 +204,7 @@ public class PhanMemTuyenSinh extends JFrame {
     private void setMutationButtonsEnabled(Component component, boolean enabled) {
         if (component instanceof JButton button) {
             String text = button.getText() == null ? "" : button.getText().toLowerCase();
-            if (text.contains("thêm") || text.contains("sửa") || text.contains("xóa") || text.contains("import")) {
+            if (text.contains("thêm") || text.contains("sửa") || text.contains("xóa") || text.contains("import") || text.contains("tạo tài khoản")) {
                 button.setEnabled(enabled);
                 if (!enabled) {
                     button.setToolTipText("Tài khoản user chỉ có quyền xem dữ liệu");

@@ -14,6 +14,23 @@ public class NguoiDungDAO {
         }
     }
 
+    public List<NguoiDung> getPage(int page, int pageSize) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery("FROM NguoiDung ORDER BY idNguoiDung DESC", NguoiDung.class)
+                    .setFirstResult(Math.max(0, (page - 1) * pageSize))
+                    .setMaxResults(pageSize)
+                    .list();
+        }
+    }
+
+    public long countAll() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            Long count = session.createQuery("SELECT COUNT(n) FROM NguoiDung n", Long.class)
+                    .uniqueResult();
+            return count == null ? 0L : count;
+        }
+    }
+
     public NguoiDung getByTaiKhoan(String taiKhoan) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             return session.createQuery("FROM NguoiDung WHERE taiKhoan = :tk", NguoiDung.class)
@@ -33,6 +50,14 @@ public class NguoiDungDAO {
             e.printStackTrace();
             return false;
         }
+    }
+
+    /**
+     * Thêm người dùng trực tiếp mà không cần các kiểm tra business logic ở tầng BUS.
+     * Dùng khi cần tạo tự động tài khoản học sinh từ dữ liệu thí sinh.
+     */
+    public boolean addDirect(NguoiDung nguoiDung) {
+        return add(nguoiDung);
     }
 
     public boolean update(NguoiDung nguoiDung) {
