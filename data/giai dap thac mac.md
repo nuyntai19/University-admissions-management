@@ -87,6 +87,36 @@ VALUES
 ('TS_2385', 'V-SAT', 7.047, 8.5, 8.25, ...)
 ```
 
+### Kết Luận Riêng Về Database V3 Full Import
+
+**Trả lời ngắn gọn:**
+- **Không**, database v3 full import **không phải là thiếu hoàn toàn** cột để lưu điểm DGNL và V-SAT.
+- **Có**, bảng `xt_diemthixettuyen` đã có sẵn cột `d_phuongthuc` để phân loại phương thức và có các cột điểm như `NL1`, `TO`, `LI`, `HO`, `SI`, `SU`, `DI`, `VA`, `GDCD`, `KTPL`, `NK1-NK10` để lưu dữ liệu điểm.
+- **Nhưng** database hiện tại **không tách riêng** chỗ lưu điểm gốc của DGNL/V-SAT với điểm sau quy đổi. Nếu bạn muốn giữ cả **điểm thô** và **điểm đã quy đổi**, thì cần sửa thêm schema.
+
+**Cách hiểu đúng với project hiện tại:**
+- **THPT**: lưu trực tiếp điểm môn thi trên thang 10.
+- **DGNL**: lưu điểm bài thi vào `NL1` nếu dùng như điểm gốc, hoặc quy đổi về thang điểm xét tuyển trước khi lưu nếu bạn muốn đồng nhất dữ liệu.
+- **V-SAT**: vì dữ liệu V-SAT gốc không nằm trên thang 10, nên thường phải **quy đổi trước** rồi mới lưu vào các cột môn tương ứng.
+
+**Khi nào chưa cần sửa database:**
+- Nếu quy ước của hệ thống là: **điểm đầu vào được quy đổi xong rồi mới lưu**.
+- Nếu chỉ cần lưu 1 giá trị dùng để xét tuyển, không cần giữ lại điểm gốc ban đầu.
+
+**Khi nào nên sửa database:**
+- Nếu bạn muốn import và lưu đồng thời **điểm gốc** lẫn **điểm quy đổi**.
+- Nếu bạn muốn truy vết rõ thí sinh thuộc phương thức nào và điểm thô ban đầu là bao nhiêu.
+- Nếu bạn muốn import dữ liệu V-SAT/DGNL từ file nguồn mà chưa quy đổi, rồi hệ thống tự quy đổi sau.
+
+**Gợi ý sửa nếu muốn đúng và rõ hơn với yêu cầu project:**
+1. Giữ nguyên `d_phuongthuc`.
+2. Thêm cột lưu điểm gốc riêng, ví dụ `diem_goc`, `thang_diem_goc`, hoặc thêm bộ cột riêng cho DGNL/V-SAT.
+3. Hoặc tạo bảng riêng cho điểm nguồn, rồi bảng `xt_diemthixettuyen` chỉ lưu dữ liệu đã chuẩn hóa để xét tuyển.
+
+**Khuyến nghị thực tế cho đồ án:**
+- Nếu bạn muốn hệ thống đơn giản, **không cần sửa DB quá nhiều**; chỉ cần sửa file import để luôn có `d_phuongthuc` và quy đổi V-SAT/DGNL trước khi lưu.
+- Nếu giảng viên yêu cầu quản lý đầy đủ dữ liệu gốc, thì **nên thêm cột/bảng mới** để tách “điểm thô” và “điểm đã quy đổi”.
+
 ---
 
 ## Câu Hỏi 2: Quy Trình Xét Tuyển Chi Tiết
@@ -443,3 +473,129 @@ public void xetTuyenToAnNguyenvong(String cccd) {
 - **Duyệt NV**: Từ NV1 đến NVn, kiểm tra điều kiện (điểm ≥ chuẩn + chỉ tiêu > 0)
 - **Kết Quả**: ĐỖ (NV nào) / TRƯỢT (NV nào) / KHÔNG XÉT (NV còn lại)
 - **Nguyên Tắc**: Chỉ được trúng 1 NV duy nhất, các NV sau tự động hủy
+
+---
+
+## Câu Hỏi 3: Giao Diện Quy Đổi Điểm Đang Hoạt Động Như Thế Nào?
+
+### Kết Luận Ngắn Gọn
+- Trong source code hiện tại, màn hình **Bảng Quy Đổi** không phải là màn hình tự tính điểm ngay lập tức cho thí sinh.
+- Đây là màn hình **quản lý bảng tra quy đổi**: nhập dữ liệu mốc `a, b, c, d`, phương thức, tổ hợp, môn, phân vị và mã quy đổi.
+- Hàm quy đổi thực sự nằm ở tầng BUS, dùng tra khoảng điểm trong bảng rồi áp dụng **nội suy tuyến tính**.
+- Các màn hình khác trong app hiện **chưa gọi trực tiếp** hàm quy đổi này; chúng chỉ được gắn chung vào cùng ứng dụng và cùng cơ sở dữ liệu.
+
+### 1. Màn Hình Này Làm Gì Trong Giao Diện?
+
+File giao diện là `BangQuyDoiGUI.java`.
+
+Màn hình có các thành phần chính:
+- Chọn **phương thức**: `DGNL`, `V-SAT`, `THPT`
+- Nhập **tổ hợp** nếu có
+- Nhập **môn** nếu có
+- Nhập **phân vị**
+- Nhập 4 mốc quy đổi `a`, `b`, `c`, `d`
+- Hiển thị **mã quy đổi** tự sinh
+- Bảng danh sách phía dưới để xem toàn bộ cấu hình quy đổi đã lưu
+
+Thao tác trên màn hình:
+- **Thêm**: tạo bản ghi mới
+- **Sửa**: cập nhật bản ghi đang chọn
+- **Xóa**: xóa bản ghi
+- **Làm Mới**: xóa dữ liệu form
+
+Điểm quan trọng: màn hình này chỉ quản lý dữ liệu quy đổi, không có nút tính điểm tự động cho thí sinh ngay tại UI.
+
+### 2. Cách Quy Đổi Điểm Trong Code
+
+Luồng xử lý nằm ở `BangQuyDoiBUS.java` và `BangQuyDoiDAO.java`.
+
+#### Bước 1: Tìm đúng khoảng quy đổi
+Khi gọi `quyDoiNoiSuy(phuongThuc, toHop, mon, x)`, BUS sẽ:
+- Chuẩn hóa dữ liệu về chữ in hoa và bỏ khoảng trắng
+- Tra bảng `xt_bangquydoi`
+- Tìm bản ghi có:
+    - đúng phương thức
+    - đúng tổ hợp nếu có
+    - đúng môn nếu có
+    - và điểm `x` nằm trong khoảng `a < x <= b`
+
+DAO có hai kiểu tìm:
+- `findIntervalExclusiveLower(...)`: ưu tiên điều kiện `x > a` và `x <= b`
+- `findIntervalInclusive(...)`: phương án dự phòng với `x >= a` và `x <= b`
+
+#### Bước 2: Áp dụng nội suy tuyến tính
+Sau khi tìm được mốc, hệ thống tính:
+
+`y = c + ((x - a) / (b - a)) * (d - c)`
+
+Trong đó:
+- `x` là điểm gốc đầu vào
+- `[a, b]` là khoảng điểm gốc trong bảng quy đổi
+- `[c, d]` là khoảng điểm quy đổi tương ứng
+- `y` là điểm sau quy đổi
+
+Nếu `b = a` thì BUS trả luôn `d` để tránh chia cho 0.
+
+#### Bước 3: Kết quả trả về
+Hàm trả về `BigDecimal` và làm tròn đến 5 chữ số thập phân.
+
+### 3. Dữ Liệu Quy Đổi Được Lưu Ở Đâu?
+
+Bảng dữ liệu là `xt_bangquydoi` trong database.
+
+Các cột chính:
+- `d_phuongthuc`: phương thức quy đổi
+- `d_tohop`: tổ hợp, có thể rỗng
+- `d_mon`: môn, có thể rỗng
+- `d_phanvi`: phân vị
+- `d_diema`, `d_diemb`: mốc điểm gốc
+- `d_diemc`, `d_diemd`: mốc điểm quy đổi
+- `d_maquydoi`: khóa suy ra tự động từ các trường trên
+
+Trong `BangQuyDoiBUS`, `d_maquydoi` được tạo theo mẫu:
+- `PHUONGTHUC[_TOHOP][_MON]_PHANVI`
+
+Ví dụ:
+- `V-SAT_TO_20%`
+- `DGNL_A01_10%`
+
+Hệ thống cũng chặn trùng khóa này trước khi lưu.
+
+### 4. Dữ Liệu Trong Folder `data` Liên Quan Thế Nào?
+
+Các file trong `data` không phải mã chạy trực tiếp, nhưng là nguồn nội dung để hiểu và nạp bảng quy đổi:
+- `Quy doi diem thi V-SAT 2025.txt`: mô tả quy đổi V-SAT sang THPT theo bách phân vị
+- `cac cong thuc tinh.txt`: mô tả công thức quy đổi tổ hợp, điểm cộng, điểm ưu tiên và điểm xét tuyển
+- `bangQUyDoiTA_2025.txt`: bảng quy đổi chứng chỉ ngoại ngữ sang điểm môn Tiếng Anh và điểm cộng
+
+Nói ngắn gọn, folder `data` cung cấp quy tắc nghiệp vụ, còn `xt_bangquydoi` là nơi lưu dữ liệu quy đổi để hệ thống tra cứu.
+
+### 5. Màn Hình Này Liên Kết Với Các Giao Diện Khác Ra Sao?
+
+Trong source hiện tại, liên kết là theo 2 lớp:
+
+#### Liên kết ở mức điều hướng
+Màn hình `BangQuyDoiGUI` được gắn vào:
+- thanh sidebar của `PhanMemTuyenSinh.java`
+- tab của `PhanMemTuyenSinhApp.java`
+
+Tức là người dùng mở app sẽ thấy riêng một mục “Bảng quy đổi” để vào quản lý bảng tra.
+
+#### Liên kết ở mức dữ liệu
+Các màn hình khác dùng chung dữ liệu nghiệp vụ nhưng không gọi trực tiếp hàm quy đổi này trong code hiện tại:
+- `DiemThiXetTuyenGUI.java`: quản lý dữ liệu điểm thi gốc, import và lọc danh sách
+- `DiemCongXetTuyenGUI.java`: quản lý điểm cộng, hiển thị phần “quy đổi tự động” cho điểm cộng
+- `NguyenVongXetTuyenGUI.java`: hiển thị điểm xét tuyển, điểm cộng, điểm ưu tiên và kết quả xét tuyển
+
+Vì vậy, bảng quy đổi đóng vai trò **bảng tra trung gian**. Nó là dữ liệu nền để phục vụ tính toán, chứ không phải một workflow độc lập trong giao diện như nhập điểm hay nhập nguyện vọng.
+
+### 6. Cách Hiểu Đúng Với Project Hiện Tại
+
+- Nếu chỉ nhìn giao diện, màn hình quy đổi là nơi CRUD bảng cấu hình.
+- Nếu nhìn tầng BUS, quy đổi là phép nội suy từ `a-b` sang `c-d`.
+- Nếu nhìn toàn hệ thống, bảng này là dữ liệu nền để hỗ trợ quy đổi điểm giữa các phương thức và phục vụ các bước xét tuyển sau đó.
+- Hiện tại, source chưa cho thấy một màn hình nào khác tự động gọi `quyDoiNoiSuy(...)` khi người dùng bấm nút trên giao diện.
+
+### 7. Tóm Tắt Một Dòng
+
+`BangQuyDoiGUI` = nơi nhập và quản lý bảng tra; `BangQuyDoiBUS.quyDoiNoiSuy(...)` = nơi tính quy đổi; các màn hình điểm thi, điểm cộng, nguyện vọng = nơi dùng dữ liệu đầu vào và hiển thị kết quả xét tuyển.
