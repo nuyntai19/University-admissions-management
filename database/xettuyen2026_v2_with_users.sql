@@ -136,7 +136,7 @@ CREATE TABLE `xt_diemthixettuyen` (
   `NK1` decimal(8,2) DEFAULT NULL,
   `NK2` decimal(8,2) DEFAULT NULL,
   PRIMARY KEY (`iddiemthi`),
-  UNIQUE KEY `cccd_UNIQUE` (`cccd`)
+  UNIQUE KEY `cccd_phuongthuc_UNIQUE` (`cccd`, `d_phuongthuc`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

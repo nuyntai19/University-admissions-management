@@ -419,7 +419,7 @@ public class DiemThiXetTuyenBUS {
 
         String cccd = safe(diem.getCccd());
         String soBaoDanh = safe(diem.getSoBaoDanh());
-        String phuongThuc = safe(diem.getPhuongThuc());
+        String phuongThuc = safe(diem.getPhuongThuc()).toUpperCase();
 
         if (cccd.isEmpty()) {
             lastError = "CCCD không được để trống!";
@@ -430,24 +430,74 @@ public class DiemThiXetTuyenBUS {
             return false;
         }
 
-        if (!hasAnyScore(diem)) {
-            lastError = "Không có điểm hợp lệ để lưu";
+        if (phuongThuc.isEmpty()) {
+            lastError = "Phương thức thi không được để trống!";
             return false;
         }
 
-        if (!checkScore(diem.getTo(), 0, 10, "TO")
-                || !checkScore(diem.getLi(), 0, 10, "LI")
-                || !checkScore(diem.getHo(), 0, 10, "HO")
-                || !checkScore(diem.getSi(), 0, 10, "SI")
-                || !checkScore(diem.getSu(), 0, 10, "SU")
-                || !checkScore(diem.getDi(), 0, 10, "DI")
-                || !checkScore(diem.getVa(), 0, 10, "VA")
-                || !checkScore(diem.getN1Thi(), 0, 10, "N1_THI")
+        if (!("THPT".equals(phuongThuc) || "V-SAT".equals(phuongThuc) || "DGNL".equals(phuongThuc))) {
+            lastError = "Phương thức thi phải là THPT, V-SAT hoặc DGNL!";
+            return false;
+        }
+
+        // Validate điểm theo phương thức
+        if ("THPT".equals(phuongThuc)) {
+            // THPT: check TO, LI, HO (0-10), NL1 phải NULL/0
+            if (!checkScore(diem.getTo(), 0, 10, "TO (THPT)")
+                    || !checkScore(diem.getLi(), 0, 10, "LI (THPT)")
+                    || !checkScore(diem.getHo(), 0, 10, "HO (THPT)")) {
+                return false;
+            }
+            
+            // Kiểm tra các cột khác phương thức THPT phải NULL/0
+            if (!isNullOrZero(diem.getSi()) || !isNullOrZero(diem.getSu()) 
+                    || !isNullOrZero(diem.getDi()) || !isNullOrZero(diem.getVa())
+                    || !isNullOrZero(diem.getGdcd()) || !isNullOrZero(diem.getNl1())) {
+                lastError = "Phương thức THPT không được có điểm ở các cột SI, SU, DI, VA, GDCD, NL1!";
+                return false;
+            }
+            
+        } else if ("V-SAT".equals(phuongThuc)) {
+            // V-SAT: check TO, LI, HO, SI, SU, DI, VA, GDCD (0-150), NL1 phải NULL/0
+            if (!checkScore(diem.getTo(), 0, 150, "TO (V-SAT)")
+                    || !checkScore(diem.getLi(), 0, 150, "LI (V-SAT)")
+                    || !checkScore(diem.getHo(), 0, 150, "HO (V-SAT)")
+                    || !checkScore(diem.getSi(), 0, 150, "SI (V-SAT)")
+                    || !checkScore(diem.getSu(), 0, 150, "SU (V-SAT)")
+                    || !checkScore(diem.getDi(), 0, 150, "DI (V-SAT)")
+                    || !checkScore(diem.getVa(), 0, 150, "VA (V-SAT)")
+                    || !checkScore(diem.getGdcd(), 0, 150, "GDCD (V-SAT)")) {
+                return false;
+            }
+            
+            // NL1 phải NULL/0 cho V-SAT
+            if (!isNullOrZero(diem.getNl1())) {
+                lastError = "Phương thức V-SAT không được có điểm NL1!";
+                return false;
+            }
+            
+        } else if ("DGNL".equals(phuongThuc)) {
+            // DGNL: check NL1 (0-1200), các cột môn khác phải NULL/0
+            if (!checkScore(diem.getNl1(), 0, 1200, "NL1 (DGNL)")) {
+                return false;
+            }
+            
+            // Các cột môn khác phải NULL/0 cho DGNL
+            if (!isNullOrZero(diem.getTo()) || !isNullOrZero(diem.getLi())
+                    || !isNullOrZero(diem.getHo()) || !isNullOrZero(diem.getSi())
+                    || !isNullOrZero(diem.getSu()) || !isNullOrZero(diem.getDi())
+                    || !isNullOrZero(diem.getVa()) || !isNullOrZero(diem.getGdcd())) {
+                lastError = "Phương thức DGNL chỉ có điểm NL1, không được có điểm ở các cột TO, LI, HO, SI, SU, DI, VA, GDCD!";
+                return false;
+            }
+        }
+
+        // Kiểm tra điểm chung cho tất cả phương thức
+        if (!checkScore(diem.getN1Thi(), 0, 10, "N1_THI")
                 || !checkScore(diem.getN1Cc(), 0, 10, "N1_CC")
                 || !checkScore(diem.getCncn(), 0, 10, "CNCN")
                 || !checkScore(diem.getCnnn(), 0, 10, "CNNN")
                 || !checkScore(diem.getTi(), 0, 10, "TI")
-                || !checkScore(diem.getGdcd(), 0, 10, "GDCD")
                 || !checkScore(diem.getKtpl(), 0, 10, "KTPL")
                 || !checkScore(diem.getNk1(), 0, 10, "NK1")
                 || !checkScore(diem.getNk2(), 0, 10, "NK2")
@@ -459,21 +509,45 @@ public class DiemThiXetTuyenBUS {
                 || !checkScore(diem.getNk8(), 0, 10, "NK8")
                 || !checkScore(diem.getNk9(), 0, 10, "NK9")
                 || !checkScore(diem.getNk10(), 0, 10, "NK10")
-                || !checkScore(diem.getDiemXetTotNghiep(), 0, 10, "DIEM_XET_TOT_NGHIEP")
-                || !checkScore(diem.getNl1(), 0, 1200, "NL1")) {
+                || !checkScore(diem.getDiemXetTotNghiep(), 0, 10, "DIEM_XET_TOT_NGHIEP")) {
             return false;
         }
 
-        if (checkDuplicate && dao.getByCccd(cccd) != null) {
-            lastError = "CCCD đã tồn tại trong hệ thống!";
+        if (!hasAnyScore(diem)) {
+            lastError = "Không có điểm hợp lệ để lưu";
             return false;
+        }
+
+        // Kiểm tra trùng phương thức
+        if (checkDuplicate) {
+            // Thêm mới: check nếu CCCD + phương thức đã tồn tại
+            DiemThiXetTuyen existing = dao.getByCcqdAndPhuongThuc(cccd, phuongThuc);
+            if (existing != null) {
+                lastError = "CCCD này đã có phương thức " + phuongThuc + " rồi! Vui lòng sửa bản ghi cũ hoặc chọn phương thức khác.";
+                return false;
+            }
+        } else {
+            // Sửa: check nếu thay đổi phương thức sang phương thức mà CCCD đã có
+            DiemThiXetTuyen original = dao.getById(diem.getIdDiemThi());
+            if (original != null && !original.getPhuongThuc().equals(phuongThuc)) {
+                // Nếu thay đổi phương thức, check phương thức mới có tồn tại không
+                DiemThiXetTuyen existing = dao.getByCcqdAndPhuongThuc(cccd, phuongThuc);
+                if (existing != null && existing.getIdDiemThi() != diem.getIdDiemThi()) {
+                    lastError = "CCCD này đã có phương thức " + phuongThuc + " rồi! Không thể sửa thành phương thức này.";
+                    return false;
+                }
+            }
         }
 
         diem.setCccd(trimMax(cccd, 20));
         diem.setSoBaoDanh(trimMax(soBaoDanh, 45));
-        diem.setPhuongThuc(trimMax(phuongThuc, 10));
+        diem.setPhuongThuc(phuongThuc);
         lastError = "";
         return true;
+    }
+
+    private boolean isNullOrZero(BigDecimal value) {
+        return value == null || value.compareTo(java.math.BigDecimal.ZERO) == 0;
     }
 
     private boolean checkScore(BigDecimal score, double min, double max, String label) {

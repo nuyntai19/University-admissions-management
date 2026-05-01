@@ -54,8 +54,21 @@ public class DiemThiXetTuyenDAO {
 
     public DiemThiXetTuyen getByCccd(String cccd) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-            return session.createQuery("FROM DiemThiXetTuyen WHERE cccd = :cccd", DiemThiXetTuyen.class)
-                    .setParameter("cccd", cccd).uniqueResult();
+            return session.createQuery("FROM DiemThiXetTuyen WHERE cccd = :cccd ORDER BY idDiemThi DESC", DiemThiXetTuyen.class)
+                    .setParameter("cccd", cccd)
+                    .setMaxResults(1)
+                    .uniqueResult();
+        }
+    }
+
+    public DiemThiXetTuyen getByCcqdAndPhuongThuc(String cccd, String phuongThuc) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery(
+                    "FROM DiemThiXetTuyen WHERE cccd = :cccd AND phuongThuc = :pt", 
+                    DiemThiXetTuyen.class)
+                    .setParameter("cccd", cccd)
+                    .setParameter("pt", phuongThuc)
+                    .uniqueResult();
         }
     }
 

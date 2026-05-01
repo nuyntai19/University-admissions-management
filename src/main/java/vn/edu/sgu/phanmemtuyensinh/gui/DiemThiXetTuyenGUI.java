@@ -13,6 +13,7 @@ import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -297,19 +298,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
     }
 
     private void themDiem() {
-        DiemThiXetTuyen diem = hienThiFormDiem(null);
-        if (diem == null) {
-            return;
-        }
-
-        if (bus.add(diem)) {
-            JOptionPane.showMessageDialog(this, "Thêm thành công!");
-            currentPage = 1;
-            loadPage();
-            currentId = -1;
-        } else {
-            JOptionPane.showMessageDialog(this, "Thêm thất bại: " + bus.getLastError());
-        }
+        hienThiFormDiem(null, false, -1);
     }
 
     private void suaDiem() {
@@ -324,20 +313,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
             return;
         }
 
-        DiemThiXetTuyen updated = hienThiFormDiem(current);
-        if (updated == null) {
-            return;
-        }
-
-        updated.setIdDiemThi(currentId);
-        if (bus.update(updated)) {
-            JOptionPane.showMessageDialog(this, "Cập nhật thành công!");
-            loadPage();
-            table.clearSelection();
-            currentId = -1;
-        } else {
-            JOptionPane.showMessageDialog(this, "Cập nhật thất bại: " + bus.getLastError());
-        }
+        hienThiFormDiem(current, true, currentId);
     }
 
     private void xoaDiem() {
@@ -460,10 +436,10 @@ public class DiemThiXetTuyenGUI extends JPanel {
         progressDialog.setVisible(true);
     }
 
-    private DiemThiXetTuyen hienThiFormDiem(DiemThiXetTuyen source) {
+    private void hienThiFormDiem(DiemThiXetTuyen source, boolean isUpdate, int targetId) {
         JTextField txtCccd = new JTextField();
+        JComboBox<String> cbPhuongThuc = new JComboBox<>(new String[]{"", "THPT", "V-SAT", "DGNL"});
         JTextField txtSoBaoDanh = new JTextField();
-        JTextField txtPhuongThuc = new JTextField();
         JTextField txtTo = new JTextField();
         JTextField txtLi = new JTextField();
         JTextField txtHo = new JTextField();
@@ -471,6 +447,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
         JTextField txtSu = new JTextField();
         JTextField txtDi = new JTextField();
         JTextField txtVa = new JTextField();
+        JTextField txtGdcd = new JTextField();
         JTextField txtN1Thi = new JTextField();
         JTextField txtN1Cc = new JTextField();
         JTextField txtCncn = new JTextField();
@@ -489,12 +466,12 @@ public class DiemThiXetTuyenGUI extends JPanel {
         JTextField txtNk9 = new JTextField();
         JTextField txtNk10 = new JTextField();
         JTextField txtDiemXetTotNghiep = new JTextField();
-        JTextField txtGdcd = new JTextField();
 
         if (source != null) {
             txtCccd.setText(nullToEmpty(source.getCccd()));
+            txtCccd.setEditable(false); // Không cho sửa CCCD
+            cbPhuongThuc.setSelectedItem(nullToEmpty(source.getPhuongThuc()));
             txtSoBaoDanh.setText(nullToEmpty(source.getSoBaoDanh()));
-            txtPhuongThuc.setText(nullToEmpty(source.getPhuongThuc()));
             txtTo.setText(source.getTo() == null ? "" : source.getTo().toPlainString());
             txtLi.setText(source.getLi() == null ? "" : source.getLi().toPlainString());
             txtHo.setText(source.getHo() == null ? "" : source.getHo().toPlainString());
@@ -502,6 +479,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
             txtSu.setText(source.getSu() == null ? "" : source.getSu().toPlainString());
             txtDi.setText(source.getDi() == null ? "" : source.getDi().toPlainString());
             txtVa.setText(source.getVa() == null ? "" : source.getVa().toPlainString());
+            txtGdcd.setText(source.getGdcd() == null ? "" : source.getGdcd().toPlainString());
             txtN1Thi.setText(source.getN1Thi() == null ? "" : source.getN1Thi().toPlainString());
             txtN1Cc.setText(source.getN1Cc() == null ? "" : source.getN1Cc().toPlainString());
             txtCncn.setText(source.getCncn() == null ? "" : source.getCncn().toPlainString());
@@ -520,12 +498,11 @@ public class DiemThiXetTuyenGUI extends JPanel {
             txtNk9.setText(source.getNk9() == null ? "" : source.getNk9().toPlainString());
             txtNk10.setText(source.getNk10() == null ? "" : source.getNk10().toPlainString());
             txtDiemXetTotNghiep.setText(source.getDiemXetTotNghiep() == null ? "" : source.getDiemXetTotNghiep().toPlainString());
-            txtGdcd.setText(source.getGdcd() == null ? "" : source.getGdcd().toPlainString());
         }
 
         JPanel panel = new JPanel(new BorderLayout(0, 10));
         panel.setBackground(new Color(245, 249, 255));
-        panel.setPreferredSize(new Dimension(720, 700));
+        panel.setPreferredSize(new Dimension(750, 750));
 
         JPanel pnlHeader = new JPanel(new BorderLayout());
         pnlHeader.setBackground(source == null ? new Color(30, 136, 229) : new Color(243, 156, 18));
@@ -543,28 +520,40 @@ public class DiemThiXetTuyenGUI extends JPanel {
 
         JPanel form = new JPanel(new GridLayout(0, 2, 10, 10));
         form.setOpaque(false);
+        
+        // Các field cơ bản
         form.add(new JLabel("CCCD:"));
         form.add(txtCccd);
         form.add(new JLabel("Số báo danh:"));
         form.add(txtSoBaoDanh);
-        form.add(new JLabel("Phương thức:"));
-        form.add(txtPhuongThuc);
-        form.add(new JLabel("Điểm TO:"));
+        form.add(new JLabel("Phương thức: *"));
+        form.add(cbPhuongThuc);
+        
+        // Các field điểm THPT
+        form.add(new JLabel("Điểm TO (0-10 cho THPT, 0-150 cho V-SAT):"));
         form.add(txtTo);
-        form.add(new JLabel("Điểm LI:"));
+        form.add(new JLabel("Điểm LI (0-10 cho THPT, 0-150 cho V-SAT):"));
         form.add(txtLi);
-        form.add(new JLabel("Điểm HO:"));
+        form.add(new JLabel("Điểm HO (0-10 cho THPT, 0-150 cho V-SAT):"));
         form.add(txtHo);
-        form.add(new JLabel("Điểm SI:"));
+        
+        // Các field V-SAT riêng
+        form.add(new JLabel("Điểm SI (0-150 cho V-SAT):"));
         form.add(txtSi);
-        form.add(new JLabel("Điểm SU:"));
+        form.add(new JLabel("Điểm SU (0-150 cho V-SAT):"));
         form.add(txtSu);
-        form.add(new JLabel("Điểm DI:"));
+        form.add(new JLabel("Điểm DI (0-150 cho V-SAT):"));
         form.add(txtDi);
-        form.add(new JLabel("Điểm VA:"));
+        form.add(new JLabel("Điểm VA (0-150 cho V-SAT):"));
         form.add(txtVa);
-        form.add(new JLabel("Điểm GDCD:"));
+        form.add(new JLabel("Điểm GDCD (0-150 cho V-SAT):"));
         form.add(txtGdcd);
+        
+        // Các field DGNL
+        form.add(new JLabel("Điểm NL1 (0-1200 cho DGNL):"));
+        form.add(txtNl1);
+        
+        // Các field chung
         form.add(new JLabel("Điểm N1_THI:"));
         form.add(txtN1Thi);
         form.add(new JLabel("Điểm N1_CC:"));
@@ -577,8 +566,6 @@ public class DiemThiXetTuyenGUI extends JPanel {
         form.add(txtTi);
         form.add(new JLabel("Điểm KTPL:"));
         form.add(txtKtpl);
-        form.add(new JLabel("Điểm NL1:"));
-        form.add(txtNl1);
         form.add(new JLabel("Điểm NK1:"));
         form.add(txtNk1);
         form.add(new JLabel("Điểm NK2:"));
@@ -606,55 +593,90 @@ public class DiemThiXetTuyenGUI extends JPanel {
         formScroll.setBorder(null);
         formScroll.getVerticalScrollBar().setUnitIncrement(18);
         pnlCard.add(formScroll, BorderLayout.CENTER);
+
+        JPanel pnlFooter = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        pnlFooter.setOpaque(false);
+        JButton btnHuy = new JButton("Đóng");
+        JButton btnLuu = new JButton(isUpdate ? "Lưu cập nhật" : "Lưu thêm");
+        pnlFooter.add(btnHuy);
+        pnlFooter.add(btnLuu);
+        pnlCard.add(pnlFooter, BorderLayout.SOUTH);
+
         panel.add(pnlHeader, BorderLayout.NORTH);
         panel.add(pnlCard, BorderLayout.CENTER);
         ModernTheme.styleDialogContent(panel);
 
-        int result = JOptionPane.showConfirmDialog(this, panel,
-                source == null ? "Thêm điểm thi" : "Sửa điểm thi",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (result != JOptionPane.OK_OPTION) {
-            return null;
-        }
+        JDialog formDialog = new JDialog((java.awt.Frame) null,
+                isUpdate ? "Sửa điểm thi" : "Thêm điểm thi", true);
+        formDialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        formDialog.setLayout(new BorderLayout());
+        formDialog.add(panel, BorderLayout.CENTER);
+        formDialog.setSize(750, 750);
+        formDialog.setLocationRelativeTo(this);
 
-        DiemThiXetTuyen d = source == null ? new DiemThiXetTuyen() : source;
-        d.setCccd(txtCccd.getText().trim());
-        d.setSoBaoDanh(txtSoBaoDanh.getText().trim());
-        d.setPhuongThuc(txtPhuongThuc.getText().trim());
+        btnHuy.addActionListener(e -> formDialog.dispose());
+        btnLuu.addActionListener(e -> {
+            if (cbPhuongThuc.getSelectedItem() == null || cbPhuongThuc.getSelectedItem().toString().isEmpty()) {
+                JOptionPane.showMessageDialog(formDialog, "Vui lòng chọn phương thức thi!");
+                return;
+            }
 
-        try {
-            d.setTo(parseDecimal(txtTo.getText().trim()));
-            d.setLi(parseDecimal(txtLi.getText().trim()));
-            d.setHo(parseDecimal(txtHo.getText().trim()));
-            d.setSi(parseDecimal(txtSi.getText().trim()));
-            d.setSu(parseDecimal(txtSu.getText().trim()));
-            d.setDi(parseDecimal(txtDi.getText().trim()));
-            d.setVa(parseDecimal(txtVa.getText().trim()));
-            d.setGdcd(parseDecimal(txtGdcd.getText().trim()));
-            d.setN1Thi(parseDecimal(txtN1Thi.getText().trim()));
-            d.setN1Cc(parseDecimal(txtN1Cc.getText().trim()));
-            d.setCncn(parseDecimal(txtCncn.getText().trim()));
-            d.setCnnn(parseDecimal(txtCnnn.getText().trim()));
-            d.setTi(parseDecimal(txtTi.getText().trim()));
-            d.setKtpl(parseDecimal(txtKtpl.getText().trim()));
-            d.setNl1(parseDecimal(txtNl1.getText().trim()));
-            d.setNk1(parseDecimal(txtNk1.getText().trim()));
-            d.setNk2(parseDecimal(txtNk2.getText().trim()));
-            d.setNk3(parseDecimal(txtNk3.getText().trim()));
-            d.setNk4(parseDecimal(txtNk4.getText().trim()));
-            d.setNk5(parseDecimal(txtNk5.getText().trim()));
-            d.setNk6(parseDecimal(txtNk6.getText().trim()));
-            d.setNk7(parseDecimal(txtNk7.getText().trim()));
-            d.setNk8(parseDecimal(txtNk8.getText().trim()));
-            d.setNk9(parseDecimal(txtNk9.getText().trim()));
-            d.setNk10(parseDecimal(txtNk10.getText().trim()));
-            d.setDiemXetTotNghiep(parseDecimal(txtDiemXetTotNghiep.getText().trim()));
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Điểm phải là số hợp lệ!");
-            return null;
-        }
+            DiemThiXetTuyen d = source == null ? new DiemThiXetTuyen() : source;
+            if (isUpdate) {
+                d.setIdDiemThi(targetId);
+            }
 
-        return d;
+            d.setCccd(txtCccd.getText().trim());
+            d.setSoBaoDanh(txtSoBaoDanh.getText().trim());
+            d.setPhuongThuc(cbPhuongThuc.getSelectedItem().toString().trim());
+
+            try {
+                d.setTo(parseDecimal(txtTo.getText().trim()));
+                d.setLi(parseDecimal(txtLi.getText().trim()));
+                d.setHo(parseDecimal(txtHo.getText().trim()));
+                d.setSi(parseDecimal(txtSi.getText().trim()));
+                d.setSu(parseDecimal(txtSu.getText().trim()));
+                d.setDi(parseDecimal(txtDi.getText().trim()));
+                d.setVa(parseDecimal(txtVa.getText().trim()));
+                d.setGdcd(parseDecimal(txtGdcd.getText().trim()));
+                d.setN1Thi(parseDecimal(txtN1Thi.getText().trim()));
+                d.setN1Cc(parseDecimal(txtN1Cc.getText().trim()));
+                d.setCncn(parseDecimal(txtCncn.getText().trim()));
+                d.setCnnn(parseDecimal(txtCnnn.getText().trim()));
+                d.setTi(parseDecimal(txtTi.getText().trim()));
+                d.setKtpl(parseDecimal(txtKtpl.getText().trim()));
+                d.setNl1(parseDecimal(txtNl1.getText().trim()));
+                d.setNk1(parseDecimal(txtNk1.getText().trim()));
+                d.setNk2(parseDecimal(txtNk2.getText().trim()));
+                d.setNk3(parseDecimal(txtNk3.getText().trim()));
+                d.setNk4(parseDecimal(txtNk4.getText().trim()));
+                d.setNk5(parseDecimal(txtNk5.getText().trim()));
+                d.setNk6(parseDecimal(txtNk6.getText().trim()));
+                d.setNk7(parseDecimal(txtNk7.getText().trim()));
+                d.setNk8(parseDecimal(txtNk8.getText().trim()));
+                d.setNk9(parseDecimal(txtNk9.getText().trim()));
+                d.setNk10(parseDecimal(txtNk10.getText().trim()));
+                d.setDiemXetTotNghiep(parseDecimal(txtDiemXetTotNghiep.getText().trim()));
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(formDialog, "Điểm phải là số hợp lệ!");
+                return;
+            }
+
+            boolean success = isUpdate ? bus.update(d) : bus.add(d);
+            if (success) {
+                JOptionPane.showMessageDialog(formDialog, isUpdate ? "Cập nhật thành công!" : "Thêm thành công!");
+                currentPage = 1;
+                loadPage();
+                table.clearSelection();
+                currentId = -1;
+                formDialog.dispose();
+            } else {
+                JOptionPane.showMessageDialog(formDialog,
+                        (isUpdate ? "Cập nhật thất bại: " : "Thêm thất bại: ") + bus.getLastError());
+            }
+        });
+
+        formDialog.setVisible(true);
     }
 
     private BigDecimal parseDecimal(String value) {

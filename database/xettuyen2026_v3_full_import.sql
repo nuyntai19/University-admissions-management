@@ -286,7 +286,7 @@ ALTER TABLE `xt_diemcongxetuyen`
 --
 ALTER TABLE `xt_diemthixettuyen`
   ADD PRIMARY KEY (`iddiemthi`),
-  ADD UNIQUE KEY `cccd_UNIQUE` (`cccd`);
+  ADD UNIQUE KEY `cccd_phuongthuc_UNIQUE` (`cccd`,`d_phuongthuc`);
 
 --
 -- Chỉ mục cho bảng `xt_nganh`
