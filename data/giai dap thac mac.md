@@ -599,3 +599,437 @@ Vì vậy, bảng quy đổi đóng vai trò **bảng tra trung gian**. Nó là 
 ### 7. Tóm Tắt Một Dòng
 
 `BangQuyDoiGUI` = nơi nhập và quản lý bảng tra; `BangQuyDoiBUS.quyDoiNoiSuy(...)` = nơi tính quy đổi; các màn hình điểm thi, điểm cộng, nguyện vọng = nơi dùng dữ liệu đầu vào và hiển thị kết quả xét tuyển.
+
+---
+
+## Câu Hỏi 4: Bảng `xt_diemthixettuyen` - Cột NL1, Các Phương Thức & d_phuongthuc
+
+### Vấn Đề
+Bảng `xt_diemthixettuyen` dùng để lưu 3 loại điểm THPT, VSAT, DGNL với cột `d_phuongthuc` để phân loại. Nhưng với phương thức VSAT và DGNL, đã có cột để lưu 2 loại phương thức này chưa? Có phải `NL1` dùng để lưu điểm ĐGNL không?
+
+### Trả Lời Chi Tiết
+
+#### 1. **Cấu Trúc Cột Hiện Tại**
+
+Bảng `xt_diemthixettuyen` có sẵn các cột sau (theo Entity Java):
+
+| Cột | Kiểu Dữ Liệu | Mục Đích |
+|-----|--------------|---------|
+| `d_phuongthuc` | VARCHAR(10) | **Phân loại phương thức**: "THPT", "V-SAT", "DGNL" |
+| `TO, LI, HO, SI, SU, DI, VA` | DECIMAL | 7 môn học cơ bản (dùng chung cho THPT & VSAT) |
+| `GDCD` | DECIMAL | Giáo dục công dân (năng khiếu) |
+| `NL1` | DECIMAL | **Năng Lực 1 = Điểm ĐGNL gốc** |
+| `N1_THI, N1_CC` | DECIMAL | Điểm ngoại ngữ (tiếng Anh): từ thi và từ chứng chỉ |
+| `CNCN, CNNN, TI, KTPL` | DECIMAL | Các môn đặc biệt khác |
+| `NK1 - NK10` | DECIMAL | Năng khiếu 1-10 |
+| `diem_xet_tot_nghiep` | DECIMAL | Điểm tốt nghiệp (THPT) |
+
+#### 2. **`NL1` Là Gì? Có Phải Lưu Điểm ĐGNL?**
+
+**Đúng!** `NL1` = **Năng Lực 1**, được sử dụng để lưu **điểm ĐGNL gốc** (trước khi quy đổi).
+
+**Quy ước:**
+- Khi `d_phuongthuc = "DGNL"`, giá trị `NL1` chứa **điểm bài thi ĐGNL ban đầu** (thang cao, ví dụ 0-1200)
+- Khi `d_phuongthuc = "THPT"` hoặc `"V-SAT"`, cột `NL1` có thể để NULL hoặc 0
+- Khi cần lấy điểm xét tuyển, hệ thống tra bảng `xt_bangquydoi` để quy đổi `NL1` từ thang cao về thang 30
+
+**Ví dụ:**
+```
+Thí sinh TS_001 chọn phương thức DGNL:
+  cccd: 0123456789
+  d_phuongthuc: "DGNL"
+  NL1: 850.0  (Điểm ĐGNL gốc, thang 1200)
+  TO, LI, HO, ...: NULL (không dùng)
+  
+Sau đó, tra bảng xt_bangquydoi với:
+  d_phuongthuc = "DGNL"
+  d_tohop = "A01" (hoặc tổ hợp của ngành xét)
+  Tìm khoảng chứa 850 → quy đổi sang [c, d] → ra ~22.5 thang 30
+```
+
+#### 3. **Có Phương Thức VSAT & DGNL Không?**
+
+**Không cần thêm cột!** Hệ thống đã thiết kế rất hợp lý:
+
+- **Cột `d_phuongthuc`** làm nhiệm vụ phân loại duy nhất (THPT / VSAT / DGNL)
+- **Các cột điểm hiện có** đủ để lưu dữ liệu:
+  - **THPT**: dùng `TO, LI, HO, SI, SU, DI, VA` (7 môn chính)
+  - **VSAT**: dùng `TO, LI, HO, SI, SU, DI, VA, GDCD` (8 môn VSAT)
+  - **DGNL**: dùng cột `NL1` để lưu điểm gốc
+
+#### 4. **Mapping Chi Tiết Giữa Phương Thức & Cột**
+
+```
+┌─────────────────────────────────────────────────────┐
+│          PHƯƠNG THỨC           │      CỘT DÙNG      │
+├─────────────────────────────────────────────────────┤
+│ d_phuongthuc = "THPT"          │ TO, LI, HO         │
+│ d_phuongthuc = "V-SAT"         │ TO, LI, HO, SI,... │
+│ d_phuongthuc = "DGNL"          │ NL1                │
+│ Ngoài ngữ (nếu có)             │ N1_THI, N1_CC      │
+│ Năng khiếu (nếu có)            │ NK1-NK10           │
+└─────────────────────────────────────────────────────┘
+```
+
+#### 5. **Kế Thừa Cấu Trúc Này Có Nhất Quán Không?**
+
+**Nhất quán hoàn toàn!** Vì:
+
+1. **Cột `d_phuongthuc` rõ ràng**: người đọc code hay DB admin sẽ biết ngay đang xử lý phương thức nào
+2. **Không gây nhầm lẫn**: không cần thêm bảng hay cột mới cho từng phương thức
+3. **Linh hoạt cho mở rộng**: nếu sau này có phương thức mới, chỉ cần thêm giá trị cho `d_phuongthuc`, rồi dùng cột phù hợp
+
+**Đặc biệt, so với cách tách thành nhiều bảng:**
+- ❌ Tách THPT vào `xt_diemthpt`, VSAT vào `xt_diemvsat`, DGNL vào `xt_diemdgnl` → rối rắm, phải JOIN nhiều bảng
+- ✅ Dùng `d_phuongthuc` + các cột chung → gọn gàng, dễ sửa code, dễ query
+
+#### 6. **Lưu Ý Khi Code**
+
+Khi viết code xử lý điểm, cần kiểm tra `d_phuongthuc`:
+
+```java
+DiemThiXetTuyen diem = diemDAO.getByCccd(cccd);
+
+if ("THPT".equals(diem.getPhuongThuc())) {
+    // Lấy điểm THPT từ TO, LI, HO
+    BigDecimal diemMon1 = diem.getTo();
+    BigDecimal diemMon2 = diem.getLi();
+    BigDecimal diemMon3 = diem.getHo();
+    // ... xử lý THPT
+} else if ("V-SAT".equals(diem.getPhuongThuc())) {
+    // Lấy điểm VSAT từ TO, LI, HO (hoặc các môn khác tùy tổ hợp)
+    BigDecimal diemMon1 = diem.getTo();
+    BigDecimal diemMon2 = diem.getLi();
+    BigDecimal diemMon3 = diem.getHo();
+    // ... xử lý VSAT, cần quy đổi
+} else if ("DGNL".equals(diem.getPhuongThuc())) {
+    // Lấy điểm DGNL từ NL1
+    BigDecimal diemDgnl = diem.getNl1();
+    // ... xử lý DGNL, cần quy đổi
+}
+```
+
+---
+
+## Câu Hỏi 5: Nội Suy Tuyến Tính Là Gì? Tác Dụng Gì?
+
+### Định Nghĩa Toán Học
+
+**Nội suy tuyến tính (Linear Interpolation)** là phương pháp ước tính **giá trị nằm giữa 2 điểm dữ liệu đã biết** bằng cách **nối chúng bằng một đường thẳng** và tính tung độ tại điểm cần tìm.
+
+**Công thức toán học:**
+
+$$y = c + \frac{x - a}{b - a} \times (d - c)$$
+
+Trong đó:
+- `x`: Giá trị đầu vào (cần tìm `y`)
+- `[a, b]`: Khoảng xác định của `x` (điểm gốc)
+- `[c, d]`: Khoảng giá trị tương ứng của `y` (điểm đích)
+- `y`: Giá trị đầu ra (kết quả quy đổi)
+
+### Giải Thích Từng Phần Công Thức
+
+1. **Bước 1**: Tính **tỷ lệ vị trí** của `x` trong khoảng `[a, b]`
+   ```
+   ratio = (x - a) / (b - a)
+   ```
+   - Nếu `x = a` → `ratio = 0` (ở cận dưới)
+   - Nếu `x = b` → `ratio = 1` (ở cận trên)
+   - Nếu `x` ở giữa → `0 < ratio < 1`
+
+2. **Bước 2**: Tính **độ chênh lệch** của khoảng đích
+   ```
+   delta = d - c
+   ```
+
+3. **Bước 3**: Áp dụng tỷ lệ vào khoảng đích
+   ```
+   y = c + ratio * delta
+   ```
+
+### Ví Dụ Cụ Thể
+
+**Ví dụ 1: Quy Đổi Điểm VSAT Sang THPT**
+
+Bảng quy đổi V-SAT Môn Toán:
+```
+Khoảng VSAT [114.5, 122.5] → Khoảng THPT [7, 7.75]
+Khoảng VSAT [122.5, 130.5] → Khoảng THPT [7.75, 8.5]
+```
+
+**Trường hợp 1:** Điểm VSAT = 114.5 (cận dưới)
+```
+y = 7 + ((114.5 - 114.5) / (122.5 - 114.5)) * (7.75 - 7)
+y = 7 + 0 * 0.75 = 7
+```
+→ Điểm THPT = 7 (tương ứng cận dưới)
+
+**Trường hợp 2:** Điểm VSAT = 115 (ở giữa)
+```
+y = 7 + ((115 - 114.5) / (122.5 - 114.5)) * (7.75 - 7)
+y = 7 + (0.5 / 8) * 0.75
+y = 7 + 0.0625 * 0.75 = 7.047
+```
+→ Điểm THPT ≈ 7.047
+
+**Trường hợp 3:** Điểm VSAT = 122.5 (cận trên)
+```
+y = 7 + ((122.5 - 114.5) / (122.5 - 114.5)) * (7.75 - 7)
+y = 7 + 1 * 0.75 = 7.75
+```
+→ Điểm THPT = 7.75 (tương ứng cận trên)
+
+### Lý Do Dùng Nội Suy Tuyến Tính Trong Dự Án
+
+#### 1. **Công Bằng Trong Xét Tuyển**
+
+Bộ GD&ĐT yêu cầu **bách phân vị tương đương** để đảm bảo:
+- Thí sinh thi VSAT và THPT **cùng mức năng lực** → được **điểm quy đổi tương đương**
+- Ví dụ: Nếu điểm VSAT 115 tương ứng **phân vị 20%** trên toàn bộ thí sinh VSAT
+- Thì điểm THPT được quy đổi từ 115 cũng phải tương ứng **phân vị 20%** trên tổng thí sinh THPT
+
+#### 2. **Liên Tục Và Trơn Tru**
+
+- **Không dùng nội suy:** điểm VSAT 114.9 → 7, điểm VSAT 115 → 7.047 → nhảy cóc
+- **Dùng nội suy:** điểm VSAT 114.9 → ~7.04, điểm VSAT 115 → 7.047 → mượt mà
+
+#### 3. **Hỗ Trợ Bất Kỳ Điểm Nào Trong Khoảng**
+
+- Bảng chỉ lưu điểm ở **phân vị nhất định** (3%, 10%, 20%, ..., 90%)
+- Nội suy giúp tính được điểm trung gian trong bất kỳ khoảng nào
+
+### So Sánh Với Các Phương Pháp Khác
+
+| Phương Pháp | Ưu Điểm | Nhược Điểm |
+|-----------|---------|-----------|
+| **Nội suy tuyến tính** (hiện dùng) | Đơn giản, công bằng, liên tục | Giả sử quan hệ tuyến tính (không luôn đúng) |
+| Nội suy đa thức bậc cao | Chính xác hơn | Phức tạp, dễ gây overfitting, có peak/valley |
+| Khoảng cách cố định (bậc thang) | Rất đơn giản | Không công bằng, nhảy cóc |
+| Phân nhóm điểm (Band) | Dễ hiểu | Khó xác định ranh giới, không công bằng |
+
+**Kết luận:** Nội suy tuyến tính là **cân bằng tốt nhất** giữa đơn giản và chính xác.
+
+### Tác Dụng Cụ Thể Trong Dự Án
+
+1. **Quy Đổi Điểm VSAT → THPT:**
+   - Giúp tính được điểm xét tuyển cho các thí sinh VSAT
+   - Đảm bảo công bằng với thí sinh THPT
+
+2. **Quy Đổi Điểm ĐGNL → THPT:**
+   - Giúp tính được điểm xét tuyển cho các thí sinh ĐGNL
+   - Đảm bảo công bằng với thí sinh THPT
+
+3. **Quy Đổi Tổ Hợp Môn:**
+   - Giúp thí sinh thi tổ hợp khác (không phải gốc) được so sánh công bằng
+   - Ví dụ: Tổ hợp A01 quy về tổ hợp gốc A00
+
+4. **Quy Đổi Chứng Chỉ Ngoại Ngữ:**
+   - Giúp tính điểm cộng từ chứng chỉ tiếng Anh (IELTS, TOEFL, VSTEP)
+   - Nội suy tuyến tính được dùng khi điểm chứng chỉ nằm **giữa 2 bản ghi** trong bảng
+
+---
+
+## Câu Hỏi 6: Quy Trình Nhập & Lưu Điểm - Hiểu Đúng Không?
+
+### Tóm Tắt Kiến Thức
+
+Bạn hiểu **hoàn toàn đúng**! ✅
+
+**Quy trình chuẩn:**
+
+1. **Giao diện `DiemThiXetTuyenGUI`:**
+   - Dùng để **nhập điểm gốc** từ 3 phương thức (THPT/VSAT/DGNL)
+   - Giữ nguyên dữ liệu gốc: THPT 0-10, VSAT 0-150, DGNL 0-1200
+   - **Lưu vào bảng `xt_diemthixettuyen`**
+
+2. **Giao diện `BangQuyDoiGUI`:**
+   - Dùng để **quản lý bảng tra quy đổi** (không phải nhập điểm trực tiếp)
+   - Nhập các mốc quy đổi `[a, b] → [c, d]` cho từng phương thức, tổ hợp, môn
+   - **Lưu vào bảng `xt_bangquydoi`**
+
+3. **Giao diện `DiemCongXetTuyenGUI`:**
+   - Dùng để **nhập/tính điểm cộng** (ĐC + ĐUT)
+   - Hiển thị kết quả tính: tổng ĐC (tối đa 3.0 trên thang 30)
+
+4. **Giao diện `NguyenVongXetTuyenGUI`:**
+   - Dùng để **xem kết quả xét tuyển** (sau khi quy đổi)
+   - Bấm nút "Xét Tuyển" → hệ thống tự động:
+     - Tra bảng `xt_bangquydoi`
+     - Quy đổi điểm VSAT/DGNL & điểm tổ hợp
+     - Tính ĐXT = ĐTHGXT + ĐC + ĐUT
+     - Lưu vào bảng `xt_nguyenvongxettuyen`
+
+### Chi Tiết Từng Giai Đoạn
+
+#### **Giai Đoạn 1: Nhập Điểm Gốc** (DiemThiXetTuyenGUI)
+
+**Input:** File Excel hoặc import từ API có chứa:
+```
+CCCD | Phương thức | TO | LI | HO | SI | ... | NL1
+0001 | THPT        | 8  | 7  | 9  | -  | ... | -
+0002 | V-SAT       | 125| 118| 110| -  | ... | -
+0003 | DGNL        | -  | -  | -  | -  | ... | 850
+```
+
+**Output:** Lưu vào `xt_diemthixettuyen`
+```sql
+INSERT INTO xt_diemthixettuyen (cccd, d_phuongthuc, TO, LI, HO, ...)
+VALUES ('0001', 'THPT', 8, 7, 9, ...);
+```
+
+**Đặc điểm:**
+- Điểm lưu **nguyên gốc**, chưa quy đổi
+- Cột `d_phuongthuc` bắt buộc phải có để xác định loại phương thức
+- Các cột không dùng của phương thức đó để NULL
+
+---
+
+#### **Giai Đoạn 2: Quản Lý Bảng Quy Đổi** (BangQuyDoiGUI)
+
+**Input:** Quy định từ Bộ GD&ĐT (ở folder `data`)
+```
+Ví dụ từ "Quy doi diem thi V-SAT 2025.txt":
+Khoảng VSAT: (114.5, 122.5] → Khoảng THPT: (7, 7.75] (phân vị 20%)
+```
+
+**Output:** Lưu vào `xt_bangquydoi`
+```sql
+INSERT INTO xt_bangquydoi 
+(d_phuongthuc, d_tohop, d_mon, d_diema, d_diemb, d_diemc, d_diemd, d_phanvi)
+VALUES ('V-SAT', NULL, 'TO', 114.5, 122.5, 7, 7.75, '20%');
+```
+
+**Đặc điểm:**
+- Bảng này chỉ là **dữ liệu cấu hình**, không thay đổi thường xuyên
+- Người quản trị nhập **một lần** khi setup hệ thống
+- Code (BUS layer) sẽ tra bảng này khi tính toán
+
+---
+
+#### **Giai Đoạn 3: Nhập Điểm Cộng** (DiemCongXetTuyenGUI)
+
+**Input:** Dữ liệu từ Sơ yếu lý lịch thí sinh
+```
+Chứng chỉ Tiếng Anh: IELTS 6.5 → Quy đổi 1.5 điểm
+Giải thí sinh giỏi: Quốc gia B → Cộng 1.0 điểm
+Ưu tiên khu vực: Miền núi → MĐUT = 0.75 điểm
+```
+
+**Output:** Lưu vào `xt_diemcongxetuyen`
+```sql
+INSERT INTO xt_diemcongxetuyen 
+(ts_cccd, diemCC, diemUtqd, diemTong)
+VALUES ('0001', 1.5, 0.75, 2.25); -- ĐC + ĐUT
+```
+
+**Đặc điểm:**
+- Giao diện này **có thể tính tự động** từ bảng quy đổi chứng chỉ
+- Hoặc **nhập thủ công** nếu quản trị viên có dữ liệu rõ ràng
+
+---
+
+#### **Giai Đoạn 4: Xét Tuyển & Lưu Kết Quả** (NguyenVongXetTuyenGUI)
+
+**Workflow:**
+
+```
+1. Lấy dữ liệu điểm thí sinh từ xt_diemthixettuyen
+   ↓
+2. Đọc danh sách nguyện vọng từ xt_nguyenvongxettuyen (chưa có kết quả)
+   ↓
+3. Với mỗi nguyện vọng:
+   a) Tra bảng xt_bangquydoi
+      - Nếu VSAT: quy đổi 3 môn từ thang 150 về thang 10
+      - Nếu DGNL: quy đổi NL1 từ thang cao về thang 30
+      - Nếu THPT: không cần quy đổi phương thức, nhưng quy đổi tổ hợp nếu khác gốc
+   
+   b) Tính ĐTHXT (tổng điểm 3 môn theo hệ số)
+   
+   c) Quy đổi về tổ hợp gốc (nếu cần)
+   
+   d) Cộng ĐC từ xt_diemcongxetuyen
+   
+   e) Tính ĐUT theo quy tắc giảm dần
+   
+   f) Tính ĐXT = ĐTHGXT + ĐC + ĐUT
+   
+   g) So sánh ĐXT với điểm chuẩn của ngành
+      - Nếu ĐXT ≥ điểm chuẩn AND chỉ tiêu > 0 → ĐỖ, dừng
+      - Nếu không → TRƯỢT, tiếp tục NV tiếp theo
+   
+   h) Lưu ĐXT & kết quả vào xt_nguyenvongxettuyen
+   
+4. Tất cả NV chưa được xét → gắn tag "KHÔNG XÉT"
+```
+
+**Output:** Cập nhật `xt_nguyenvongxettuyen` với kết quả xét tuyển
+
+---
+
+### Câu Hỏi Chi Tiết: "Bảng QuyDoi Chỉ Nên Có VSAT & DGNL Thôi, Không Có THPT?"
+
+**Trả lời: Đúng!** ✅
+
+#### **Tại Sao Không Nên Có Quy Đổi THPT?**
+
+1. **THPT Không Cần Quy Đổi Phương Thức:**
+   - Điểm THPT đã là thang 10 chuẩn
+   - Không có "thang điểm THPT cao" để quy về "thang điểm THPT thấp"
+   - Việc quy đổi THPT → THPT là vô nghĩa
+
+2. **Quy Đổi Tổ Hợp Không Nằm Trong BangQuyDoi:**
+   - Quy đổi tổ hợp (A00 → D01) dùng **bảng độ lệch**, không phải bảng bách phân vị
+   - Quy tắc riêng trong file `cac cong thuc tinh.txt`
+   - Nên xử lý **riêng biệt** trong code, không pha lẫn với BangQuyDoi
+
+#### **BangQuyDoi Chỉ Nên Chứa:**
+
+```
+✅ V-SAT (tất cả 8 môn): thang 150 → thang 10
+✅ DGNL (theo tổ hợp): thang cao (1200 hoặc khác) → thang 30
+❌ THPT → THPT (vô lý)
+❌ THPT → VSAT (không có cách quy đổi ngược)
+❌ VSAT → DGNL (hai phương thức khác nhau, không so sánh được)
+```
+
+#### **Ví Dụ Dữ Liệu Hợp Lý:**
+
+```sql
+-- ✅ HỢP LỆ
+INSERT INTO xt_bangquydoi 
+(d_phuongthuc, d_mon, d_diema, d_diemb, d_diemc, d_diemd, d_phanvi)
+VALUES ('V-SAT', 'TO', 114.5, 122.5, 7, 7.75, '20%');
+VALUES ('V-SAT', 'LI', 110.5, 118.5, 6.5, 7.5, '20%');
+VALUES ('DGNL', 'A01', 800, 900, 20, 25, '20%');
+
+-- ❌ KHÔNG HỢP LỆ
+INSERT INTO xt_bangquydoi 
+(d_phuongthuc, d_mon, d_diema, d_diemb, d_diemc, d_diemd, d_phanvi)
+VALUES ('THPT', 'TO', 7, 10, 7, 10, '100%');  -- Không cần quy đổi THPT → THPT
+VALUES ('V-SAT', 'TO', 7, 10, 114.5, 122.5, '20%');  -- Sai chiều quy đổi (ngược lại)
+```
+
+---
+
+### Kết Luận
+
+**Quy Trình Chính Xác:**
+
+```
+📥 Nhập Điểm Gốc (DiemThiXetTuyenGUI)
+   ↓ Lưu: xt_diemthixettuyen
+   
+📋 Quản Lý Bảng Quy Đổi (BangQuyDoiGUI)
+   ↓ Lưu: xt_bangquydoi (VSAT & DGNL chỉ)
+   
+➕ Nhập Điểm Cộng (DiemCongXetTuyenGUI)
+   ↓ Lưu: xt_diemcongxetuyen
+   
+🔄 Xét Tuyển - Tự Động Quy Đổi (NguyenVongXetTuyenGUI)
+   ├─ Tra xt_bangquydoi → quy đổi VSAT/DGNL
+   ├─ Quy đổi tổ hợp (riêng, không dùng BangQuyDoi)
+   ├─ Tính ĐXT = ĐTHGXT + ĐC + ĐUT
+   └─ Lưu: xt_nguyenvongxettuyen (với kết quả xét tuyển)
+```
+
+**Bảng BangQuyDoi là:** Dữ liệu cấu hình bách phân vị, **chỉ dùng cho VSAT & DGNL**, không bao gồm THPT.

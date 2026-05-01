@@ -27,39 +27,57 @@ public class BangQuyDoiGUI extends JPanel {
         JLabel lblTitle = new JLabel("QUẢN LÝ BẢNG QUY ĐỔI", JLabel.CENTER);
         ModernTheme.styleModuleTitle(lblTitle);
 
-        JPanel pnlInput = new JPanel(new GridLayout(4, 6, 10, 10));
-        pnlInput.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        // Create input form with GridLayout (2 columns: label + input per row)
+        JPanel pnlFormContent = new JPanel(new GridLayout(5, 4, 15, 10));
+        pnlFormContent.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
 
-        pnlInput.add(new JLabel("Phương thức:"));
+        // Row 1: Phương thức | Tổ hợp
+        pnlFormContent.add(new JLabel("Phương thức:"));
         cboPhuongThuc = new JComboBox<>(new String[] { "DGNL", "V-SAT", "THPT" });
-        pnlInput.add(cboPhuongThuc);
-        pnlInput.add(new JLabel("Tổ hợp (nếu có):"));
+        pnlFormContent.add(cboPhuongThuc);
+        pnlFormContent.add(new JLabel("Tổ hợp (nếu có):"));
         txtToHop = new JTextField();
-        pnlInput.add(txtToHop);
-        pnlInput.add(new JLabel("Môn (nếu có):"));
+        pnlFormContent.add(txtToHop);
+
+        // Row 2: Môn | Phân vị
+        pnlFormContent.add(new JLabel("Môn (nếu có):"));
         txtMon = new JTextField();
-        pnlInput.add(txtMon);
-
-        pnlInput.add(new JLabel("Phân vị:"));
+        pnlFormContent.add(txtMon);
+        pnlFormContent.add(new JLabel("Phân vị:"));
         txtPhanVi = new JTextField();
-        pnlInput.add(txtPhanVi);
-        pnlInput.add(new JLabel("a (điểm gốc):"));
-        txtA = new JTextField();
-        pnlInput.add(txtA);
-        pnlInput.add(new JLabel("b (điểm gốc):"));
-        txtB = new JTextField();
-        pnlInput.add(txtB);
+        pnlFormContent.add(txtPhanVi);
 
-        pnlInput.add(new JLabel("c (điểm quy đổi):"));
+        // Row 3: a | b
+        pnlFormContent.add(new JLabel("a (điểm gốc):"));
+        txtA = new JTextField();
+        pnlFormContent.add(txtA);
+        pnlFormContent.add(new JLabel("b (điểm gốc):"));
+        txtB = new JTextField();
+        pnlFormContent.add(txtB);
+
+        // Row 4: c | d
+        pnlFormContent.add(new JLabel("c (điểm quy đổi):"));
         txtC = new JTextField();
-        pnlInput.add(txtC);
-        pnlInput.add(new JLabel("d (điểm quy đổi):"));
+        pnlFormContent.add(txtC);
+        pnlFormContent.add(new JLabel("d (điểm quy đổi):"));
         txtD = new JTextField();
-        pnlInput.add(txtD);
-        pnlInput.add(new JLabel("Mã quy đổi (tự sinh):"));
+        pnlFormContent.add(txtD);
+
+        // Row 5: Mã quy đổi
+        pnlFormContent.add(new JLabel("Mã quy đổi (tự sinh):"));
         txtMaQuyDoi = new JTextField();
         txtMaQuyDoi.setEditable(false);
-        pnlInput.add(txtMaQuyDoi);
+        pnlFormContent.add(txtMaQuyDoi);
+        pnlFormContent.add(new JLabel("")); // Empty label
+        pnlFormContent.add(new JLabel("")); // Empty component
+
+        // Wrap form in scroll pane
+        JScrollPane scrollInputs = new JScrollPane(pnlFormContent,
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollInputs.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder("Thông tin quy đổi"),
+                BorderFactory.createEmptyBorder(0, 0, 0, 0)));
 
         JPanel pnlButtons = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
         btnThem = new JButton("Thêm");
@@ -73,7 +91,7 @@ public class BangQuyDoiGUI extends JPanel {
 
         JPanel pnlTop = new JPanel(new BorderLayout());
         pnlTop.add(lblTitle, BorderLayout.NORTH);
-        pnlTop.add(pnlInput, BorderLayout.CENTER);
+        pnlTop.add(scrollInputs, BorderLayout.CENTER);
         pnlTop.add(pnlButtons, BorderLayout.SOUTH);
         add(pnlTop, BorderLayout.NORTH);
 

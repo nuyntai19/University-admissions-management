@@ -7,12 +7,12 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.math.BigDecimal;
 import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -26,12 +26,31 @@ import javax.swing.SwingWorker;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
 
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
+
 import vn.edu.sgu.phanmemtuyensinh.bus.DiemThiXetTuyenBUS;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.DiemThiXetTuyen;
 
 public class DiemThiXetTuyenGUI extends JPanel {
 
     private static final int PAGE_SIZE = 20;
+    private static final String[] EXPORT_HEADERS = {
+            "ID", "CCCD", "Số Báo Danh", "Phương Thức",
+            "TO", "LI", "HO", "SI", "SU", "DI", "VA", "GDCD",
+            "N1_THI", "N1_CC", "CNCN", "CNNN", "TI", "KTPL", "NL1",
+            "NK1", "NK2", "NK3", "NK4", "NK5", "NK6", "NK7", "NK8", "NK9", "NK10",
+            "Điểm xét TN"
+    };
 
     private final DiemThiXetTuyenBUS bus = new DiemThiXetTuyenBUS();
 
@@ -40,6 +59,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
     private JButton btnSua;
     private JButton btnXoa;
     private JButton btnImport;
+    private JButton btnExport;
     private JButton btnTim;
     private JButton btnLamMoi;
     private JButton btnTrangTruoc;
@@ -47,13 +67,12 @@ public class DiemThiXetTuyenGUI extends JPanel {
     private JLabel lblThongTinTrang;
     private JTable table;
     private DefaultTableModel tableModel;
-    private JComboBox<String> cbbSort;
 
     private int currentId = -1;
     private int currentPage = 1;
     private long totalItems = 0;
     private String currentKeyword = "";
-    private String currentSortOrder = "DESC";
+    private String currentSortOrder = "ASC";
 
     public DiemThiXetTuyenGUI() {
         setLayout(new BorderLayout(10, 10));
@@ -76,39 +95,27 @@ public class DiemThiXetTuyenGUI extends JPanel {
         btnSua = new JButton("Sửa");
         btnXoa = new JButton("Xóa");
         btnImport = new JButton("Import");
+        btnExport = new JButton("Export");
         btnLamMoi = new JButton("Làm Mới");
         pnlActions.add(btnThem);
         pnlActions.add(btnSua);
         pnlActions.add(btnXoa);
-        pnlActions.add(btnImport);
         pnlActions.add(btnLamMoi);
-
-        JPanel pnlSort = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
-        pnlSort.setOpaque(false);
-        cbbSort = new JComboBox<>(new String[]{"Lớn nhất đến bé nhất", "Bé nhất đến lớn nhất"});
-        cbbSort.setSelectedIndex(0);
-        cbbSort.addActionListener(e -> {
-            String selected = (String) cbbSort.getSelectedItem();
-            currentSortOrder = "Bé nhất đến lớn nhất".equals(selected) ? "ASC" : "DESC";
-            currentPage = 1;
-            currentId = -1;
-            table.clearSelection();
-            loadPage();
-        });
-        pnlSort.add(cbbSort);
 
         JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         pnlSearch.setOpaque(false);
         pnlSearch.add(new JLabel("Tìm CCCD / SBD:"));
-        txtTimKiem = new JTextField(22);
+        txtTimKiem = new JTextField(20);
         btnTim = new JButton("Tìm");
         pnlSearch.add(txtTimKiem);
         pnlSearch.add(btnTim);
+        pnlSearch.add(new JLabel("  "));
+        pnlSearch.add(btnImport);
+        pnlSearch.add(btnExport);
 
         JPanel pnlActionSearchSort = new JPanel(new BorderLayout(8, 8));
         pnlActionSearchSort.setOpaque(false);
         pnlActionSearchSort.add(pnlActions, BorderLayout.WEST);
-        pnlActionSearchSort.add(pnlSort, BorderLayout.CENTER);
         pnlActionSearchSort.add(pnlSearch, BorderLayout.EAST);
 
         JPanel pnlTop = new JPanel(new BorderLayout(0, 8));
@@ -120,6 +127,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
         btnSua.addActionListener(e -> suaDiem());
         btnXoa.addActionListener(e -> xoaDiem());
         btnImport.addActionListener(e -> importDiem());
+        btnExport.addActionListener(e -> exportDiem());
         btnTim.addActionListener(e -> timKiem());
         btnLamMoi.addActionListener(e -> lamMoi());
 
@@ -658,5 +666,237 @@ public class DiemThiXetTuyenGUI extends JPanel {
 
     private String nullToEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private void exportDiem() {
+        showExportDialog();
+    }
+
+    private void showExportDialog() {
+        JDialog dialog = new JDialog((java.awt.Frame) null, "Chọn loại xuất Excel", true);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.setLayout(new BorderLayout(10, 10));
+        dialog.setSize(400, 180);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel pnlContent = new JPanel(new GridLayout(3, 1, 10, 10));
+        pnlContent.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+        JLabel lblTitle = new JLabel("Chọn cách xuất file Excel:");
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        pnlContent.add(lblTitle);
+
+        JButton btnTemplate = new JButton("Xuất file trắng (chỉ định dạng cột)");
+        btnTemplate.addActionListener(e -> {
+            dialog.dispose();
+            exportToExcelTemplate();
+        });
+        pnlContent.add(btnTemplate);
+
+        JButton btnWithData = new JButton("Xuất file có đầy đủ dữ liệu");
+        btnWithData.addActionListener(e -> {
+            dialog.dispose();
+            exportToExcelWithData();
+        });
+        pnlContent.add(btnWithData);
+
+        dialog.add(pnlContent, BorderLayout.CENTER);
+        dialog.setVisible(true);
+    }
+
+    private void exportToExcelTemplate() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Lưu file Excel template");
+        chooser.setFileFilter(new FileNameExtensionFilter("Excel file", "xlsx"));
+        chooser.setSelectedFile(new File("DiemThiXetTuyen_Template.xlsx"));
+
+        int result = chooser.showSaveDialog(this);
+        if (result != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File selectedFile = chooser.getSelectedFile();
+        if (selectedFile == null) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn vị trí lưu file!");
+            return;
+        }
+
+        try {
+            XSSFWorkbook workbook = new XSSFWorkbook();
+            XSSFSheet sheet = workbook.createSheet("Điểm Thi Xét Tuyển");
+
+            XSSFCellStyle headerStyle = createHeaderStyle(workbook);
+            XSSFRow headerRow = sheet.createRow(0);
+            for (int i = 0; i < EXPORT_HEADERS.length; i++) {
+                headerRow.createCell(i).setCellValue(EXPORT_HEADERS[i]);
+                headerRow.getCell(i).setCellStyle(headerStyle);
+                sheet.setColumnWidth(i, i < 4 ? 18 * 256 : 12 * 256);
+            }
+
+            sheet.createFreezePane(0, 1);
+            sheet.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(0, 0, 0, EXPORT_HEADERS.length - 1));
+
+            // Ghi file
+            try (FileOutputStream fos = new FileOutputStream(selectedFile)) {
+                workbook.write(fos);
+            }
+            workbook.close();
+
+            JOptionPane.showMessageDialog(this, "Xuất file template thành công!\nĐường dẫn: " + selectedFile.getAbsolutePath());
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Lỗi khi xuất file: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void exportToExcelWithData() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Lưu file Excel có dữ liệu");
+        chooser.setFileFilter(new FileNameExtensionFilter("Excel file", "xlsx"));
+        chooser.setSelectedFile(new File("DiemThiXetTuyen_" + System.currentTimeMillis() + ".xlsx"));
+
+        int result = chooser.showSaveDialog(this);
+        if (result != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File selectedFile = chooser.getSelectedFile();
+        if (selectedFile == null) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn vị trí lưu file!");
+            return;
+        }
+
+        // Chạy trong background
+        SwingWorker<Boolean, String> worker = new SwingWorker<>() {
+            @Override
+            protected Boolean doInBackground() {
+                try {
+                    XSSFWorkbook workbook = new XSSFWorkbook();
+                    XSSFSheet sheet = workbook.createSheet("Điểm Thi Xét Tuyển");
+
+                    XSSFCellStyle headerStyle = createHeaderStyle(workbook);
+                    XSSFCellStyle dataStyle = createDataStyle(workbook);
+
+                    XSSFRow headerRow = sheet.createRow(0);
+                    for (int i = 0; i < EXPORT_HEADERS.length; i++) {
+                        headerRow.createCell(i).setCellValue(EXPORT_HEADERS[i]);
+                        headerRow.getCell(i).setCellStyle(headerStyle);
+                        sheet.setColumnWidth(i, i < 4 ? 18 * 256 : 12 * 256);
+                    }
+
+                    sheet.createFreezePane(0, 1);
+                    sheet.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(0, 0, 0, EXPORT_HEADERS.length - 1));
+
+                    // Lấy toàn bộ dữ liệu từ DB
+                    List<DiemThiXetTuyen> allData = bus.getAll();
+                    int rowNum = 1;
+
+                    for (DiemThiXetTuyen d : allData) {
+                        XSSFRow row = sheet.createRow(rowNum++);
+
+                        row.createCell(0).setCellValue(d.getIdDiemThi());
+                        row.createCell(1).setCellValue(nullToEmpty(d.getCccd()));
+                        row.createCell(2).setCellValue(nullToEmpty(d.getSoBaoDanh()));
+                        row.createCell(3).setCellValue(nullToEmpty(d.getPhuongThuc()));
+                        setCellDecimalValue(row.createCell(4), d.getTo());
+                        setCellDecimalValue(row.createCell(5), d.getLi());
+                        setCellDecimalValue(row.createCell(6), d.getHo());
+                        setCellDecimalValue(row.createCell(7), d.getSi());
+                        setCellDecimalValue(row.createCell(8), d.getSu());
+                        setCellDecimalValue(row.createCell(9), d.getDi());
+                        setCellDecimalValue(row.createCell(10), d.getVa());
+                        setCellDecimalValue(row.createCell(11), d.getGdcd());
+                        setCellDecimalValue(row.createCell(12), d.getN1Thi());
+                        setCellDecimalValue(row.createCell(13), d.getN1Cc());
+                        setCellDecimalValue(row.createCell(14), d.getCncn());
+                        setCellDecimalValue(row.createCell(15), d.getCnnn());
+                        setCellDecimalValue(row.createCell(16), d.getTi());
+                        setCellDecimalValue(row.createCell(17), d.getKtpl());
+                        setCellDecimalValue(row.createCell(18), d.getNl1());
+                        setCellDecimalValue(row.createCell(19), d.getNk1());
+                        setCellDecimalValue(row.createCell(20), d.getNk2());
+                        setCellDecimalValue(row.createCell(21), d.getNk3());
+                        setCellDecimalValue(row.createCell(22), d.getNk4());
+                        setCellDecimalValue(row.createCell(23), d.getNk5());
+                        setCellDecimalValue(row.createCell(24), d.getNk6());
+                        setCellDecimalValue(row.createCell(25), d.getNk7());
+                        setCellDecimalValue(row.createCell(26), d.getNk8());
+                        setCellDecimalValue(row.createCell(27), d.getNk9());
+                        setCellDecimalValue(row.createCell(28), d.getNk10());
+                        setCellDecimalValue(row.createCell(29), d.getDiemXetTotNghiep());
+
+                        // Apply data style
+                        for (int i = 0; i < EXPORT_HEADERS.length; i++) {
+                            row.getCell(i).setCellStyle(dataStyle);
+                        }
+                    }
+
+                    // Ghi file
+                    try (FileOutputStream fos = new FileOutputStream(selectedFile)) {
+                        workbook.write(fos);
+                    }
+                    workbook.close();
+
+                    return true;
+                } catch (Exception ex) {
+                    return false;
+                }
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    if (get()) {
+                        JOptionPane.showMessageDialog(DiemThiXetTuyenGUI.this,
+                                "Xuất dữ liệu thành công!\nĐường dẫn: " + selectedFile.getAbsolutePath());
+                    } else {
+                        JOptionPane.showMessageDialog(DiemThiXetTuyenGUI.this,
+                                "Lỗi khi xuất dữ liệu!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(DiemThiXetTuyenGUI.this,
+                            "Lỗi: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+
+        worker.execute();
+    }
+
+    private XSSFCellStyle createHeaderStyle(XSSFWorkbook workbook) {
+        XSSFCellStyle style = workbook.createCellStyle();
+        XSSFFont font = workbook.createFont();
+        font.setBold(true);
+        font.setColor(IndexedColors.WHITE.getIndex());
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setWrapText(true);
+        return style;
+    }
+
+    private XSSFCellStyle createDataStyle(XSSFWorkbook workbook) {
+        XSSFCellStyle style = workbook.createCellStyle();
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setWrapText(false);
+        return style;
+    }
+
+    private void setCellDecimalValue(org.apache.poi.xssf.usermodel.XSSFCell cell, BigDecimal value) {
+        if (value != null) {
+            cell.setCellValue(value.doubleValue());
+        } else {
+            cell.setCellValue("");
+        }
     }
 }
