@@ -77,7 +77,7 @@
 ### ⚙️ Configuration Files
 
 - [ ] `pom.xml` - Maven build file
-  - Verify: `<maven.compiler.release>21</maven.compiler.release>` (changed from 25)
+  - Verify: `<maven.compiler.release>17</maven.compiler.release>`
   - Verify: Hibernate 6.4.4.Final dependency
   - Verify: MySQL Connector 8.3.0
   - Verify: Apache POI 5.2.5 (for Excel import)
@@ -176,9 +176,8 @@ mysql -u root -p xettuyen2026 -e "SHOW TABLES;"
 ### Step 4: Hibernate Validation
 
 ```bash
-# Check if HibernateUtil can initialize
-mvn exec:java -Dexec.mainClass="vn.edu.sgu.phanmemtuyensinh.utils.HibernateUtil"
-# Should succeed (or show expected errors if DB not set up)
+# Fast smoke check: launch the app with DB env overrides and try logging in
+# (Project is Java Swing, so there may be little/no console output when successful)
 ```
 
 ---
@@ -192,12 +191,71 @@ mvn exec:java -Dexec.mainClass="vn.edu.sgu.phanmemtuyensinh.utils.HibernateUtil"
 - [ ] All tables created from SQL schema
 - [ ] Sample user data inserted (admin/admin123)
 - [ ] `hibernate.cfg.xml` has correct credentials
-- [ ] Java 21+ installed (`java -version` shows 21+)
-- [ ] Maven installed (`mvn --version` shows 5.2+)
+- [ ] Java 17+ installed (`java -version` shows 17+)
+- [ ] Maven installed (`mvn --version` shows 3.8+)
 
 ### Code Quality
 
 - [ ] All 30+ Java files compile without errors
+
+---
+
+## 🧪 Functional Smoke Tests (Features vừa implement)
+
+### 1) Setup DB (Docker Compose) + chạy app
+
+```bash
+docker compose up -d db
+docker compose ps
+
+# PowerShell (chạy GUI trên host, DB trong Docker port 3307)
+$env:JAVA_HOME="C:\Users\fan7a\.jdks\jbr-17.0.14"
+$env:Path="$env:JAVA_HOME\bin;$env:Path"
+$env:DB_HOST="127.0.0.1"
+$env:DB_PORT="3307"
+$env:DB_NAME="xettuyen2026"
+$env:DB_USER="root"
+$env:DB_PASS="12345678"
+java -cp "target\PhanMemTuyenSinh-1.0-SNAPSHOT.jar;target\dependency\*" vn.edu.sgu.phanmemtuyensinh.PhanMemTuyenSinh
+```
+
+Đăng nhập mặc định (v2 SQL): `admin / admin123`.
+
+### 2) Ngành → Tổ hợp (auto môn + độ lệch)
+
+- Vào tab **Quản Lý Ngành**: tạo 1 ngành mới có `Tổ hợp gốc = A00`.
+- Vào tab **Quản Lý Tổ Hợp Môn**: đảm bảo có tổ hợp `A01` (nếu chưa có thì thêm).
+- Vào tab **Quản Lý Ngành-Tổ Hợp**:
+  - Chọn ngành vừa tạo + chọn `A01`.
+  - Kỳ vọng ô **Độ lệch** hiển thị `-0.69` (theo bảng trong `data/cac cong thuc tinh.txt`, hàng gốc A00 cột A01).
+  - Nhấn **Thêm** → mapping xuất hiện trong bảng, các ô **Môn 1/2/3** phải khớp với tổ hợp trong `xt_tohop_monthi`.
+  - Thử **Thêm** lại đúng cặp ngành/tổ hợp → phải báo trùng khóa mapping.
+
+### 3) Bảng quy đổi (khóa tự sinh + chống trùng)
+
+- Vào tab **Quản Lý Bảng Quy Đổi**:
+  - Nhập `Phương thức=V-SAT`, `Môn=TO`, `Phân vị=P50`, `a=5`, `b=6`, `c=15`, `d=18`.
+  - Kỳ vọng **Mã quy đổi** tự sinh dạng `V-SAT_TO_P50`.
+  - Nhấn **Thêm**.
+  - Thử thêm lại cùng dữ liệu → phải báo trùng khóa.
+
+### 4) Test nhanh nội suy tuyến tính (không có nút UI) bằng JShell
+
+```bash
+jshell --class-path "target\PhanMemTuyenSinh-1.0-SNAPSHOT.jar;target\dependency\*"
+```
+
+Trong JShell:
+
+```java
+import vn.edu.sgu.phanmemtuyensinh.bus.BangQuyDoiBUS;
+import java.math.*;
+
+var bus = new BangQuyDoiBUS();
+bus.quyDoiNoiSuy("V-SAT", null, "TO", new BigDecimal("5.5"));
+```
+
+Kỳ vọng kết quả `16.50000` (nội suy tuyến tính giữa [5,6] -> [15,18]).
 - [ ] No import errors in any class
 - [ ] No missing dependencies in pom.xml
 - [ ] All .javax.swing imports present

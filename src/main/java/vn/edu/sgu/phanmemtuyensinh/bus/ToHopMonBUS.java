@@ -41,6 +41,9 @@ public class ToHopMonBUS {
 
     // Logic xử lý trước khi thêm mới
     public boolean add(ToHopMon toHop) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         if (!validateToHopMon(toHop, true)) {
             return false;
         }
@@ -49,6 +52,9 @@ public class ToHopMonBUS {
 
     // Logic xử lý trước khi cập nhật
     public boolean update(ToHopMon toHop) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         if (toHop == null) {
             lastError = "Dữ liệu tổ hợp môn không hợp lệ";
             return false;
@@ -74,6 +80,9 @@ public class ToHopMonBUS {
 
     // Logic xử lý trước khi xóa
     public boolean delete(int idToHop) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         return dao.delete(idToHop);
     }
 
@@ -298,6 +307,11 @@ public class ToHopMonBUS {
     }
 
     public int importAndSaveToDatabase(String filePath) throws IOException {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            lastImportSummary = lastError;
+            return 0;
+        }
+
         List<ToHopMon> toHopList = importDanhSachToHop(filePath);
         int countSuccess = 0;
         int countFailed = 0;
@@ -546,5 +560,10 @@ public class ToHopMonBUS {
             return value;
         }
         return value.substring(0, maxLength);
+    }
+    
+    public ToHopMon getByMaToHop(String maToHop)
+    {
+        return dao.getByMaToHop(maToHop);
     }
 }

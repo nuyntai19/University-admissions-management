@@ -52,6 +52,7 @@ public class ThiSinhGUI extends JPanel {
     private JButton btnSua;
     private JButton btnXoa;
     private JButton btnImport;
+    private JButton btnTaoTaiKhoan;
     private JButton btnTim;
     private JButton btnLamMoi;
     private JButton btnTrangTruoc;
@@ -86,11 +87,13 @@ public class ThiSinhGUI extends JPanel {
         btnSua = new JButton("Sửa");
         btnXoa = new JButton("Xóa");
         btnImport = new JButton("Import");
+        btnTaoTaiKhoan = new JButton("Tạo tài khoản");
         btnLamMoi = new JButton("Làm Mới");
         pnlActions.add(btnThem);
         pnlActions.add(btnSua);
         pnlActions.add(btnXoa);
         pnlActions.add(btnImport);
+        pnlActions.add(btnTaoTaiKhoan);
         pnlActions.add(btnLamMoi);
 
         JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
@@ -115,10 +118,84 @@ public class ThiSinhGUI extends JPanel {
         btnSua.addActionListener(e -> suaThiSinh());
         btnXoa.addActionListener(e -> xoaThiSinh());
         btnImport.addActionListener(e -> importThiSinh());
+        btnTaoTaiKhoan.addActionListener(e -> taoTaiKhoan());
         btnTim.addActionListener(e -> timKiem());
         btnLamMoi.addActionListener(e -> lamMoi());
 
         add(pnlTop, BorderLayout.NORTH);
+    }
+
+    public void setActionButtonsEnabled(boolean enabled) {
+        btnThem.setEnabled(enabled);
+        btnSua.setEnabled(enabled);
+        btnXoa.setEnabled(enabled);
+        btnImport.setEnabled(enabled);
+        btnTaoTaiKhoan.setEnabled(enabled);
+        btnLamMoi.setEnabled(true);
+        btnTim.setEnabled(true);
+    }
+
+    private void taoTaiKhoan() {
+        JDialog progressDialog = new JDialog((java.awt.Frame) null, "Tạo tài khoản cho thí sinh...", true);
+        progressDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        progressDialog.setLayout(new BorderLayout(10, 10));
+
+        JLabel lblStatus = new JLabel("Đang quét danh sách thí sinh...");
+        JProgressBar progressBar = new JProgressBar(0, 100);
+        progressBar.setValue(0);
+        progressBar.setStringPainted(true);
+
+        JPanel content = new JPanel(new BorderLayout(8, 8));
+        content.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        content.add(lblStatus, BorderLayout.NORTH);
+        content.add(progressBar, BorderLayout.CENTER);
+        progressDialog.add(content, BorderLayout.CENTER);
+        progressDialog.setSize(420, 120);
+        progressDialog.setLocationRelativeTo(this);
+
+        SwingWorker<Integer, String> worker = new SwingWorker<>() {
+            private String errorMessage;
+
+            @Override
+            protected Integer doInBackground() {
+                return bus.createAccountsForAll((percent, message) -> {
+                    setProgress(percent);
+                    publish(message);
+                });
+            }
+
+            @Override
+            protected void process(List<String> chunks) {
+                if (!chunks.isEmpty()) {
+                    lblStatus.setText(chunks.get(chunks.size() - 1));
+                }
+            }
+
+            @Override
+            protected void done() {
+                progressDialog.dispose();
+                try {
+                    int created = get();
+                    JOptionPane.showMessageDialog(ThiSinhGUI.this,
+                            "Tạo tài khoản hoàn tất. Số tài khoản mới: " + created);
+                    loadPage();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(ThiSinhGUI.this,
+                            "Lỗi trong quá trình tạo tài khoản: " + ex.getMessage(),
+                            "Lỗi",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+
+        worker.addPropertyChangeListener(evt -> {
+            if ("progress".equals(evt.getPropertyName())) {
+                progressBar.setValue((Integer) evt.getNewValue());
+            }
+        });
+
+        worker.execute();
+        progressDialog.setVisible(true);
     }
 
     private void buildTable() {
@@ -410,6 +487,8 @@ public class ThiSinhGUI extends JPanel {
             loadPage();
             table.clearSelection();
             currentId = -1;
+        } else {
+            JOptionPane.showMessageDialog(this, "Xóa thất bại: " + bus.getLastError());
         }
     }
 

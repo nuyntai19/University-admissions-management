@@ -47,6 +47,25 @@ public class ThiSinhDAO {
         }
     }
 
+    public ThiSinh getBySoBaoDanh(String soBaoDanh) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery("FROM ThiSinh WHERE soBaoDanh = :sbd", ThiSinh.class)
+                    .setParameter("sbd", soBaoDanh).uniqueResult();
+        }
+    }
+
+    public List<ThiSinh> searchByKeyword(String keyword, int limit) {
+        String key = "%" + keyword.toLowerCase() + "%";
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery(
+                    "FROM ThiSinh WHERE lower(cccd) LIKE :key OR lower(ho) LIKE :key OR lower(ten) LIKE :key ORDER BY idThiSinh",
+                    ThiSinh.class)
+                    .setParameter("key", key)
+                    .setMaxResults(limit)
+                    .list();
+        }
+    }
+
     public List<ThiSinh> searchByKeyword(String keyword, int page, int pageSize) {
         int offset = Math.max(0, (page - 1) * pageSize);
         String key = "%" + keyword.toLowerCase() + "%";
@@ -146,4 +165,56 @@ public class ThiSinhDAO {
             return false;
         }
     }
+
+    /**
+     * Pre-load toàn bộ CCCD -> idThiSinh để tránh N+1 query khi import điểm
+     */
+    public java.util.Map<String, Integer> getAllCccdToIdMap() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            List<Object[]> rows = session.createQuery(
+                    "SELECT ts.cccd, ts.idThiSinh FROM ThiSinh ts", Object[].class).list();
+            java.util.Map<String, Integer> map = new java.util.HashMap<>(rows.size() * 2);
+            for (Object[] row : rows) {
+                if (row[0] != null) {
+                    map.put((String) row[0], (Integer) row[1]);
+                }
+            }
+            return map;
+        }
+    }
+
+    /**
+     * Pre-load toàn bộ SoBaoDanh (uppercase) -> idThiSinh để tránh N+1 query khi import điểm
+     */
+    public java.util.Map<String, Integer> getAllSbdToIdMap() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            List<Object[]> rows = session.createQuery(
+                    "SELECT ts.soBaoDanh, ts.idThiSinh FROM ThiSinh ts", Object[].class).list();
+            java.util.Map<String, Integer> map = new java.util.HashMap<>(rows.size() * 2);
+            for (Object[] row : rows) {
+                if (row[0] != null) {
+                    map.put(((String) row[0]).toUpperCase(), (Integer) row[1]);
+                }
+            }
+            return map;
+        }
+    }
+
+    /**
+     * Pre-load SoBaoDanh (uppercase) -> CCCD thực để fix dữ liệu import có CCCD dạng TS_xxx
+     */
+    public java.util.Map<String, String> getAllSbdToCccdMap() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            List<Object[]> rows = session.createQuery(
+                    "SELECT ts.soBaoDanh, ts.cccd FROM ThiSinh ts", Object[].class).list();
+            java.util.Map<String, String> map = new java.util.HashMap<>(rows.size() * 2);
+            for (Object[] row : rows) {
+                if (row[0] != null && row[1] != null) {
+                    map.put(((String) row[0]).toUpperCase(), (String) row[1]);
+                }
+            }
+            return map;
+        }
+    }
 }
+

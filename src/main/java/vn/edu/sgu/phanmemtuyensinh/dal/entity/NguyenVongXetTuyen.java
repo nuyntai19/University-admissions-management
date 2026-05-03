@@ -13,13 +13,20 @@ public class NguyenVongXetTuyen {
     private int idNv;
 
     @Column(name = "nn_cccd", nullable = false, length = 45)
-    private String nnCccd;
+    private String nvCccd;
+
+    
+    @Column(name = "nv_tt", nullable = false)
+    private int nvTt;
 
     @Column(name = "nv_manganh", nullable = false, length = 45)
     private String nvMaNganh;
 
-    @Column(name = "nv_tt", nullable = false)
-    private int nvTt;
+    @Column(name = "nv_tenmanganh", length = 255)
+    private String nvTenMaNganh;
+
+    @Column(name = "nv_tuyenthang", length = 100)
+    private String nvTuyenThang;
 
     @Column(name = "diem_thxt")
     private BigDecimal diemThxt;
@@ -48,17 +55,25 @@ public class NguyenVongXetTuyen {
     public NguyenVongXetTuyen() {
     }
 
+    // getters/setters
+
     public int getIdNv() { return idNv; }
     public void setIdNv(int idNv) { this.idNv = idNv; }
 
-    public String getNnCccd() { return nnCccd; }
-    public void setNnCccd(String nnCccd) { this.nnCccd = nnCccd; }
+    public String getNvCccd() { return nvCccd; }
+    public void setNvCccd(String nvCccd) { this.nvCccd = nvCccd; }
+    
+    public int getNvTt() { return nvTt; }
+    public void setNvTt(int nvTt) { this.nvTt = nvTt; }
 
     public String getNvMaNganh() { return nvMaNganh; }
     public void setNvMaNganh(String nvMaNganh) { this.nvMaNganh = nvMaNganh; }
 
-    public int getNvTt() { return nvTt; }
-    public void setNvTt(int nvTt) { this.nvTt = nvTt; }
+    public String getNvTenMaNganh() { return nvTenMaNganh; }
+    public void setNvTenMaNganh(String nvTenMaNganh) { this.nvTenMaNganh = nvTenMaNganh; }
+
+    public String getNvTuyenThang() { return nvTuyenThang; }
+    public void setNvTuyenThang(String nvTuyenThang) { this.nvTuyenThang = nvTuyenThang; }
 
     public BigDecimal getDiemThxt() { return diemThxt; }
     public void setDiemThxt(BigDecimal diemThxt) { this.diemThxt = diemThxt; }

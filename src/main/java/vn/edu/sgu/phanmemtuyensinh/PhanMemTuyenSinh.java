@@ -23,6 +23,7 @@ import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
+import vn.edu.sgu.phanmemtuyensinh.bus.AuthorizationContext;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.NguoiDung;
 import vn.edu.sgu.phanmemtuyensinh.gui.BangQuyDoiGUI;
 import vn.edu.sgu.phanmemtuyensinh.gui.DangNhapDialog;
@@ -47,6 +48,7 @@ public class PhanMemTuyenSinh extends JFrame {
 
     public PhanMemTuyenSinh(NguoiDung currentUser) {
         this.currentUser = currentUser;
+        AuthorizationContext.setCurrentUser(currentUser);
         ModernTheme.applyGlobalTheme();
 
         setTitle("Hệ Thống Quản Lý Tuyển Sinh - SGU");
@@ -113,6 +115,7 @@ public class PhanMemTuyenSinh extends JFrame {
                     "Bạn có chắc muốn đăng xuất?", "Xác nhận",
                     JOptionPane.YES_NO_OPTION);
             if (choose == JOptionPane.YES_OPTION) {
+                AuthorizationContext.clear();
                 dispose();
                 openAppWithLogin();
             }
@@ -192,7 +195,7 @@ public class PhanMemTuyenSinh extends JFrame {
     }
 
     private void applyRolePermissions() {
-        if (currentUser == null || "admin".equalsIgnoreCase(currentUser.getPhanQuyen())) {
+        if (currentUser != null && "admin".equalsIgnoreCase(currentUser.getPhanQuyen())) {
             return;
         }
         setMutationButtonsEnabled(contentPanel, false);
@@ -201,7 +204,7 @@ public class PhanMemTuyenSinh extends JFrame {
     private void setMutationButtonsEnabled(Component component, boolean enabled) {
         if (component instanceof JButton button) {
             String text = button.getText() == null ? "" : button.getText().toLowerCase();
-            if (text.contains("thêm") || text.contains("sửa") || text.contains("xóa") || text.contains("import")) {
+            if (text.contains("thêm") || text.contains("sửa") || text.contains("xóa") || text.contains("import") || text.contains("tạo tài khoản")) {
                 button.setEnabled(enabled);
                 if (!enabled) {
                     button.setToolTipText("Tài khoản user chỉ có quyền xem dữ liệu");

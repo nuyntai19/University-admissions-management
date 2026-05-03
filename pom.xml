@@ -9,6 +9,10 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>17</maven.compiler.release>
         <exec.mainClass>vn.edu.sgu.phanmemtuyensinh.PhanMemTuyenSinh</exec.mainClass>
+        <db.url>jdbc:mysql://localhost:3306/xettuyen2026</db.url>
+        <db.user>root</db.user>
+        <!-- Chỉ cần sửa 1 dòng này: có mật khẩu thì nhập, không có mật khẩu thì để trống -->
+        <db.pass>12345678</db.pass>
     </properties>
     <dependencies>
         <dependency>
@@ -41,4 +45,31 @@
             <version>1.4</version>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.6.3</version>
+                <configuration>
+                    <mainClass>${exec.mainClass}</mainClass>
+                    <systemProperties>
+                        <systemProperty>
+                            <key>db.url</key>
+                            <value>${db.url}</value>
+                        </systemProperty>
+                        <systemProperty>
+                            <key>db.user</key>
+                            <value>${db.user}</value>
+                        </systemProperty>
+                        <systemProperty>
+                            <key>db.pass</key>
+                            <value>${db.pass}</value>
+                        </systemProperty>
+                    </systemProperties>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

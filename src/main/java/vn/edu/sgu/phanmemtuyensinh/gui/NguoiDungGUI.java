@@ -6,11 +6,17 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.text.Normalizer;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -26,11 +32,22 @@ import vn.edu.sgu.phanmemtuyensinh.dal.entity.NguoiDung;
 
 public class NguoiDungGUI extends JPanel {
 
+    private static final int PAGE_SIZE = 20;
+
     private final NguoiDungBUS bus = new NguoiDungBUS();
     private JButton btnThem, btnSua, btnXoa, btnLamMoi;
+    private JButton btnTim, btnTrangTruoc, btnTrangSau;
+    private JLabel lblThongTinTrang;
+    private JTextField txtTimKiem;
     private JTable table;
     private DefaultTableModel tableModel;
     private int currentId = -1;
+    private int currentPage = 1;
+    private long totalItems = 0;
+    private String currentKeyword = "";
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    private static final Pattern PHONE_PATTERN = Pattern.compile("^0\\d{0,9}$");
+    private static final DateTimeFormatter DISPLAY_DATE_TIME = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
 
     public NguoiDungGUI() {
         setLayout(new BorderLayout(10, 10));
@@ -52,7 +69,20 @@ public class NguoiDungGUI extends JPanel {
         pnlButtons.add(btnSua);
         pnlButtons.add(btnXoa);
         pnlButtons.add(btnLamMoi);
-        pnlTop.add(pnlButtons, BorderLayout.CENTER);
+
+        JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        pnlSearch.setOpaque(false);
+        pnlSearch.add(new JLabel("Tìm kiếm:"));
+        txtTimKiem = new JTextField(28);
+        btnTim = new JButton("Tìm");
+        pnlSearch.add(txtTimKiem);
+        pnlSearch.add(btnTim);
+
+        JPanel pnlActionRow = new JPanel(new BorderLayout(8, 0));
+        pnlActionRow.setOpaque(false);
+        pnlActionRow.add(pnlButtons, BorderLayout.WEST);
+        pnlActionRow.add(pnlSearch, BorderLayout.EAST);
+        pnlTop.add(pnlActionRow, BorderLayout.CENTER);
 
         add(pnlTop, BorderLayout.NORTH);
 
@@ -76,28 +106,67 @@ public class NguoiDungGUI extends JPanel {
         btnSua.addActionListener(e -> suaNguoiDung());
         btnXoa.addActionListener(e -> xoaNguoiDung());
         btnLamMoi.addActionListener(e -> lamMoi());
+        btnTim.addActionListener(e -> timKiem());
+        txtTimKiem.addActionListener(e -> timKiem());
         table.getSelectionModel().addListSelectionListener(e -> chonDong());
+
+        JPanel pnlPaging = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        pnlPaging.setOpaque(false);
+        btnTrangTruoc = new JButton("Trang trước");
+        btnTrangSau = new JButton("Trang sau");
+        lblThongTinTrang = new JLabel("Trang 1/1");
+        pnlPaging.add(btnTrangTruoc);
+        pnlPaging.add(lblThongTinTrang);
+        pnlPaging.add(btnTrangSau);
+
+        btnTrangTruoc.addActionListener(e -> {
+            if (currentPage > 1) {
+                currentPage--;
+                loadDuLieu();
+            }
+        });
+
+        btnTrangSau.addActionListener(e -> {
+            if (currentPage < getTotalPages()) {
+                currentPage++;
+                loadDuLieu();
+            }
+        });
+
+        add(pnlPaging, BorderLayout.SOUTH);
 
         loadDuLieu();
     }
 
     private void loadDuLieu() {
         tableModel.setRowCount(0);
-        List<NguoiDung> list = bus.getAll();
-        for (NguoiDung nd : list) {
-            tableModel.addRow(new Object[]{
-                    nd.getIdNguoiDung(),
-                    nd.getTaiKhoan(),
-                    nd.getMatKhau(),
-                    nd.getHoTen(),
-                    nd.getEmail(),
-                    nd.getDienThoai(),
-                    nd.getPhanQuyen(),
-                    nd.getTrangThaiHoatDong() == 1 ? "Bật" : "Tắt",
-                    nd.getNgayTao(),
-                    nd.getNgaySua()
-            });
+        List<NguoiDung> filtered = filterNguoiDung(bus.getAll(), currentKeyword);
+        totalItems = filtered.size();
+        int totalPages = getTotalPages();
+        if (currentPage > totalPages) {
+            currentPage = Math.max(1, totalPages);
         }
+
+        int startIndex = Math.max(0, (currentPage - 1) * PAGE_SIZE);
+        int endIndex = Math.min(startIndex + PAGE_SIZE, filtered.size());
+        if (startIndex < endIndex) {
+            for (NguoiDung nd : filtered.subList(startIndex, endIndex)) {
+                tableModel.addRow(new Object[]{
+                        nd.getIdNguoiDung(),
+                        nd.getTaiKhoan(),
+                        nd.getMatKhau(),
+                        nd.getHoTen(),
+                        nd.getEmail(),
+                        nd.getDienThoai(),
+                        nd.getPhanQuyen(),
+                        nd.getTrangThaiHoatDong() == 1 ? "Hoạt động" : "Khóa",
+                        nd.getNgayTao(),
+                        nd.getNgaySua()
+                });
+            }
+        }
+
+        updatePagingInfo();
     }
 
     private void themNguoiDung() {
@@ -106,14 +175,20 @@ public class NguoiDungGUI extends JPanel {
             return;
         }
 
+        if (bus.getByTaiKhoan(nd.getTaiKhoan()) != null) {
+            JOptionPane.showMessageDialog(this, "Tài khoản đã tồn tại, vui lòng chọn tài khoản khác!");
+            return;
+        }
+
         nd.setNgayTao(LocalDateTime.now());
 
         if (bus.add(nd)) {
             JOptionPane.showMessageDialog(this, "Thêm thành công!");
+            currentPage = 1;
             loadDuLieu();
-            lamMoi();
+            currentId = -1;
         } else {
-            JOptionPane.showMessageDialog(this, "Thêm thất bại!");
+            JOptionPane.showMessageDialog(this, "Thêm thất bại: " + bus.getLastError());
         }
     }
 
@@ -135,6 +210,12 @@ public class NguoiDungGUI extends JPanel {
             return;
         }
 
+        NguoiDung duplicate = bus.getByTaiKhoan(updated.getTaiKhoan());
+        if (duplicate != null && duplicate.getIdNguoiDung() != current.getIdNguoiDung()) {
+            JOptionPane.showMessageDialog(this, "Tài khoản đã tồn tại, vui lòng chọn tài khoản khác!");
+            return;
+        }
+
         updated.setIdNguoiDung(currentId);
         if (updated.getMatKhau() == null || updated.getMatKhau().isBlank()) {
             updated.setMatKhau(current.getMatKhau());
@@ -145,9 +226,10 @@ public class NguoiDungGUI extends JPanel {
         if (bus.update(updated)) {
             JOptionPane.showMessageDialog(this, "Cập nhật thành công!");
             loadDuLieu();
-            lamMoi();
+            currentId = -1;
+            table.clearSelection();
         } else {
-            JOptionPane.showMessageDialog(this, "Cập nhật thất bại!");
+            JOptionPane.showMessageDialog(this, "Cập nhật thất bại: " + bus.getLastError());
         }
     }
 
@@ -160,8 +242,12 @@ public class NguoiDungGUI extends JPanel {
         if (confirm == JOptionPane.YES_OPTION) {
             if (bus.delete(currentId)) {
                 JOptionPane.showMessageDialog(this, "Xóa thành công!");
+                currentPage = 1;
                 loadDuLieu();
-                lamMoi();
+                currentId = -1;
+                table.clearSelection();
+            } else {
+                JOptionPane.showMessageDialog(this, "Xóa thất bại: " + bus.getLastError());
             }
         }
     }
@@ -172,9 +258,98 @@ public class NguoiDungGUI extends JPanel {
         }
     }
 
-    private void lamMoi() {
+    private void timKiem() {
+        currentKeyword = txtTimKiem.getText().trim();
+        currentPage = 1;
         currentId = -1;
         table.clearSelection();
+        loadDuLieu();
+    }
+
+    private void lamMoi() {
+        currentId = -1;
+        currentPage = 1;
+        currentKeyword = "";
+        txtTimKiem.setText("");
+        table.clearSelection();
+        loadDuLieu();
+    }
+
+    private int getTotalPages() {
+        if (totalItems <= 0) {
+            return 1;
+        }
+        return (int) Math.ceil((double) totalItems / PAGE_SIZE);
+    }
+
+    private void updatePagingInfo() {
+        int totalPages = getTotalPages();
+        lblThongTinTrang.setText("Trang " + currentPage + "/" + totalPages + " (" + totalItems + " dòng)");
+        btnTrangTruoc.setEnabled(currentPage > 1);
+        btnTrangSau.setEnabled(currentPage < totalPages);
+    }
+
+    private List<NguoiDung> filterNguoiDung(List<NguoiDung> source, String keyword) {
+        if (source == null || source.isEmpty()) {
+            return new ArrayList<>();
+        }
+        String normalizedKeyword = normalizeSearch(keyword);
+        if (normalizedKeyword.isEmpty()) {
+            return new ArrayList<>(source);
+        }
+
+        List<NguoiDung> result = new ArrayList<>();
+        for (NguoiDung nd : source) {
+            if (matchesKeyword(nd, normalizedKeyword)) {
+                result.add(nd);
+            }
+        }
+        return result;
+    }
+
+    private boolean matchesKeyword(NguoiDung nd, String normalizedKeyword) {
+        if (nd == null || normalizedKeyword == null || normalizedKeyword.isEmpty()) {
+            return true;
+        }
+
+        return containsMatch(String.valueOf(nd.getIdNguoiDung()), normalizedKeyword)
+            || containsMatch(nd.getTaiKhoan(), normalizedKeyword)
+            || containsMatch(nd.getMatKhau(), normalizedKeyword)
+            || containsMatch(nd.getHoTen(), normalizedKeyword)
+            || containsMatch(nd.getEmail(), normalizedKeyword)
+            || containsMatch(nd.getDienThoai(), normalizedKeyword)
+            || containsMatch(nd.getPhanQuyen(), normalizedKeyword)
+            || containsMatch(statusText(nd.getTrangThaiHoatDong()), normalizedKeyword)
+            || containsMatch(formatDateTime(nd.getNgayTao()), normalizedKeyword)
+            || containsMatch(formatDateTime(nd.getNgaySua()), normalizedKeyword);
+    }
+
+    private boolean containsMatch(String value, String keyword) {
+        String normalizedValue = normalizeSearch(value);
+        return !normalizedValue.isEmpty() && normalizedValue.contains(keyword);
+    }
+
+    private String statusText(int status) {
+        return status == 1 ? "Hoạt động" : "Khóa";
+    }
+
+    private String formatDateTime(LocalDateTime value) {
+        if (value == null) {
+            return "";
+        }
+        return value.format(DISPLAY_DATE_TIME);
+    }
+
+    private String normalizeSearch(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String text = value.toLowerCase(Locale.ROOT).trim();
+        text = Normalizer.normalize(text, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replace('đ', 'd');
+        text = text.replaceAll("\\s+", " ");
+        return text;
     }
 
     private NguoiDung hienThiFormNguoiDung(NguoiDung source) {
@@ -183,83 +358,154 @@ public class NguoiDungGUI extends JPanel {
         JTextField txtHoTen = new JTextField();
         JTextField txtEmail = new JTextField();
         JTextField txtDienThoai = new JTextField();
-        JTextField txtPhanQuyen = new JTextField("user");
-        JTextField txtTrangThai = new JTextField("1");
+        JComboBox<String> comboTrangThai = new JComboBox<>(new String[]{"Hoạt động", "Khóa"});
+        
+        // Phân quyền - sử dụng ComboBox với 2 lựa chọn: admin và user
+        JComboBox<String> comboQuyen = new JComboBox<>(new String[]{"admin", "user"});
 
         if (source != null) {
             txtTaiKhoan.setText(source.getTaiKhoan());
             txtHoTen.setText(source.getHoTen() == null ? "" : source.getHoTen());
             txtEmail.setText(source.getEmail() == null ? "" : source.getEmail());
             txtDienThoai.setText(source.getDienThoai() == null ? "" : source.getDienThoai());
-            txtPhanQuyen.setText(source.getPhanQuyen() == null ? "user" : source.getPhanQuyen());
-            txtTrangThai.setText(String.valueOf(source.getTrangThaiHoatDong()));
+            comboQuyen.setSelectedItem(source.getPhanQuyen() != null ? source.getPhanQuyen() : "user");
+            comboTrangThai.setSelectedItem(source.getTrangThaiHoatDong() == 1 ? "Hoạt động" : "Khóa");
             txtTaiKhoan.setEditable(false);
+        } else {
+            comboQuyen.setSelectedItem("user");
+            comboTrangThai.setSelectedItem("Hoạt động");
         }
 
-            JPanel panel = new JPanel(new BorderLayout(0, 10));
-            panel.setBackground(new Color(245, 249, 255));
-            panel.setPreferredSize(new Dimension(560, 330));
+        JPanel panel = new JPanel(new BorderLayout(0, 10));
+        panel.setBackground(new Color(245, 249, 255));
+        panel.setPreferredSize(new Dimension(560, 330));
 
-            JPanel pnlHeader = new JPanel(new BorderLayout());
-            pnlHeader.setBackground(source == null ? new Color(30, 136, 229) : new Color(243, 156, 18));
-            pnlHeader.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
-            JLabel lblHeader = new JLabel(source == null ? "THÊM NGƯỜI DÙNG" : "CẬP NHẬT NGƯỜI DÙNG");
-            lblHeader.setForeground(Color.WHITE);
-            lblHeader.setFont(new Font("Segoe UI", Font.BOLD, 14));
-            pnlHeader.add(lblHeader, BorderLayout.WEST);
+        JPanel pnlHeader = new JPanel(new BorderLayout());
+        pnlHeader.setBackground(source == null ? new Color(30, 136, 229) : new Color(243, 156, 18));
+        pnlHeader.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
+        JLabel lblHeader = new JLabel(source == null ? "THÊM NGƯỜI DÙNG" : "CẬP NHẬT NGƯỜI DÙNG");
+        lblHeader.setForeground(Color.WHITE);
+        lblHeader.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        pnlHeader.add(lblHeader, BorderLayout.WEST);
 
-            JPanel pnlFormCard = new JPanel(new BorderLayout());
-            pnlFormCard.setOpaque(true);
-            pnlFormCard.setBackground(Color.WHITE);
-            pnlFormCard.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(213, 223, 240)),
-                BorderFactory.createEmptyBorder(12, 12, 12, 12)
-            ));
+        JPanel pnlFormCard = new JPanel(new BorderLayout());
+        pnlFormCard.setOpaque(true);
+        pnlFormCard.setBackground(Color.WHITE);
+        pnlFormCard.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(213, 223, 240)),
+            BorderFactory.createEmptyBorder(12, 12, 12, 12)
+        ));
 
-            JPanel form = new JPanel(new GridLayout(0, 2, 10, 10));
-            form.setOpaque(false);
-            form.add(new JLabel("Tài khoản:"));
-            form.add(txtTaiKhoan);
-            form.add(new JLabel("Mật khẩu (để trống nếu giữ nguyên):"));
-            form.add(txtMatKhau);
-            form.add(new JLabel("Họ tên:"));
-            form.add(txtHoTen);
-            form.add(new JLabel("Email:"));
-            form.add(txtEmail);
-            form.add(new JLabel("Điện thoại:"));
-            form.add(txtDienThoai);
-            form.add(new JLabel("Phân quyền (admin/user):"));
-            form.add(txtPhanQuyen);
-            form.add(new JLabel("Trạng thái (1/0):"));
-            form.add(txtTrangThai);
-
-            pnlFormCard.add(form, BorderLayout.CENTER);
-            panel.add(pnlHeader, BorderLayout.NORTH);
-            panel.add(pnlFormCard, BorderLayout.CENTER);
-            ModernTheme.styleDialogContent(panel);
-
-        int result = JOptionPane.showConfirmDialog(this, panel,
-                source == null ? "Thêm người dùng" : "Sửa người dùng",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-
-        if (result != JOptionPane.OK_OPTION) {
-            return null;
+        JPanel form = new JPanel(new GridLayout(0, 2, 10, 10));
+        form.setOpaque(false);
+        form.add(new JLabel("Tài khoản:"));
+        form.add(txtTaiKhoan);
+        form.add(new JLabel("Mật khẩu (để trống nếu giữ nguyên):"));
+        form.add(txtMatKhau);
+        form.add(new JLabel("Họ tên:"));
+        form.add(txtHoTen);
+        form.add(new JLabel("Email:"));
+        form.add(txtEmail);
+        form.add(new JLabel("Điện thoại:"));
+        form.add(txtDienThoai);
+        form.add(new JLabel("Phân quyền:"));
+        form.add(comboQuyen);
+        if (source != null) {
+            form.add(new JLabel("Trạng thái:"));
+            form.add(comboTrangThai);
         }
 
-        NguoiDung nd = new NguoiDung();
-        nd.setTaiKhoan(txtTaiKhoan.getText().trim());
-        nd.setMatKhau(new String(txtMatKhau.getPassword()).trim());
-        nd.setHoTen(txtHoTen.getText().trim());
-        nd.setEmail(txtEmail.getText().trim());
-        nd.setDienThoai(txtDienThoai.getText().trim());
-        nd.setPhanQuyen(txtPhanQuyen.getText().trim().isEmpty() ? "user" : txtPhanQuyen.getText().trim());
-        try {
-            nd.setTrangThaiHoatDong(Integer.parseInt(txtTrangThai.getText().trim()));
-        } catch (NumberFormatException ex) {
-            nd.setTrangThaiHoatDong(1);
-        }
+        pnlFormCard.add(form, BorderLayout.CENTER);
+        panel.add(pnlHeader, BorderLayout.NORTH);
+        panel.add(pnlFormCard, BorderLayout.CENTER);
+        ModernTheme.styleDialogContent(panel);
 
-        return nd;
+        // Vòng lặp xử lý với validation
+        while (true) {
+            int result = JOptionPane.showConfirmDialog(this, panel,
+                    source == null ? "Thêm người dùng" : "Sửa người dùng",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+            if (result != JOptionPane.OK_OPTION) {
+                return null;
+            }
+
+            // Lấy giá trị từ các trường
+            String taiKhoan = txtTaiKhoan.getText().trim();
+            String matKhau = new String(txtMatKhau.getPassword()).trim();
+            String hoTen = txtHoTen.getText().trim();
+            String email = txtEmail.getText().trim();
+            String dienThoai = txtDienThoai.getText().trim();
+
+            // === VALIDATION ===
+            if (taiKhoan.isEmpty()) {
+                JOptionPane.showMessageDialog(this, 
+                    "❌ Tài khoản không được để trống!", 
+                    "Lỗi Validation", 
+                    JOptionPane.ERROR_MESSAGE);
+                continue;
+            }
+            
+            if (source == null && matKhau.isEmpty()) {
+                JOptionPane.showMessageDialog(this, 
+                    "❌ Mật khẩu không được để trống khi thêm người dùng!", 
+                    "Lỗi Validation", 
+                    JOptionPane.ERROR_MESSAGE);
+                continue;
+            }
+            
+            if (hoTen.isEmpty()) {
+                JOptionPane.showMessageDialog(this, 
+                    "❌ Họ tên không được để trống!", 
+                    "Lỗi Validation", 
+                    JOptionPane.ERROR_MESSAGE);
+                continue;
+            }
+            
+            if (email.isEmpty()) {
+                JOptionPane.showMessageDialog(this, 
+                    "❌ Email không được để trống!", 
+                    "Lỗi Validation", 
+                    JOptionPane.ERROR_MESSAGE);
+                continue;
+            }
+            if (!EMAIL_PATTERN.matcher(email).matches()) {
+                JOptionPane.showMessageDialog(this,
+                    "❌ Email không hợp lệ!",
+                    "Lỗi Validation",
+                    JOptionPane.ERROR_MESSAGE);
+                continue;
+            }
+            
+            if (dienThoai.isEmpty()) {
+                JOptionPane.showMessageDialog(this, 
+                    "❌ Điện thoại không được để trống!", 
+                    "Lỗi Validation", 
+                    JOptionPane.ERROR_MESSAGE);
+                continue;
+            }
+            if (!PHONE_PATTERN.matcher(dienThoai).matches()) {
+                JOptionPane.showMessageDialog(this,
+                    "❌ Số điện thoại phải bắt đầu bằng số 0 và tối đa 10 chữ số!",
+                    "Lỗi Validation",
+                    JOptionPane.ERROR_MESSAGE);
+                continue;
+            }
+
+            // Nếu validation pass, tạo object NguoiDung
+            NguoiDung nd = new NguoiDung();
+            nd.setTaiKhoan(taiKhoan);
+            nd.setMatKhau(matKhau);
+            nd.setHoTen(hoTen);
+            nd.setEmail(email);
+            nd.setDienThoai(dienThoai);
+                nd.setPhanQuyen((String) comboQuyen.getSelectedItem());
+                nd.setTrangThaiHoatDong(source == null
+                    ? 1
+                    : ("Hoạt động".equals(comboTrangThai.getSelectedItem()) ? 1 : 0));
+
+            return nd;
+        }
     }
 
     private void configureColumnWidths() {

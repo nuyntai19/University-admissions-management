@@ -1,0 +1,11 @@
+target/
+.git/
+.github/
+*.iml
+.idea/
+.vscode/
+.DS_Store
+*.log
+
+# local/OS clutter
+Thumbs.db

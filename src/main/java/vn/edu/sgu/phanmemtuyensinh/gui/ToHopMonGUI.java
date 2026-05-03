@@ -36,7 +36,7 @@ public class ToHopMonGUI extends JPanel {
 
     // Các thành phần giao diện
     private JButton btnThem, btnSua, btnXoa, btnLamMoi, btnImport;
-    private JButton btnLoc, btnBoLoc;
+    private JButton btnLoc;
     private JTextField txtBoLoc;
     private JTable table;
     private DefaultTableModel tableModel;
@@ -86,15 +86,12 @@ public class ToHopMonGUI extends JPanel {
         txtBoLoc.setMaximumSize(new Dimension(260, 30));
         txtBoLoc.setToolTipText("Nhập mã tổ hợp (VD: A01) hoặc tên môn (VD: Toán, Tiếng Anh, Sinh học)");
         btnLoc = new JButton("Lọc");
-        btnBoLoc = new JButton("Bỏ lọc");
 
         pnlLoc.add(lblBoLoc);
         pnlLoc.add(Box.createHorizontalStrut(8));
         pnlLoc.add(txtBoLoc);
         pnlLoc.add(Box.createHorizontalStrut(8));
         pnlLoc.add(btnLoc);
-        pnlLoc.add(Box.createHorizontalStrut(8));
-        pnlLoc.add(btnBoLoc);
 
         // Combine title + actions into one north panel
         JPanel pnlTop = new JPanel(new BorderLayout());
@@ -127,15 +124,14 @@ public class ToHopMonGUI extends JPanel {
             }
         });
 
-        // Nút Làm mới
-        btnLamMoi.addActionListener(e -> clearForm());
-
-        // Bộ lọc bên phải
-        btnLoc.addActionListener(e -> applyFilter());
-        btnBoLoc.addActionListener(e -> {
+        // Nút Làm mới - reload toàn bộ + xóa bộ lọc
+        btnLamMoi.addActionListener(e -> {
             txtBoLoc.setText("");
             loadDataToTable();
         });
+
+        // Bộ lọc bên phải
+        btnLoc.addActionListener(e -> applyFilter());
         txtBoLoc.addActionListener(e -> applyFilter());
 
         // Nút Thêm
@@ -204,7 +200,7 @@ public class ToHopMonGUI extends JPanel {
                     loadDataToTable();
                     clearForm();
                 } else {
-                    JOptionPane.showMessageDialog(this, "Xóa thất bại!");
+                    JOptionPane.showMessageDialog(this, "Xóa thất bại: " + bus.getLastError(), "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
             }
         });

@@ -11,22 +11,43 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import org.apache.poi.openxml4j.opc.OPCPackage;
+import org.apache.poi.openxml4j.opc.PackageAccess;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellReference;
+import org.apache.poi.util.IOUtils;
+import org.apache.poi.xssf.eventusermodel.ReadOnlySharedStringsTable;
+import org.apache.poi.xssf.eventusermodel.XSSFReader;
+import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler;
+import org.apache.poi.xssf.model.StylesTable;
+import org.apache.poi.xssf.usermodel.XSSFComment;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ooxml.util.SAXHelper;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.InputSource;
+import org.xml.sax.XMLReader;
 
 import vn.edu.sgu.phanmemtuyensinh.dal.DiemThiXetTuyenDAO;
+import vn.edu.sgu.phanmemtuyensinh.dal.ThiSinhDAO;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.DiemThiXetTuyen;
+import vn.edu.sgu.phanmemtuyensinh.dal.entity.ThiSinh;
 
 public class DiemThiXetTuyenBUS {
     private static final Pattern CCCD_PATTERN = Pattern.compile("^\\d{12}$");
     private static final Pattern DATASET_CODE_PATTERN = Pattern.compile("^TS_\\d{1,10}$", Pattern.CASE_INSENSITIVE);
 
     private final DiemThiXetTuyenDAO dao = new DiemThiXetTuyenDAO();
+    private final ThiSinhDAO thiSinhDAO = new ThiSinhDAO();
     private String lastError = "";
     private String lastImportSummary = "";
+
+    @FunctionalInterface
+    public interface ImportProgressListener {
+        void onProgress(int percent, String message);
+    }
 
     public List<DiemThiXetTuyen> getAll() {
         return dao.getAll();
@@ -64,7 +85,57 @@ public class DiemThiXetTuyenBUS {
         return dao.countByKeyword(keyword);
     }
 
+    /**
+     * Thống kê điểm theo từng môn thi.
+     * Trả về Map: key = tên môn, value = double[] {soCoDiem, diemTB, diemMax, diemMin, soTrong}
+     */
+    public java.util.LinkedHashMap<String, double[]> getThongKeDiemTheoMon() {
+        List<DiemThiXetTuyen> all = dao.getAll();
+        String[] tenMon = {"TO","VA","LI","HO","SI","SU","DI","GDCD","N1_THI","N1_CC","CNCN","CNNN","TI","KTPL","NL1",
+                           "NK1","NK2","NK3","NK4","NK5","NK6","NK7","NK8","NK9","NK10","Điểm xét TN"};
+
+        java.util.LinkedHashMap<String, double[]> result = new java.util.LinkedHashMap<>();
+        for (String mon : tenMon) {
+            result.put(mon, new double[]{0, 0, Double.MIN_VALUE, Double.MAX_VALUE, 0});
+        }
+
+        for (DiemThiXetTuyen d : all) {
+            java.math.BigDecimal[] vals = {
+                d.getTo(), d.getVa(), d.getLi(), d.getHo(), d.getSi(), d.getSu(), d.getDi(), d.getGdcd(),
+                d.getN1Thi(), d.getN1Cc(), d.getCncn(), d.getCnnn(), d.getTi(), d.getKtpl(), d.getNl1(),
+                d.getNk1(), d.getNk2(), d.getNk3(), d.getNk4(), d.getNk5(), d.getNk6(), d.getNk7(),
+                d.getNk8(), d.getNk9(), d.getNk10(), d.getDiemXetTotNghiep()
+            };
+            for (int i = 0; i < tenMon.length; i++) {
+                double[] stat = result.get(tenMon[i]);
+                if (vals[i] != null) {
+                    double v = vals[i].doubleValue();
+                    stat[0]++;                                           // soCoDiem
+                    stat[1] += v;                                        // tổng (tính TB sau)
+                    if (v > stat[2]) stat[2] = v;                       // max
+                    if (v < stat[3]) stat[3] = v;                       // min
+                } else {
+                    stat[4]++;                                           // soTrong
+                }
+            }
+        }
+
+        // Tính điểm trung bình
+        for (double[] stat : result.values()) {
+            if (stat[0] > 0) {
+                stat[1] = stat[1] / stat[0];
+            } else {
+                stat[2] = 0; // Không có điểm → max/min reset về 0
+                stat[3] = 0;
+            }
+        }
+        return result;
+    }
+
     public boolean add(DiemThiXetTuyen diem) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         if (!validateDiemThi(diem, true)) {
             return false;
         }
@@ -72,6 +143,9 @@ public class DiemThiXetTuyenBUS {
     }
 
     public boolean update(DiemThiXetTuyen diem) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         if (!validateDiemThi(diem, false)) {
             return false;
         }
@@ -79,6 +153,9 @@ public class DiemThiXetTuyenBUS {
     }
 
     public boolean delete(int idDiemThi) {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            return false;
+        }
         return dao.delete(idDiemThi);
     }
 
@@ -87,6 +164,18 @@ public class DiemThiXetTuyenBUS {
     }
 
     public int importAndSaveToDatabase(String filePath) throws IOException {
+        return importAndSaveToDatabase(filePath, null);
+    }
+
+    public int importAndSaveToDatabase(String filePath, ImportProgressListener progressListener) throws IOException {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            lastImportSummary = lastError;
+            reportProgress(progressListener, 100, lastError);
+            return 0;
+        }
+
+        reportProgress(progressListener, 1, "Đang đọc file import...");
+
         List<ImportRecord> records;
         String lowerPath = filePath.toLowerCase();
         if (lowerPath.endsWith(".xlsx")) {
@@ -95,40 +184,78 @@ public class DiemThiXetTuyenBUS {
             records = importFromTextLike(filePath);
         }
 
-        // Load tất cả CCCD và DiemThiXetTuyen hiện có để tránh query từng bản ghi
+        reportProgress(progressListener, 45,
+                "Đã đọc " + records.size() + " dòng hợp lệ. Đang lưu vào DB...");
+
+        // Pre-load toàn bộ dữ liệu 1 lần duy nhất - tránh N+1 query
         java.util.Set<String> existingCccd = dao.getAllCccd();
         java.util.Map<String, DiemThiXetTuyen> existingDiemMap = dao.getAllDiemMap();
+        // Pre-load map CCCD->ThiSinh và SBD->ThiSinh để không query từng dòng
+        java.util.Map<String, Integer> cccdToIdMap = thiSinhDAO.getAllCccdToIdMap();
+        java.util.Map<String, Integer> sbdToIdMap  = thiSinhDAO.getAllSbdToIdMap();
 
         int success = 0;
         int failed = 0;
         int skipped = 0;
         List<String> sampleErrors = new ArrayList<>();
 
-        for (ImportRecord record : records) {
+        int total = records.size();
+        for (int i = 0; i < total; i++) {
+            ImportRecord record = records.get(i);
+
+            // Bước 1: CCCD phải tồn tại bên bảng thí sinh
+            String cccdImport = safe(record.diem.getCccd());
+            String sbdImport  = safe(record.diem.getSoBaoDanh());
+
+            Integer idByCccd = cccdToIdMap.get(cccdImport);
+            if (idByCccd == null) {
+                failed++;
+                if (sampleErrors.size() < 8) {
+                    sampleErrors.add("Dòng " + record.lineNo + ": CCCD " + cccdImport
+                            + " không tồn tại trong bảng thí sinh!");
+                }
+                continue;
+            }
+
+            // Bước 2: Nếu SBD cũng có → kiểm tra không được lệch dòng
+            if (!sbdImport.isEmpty()) {
+                Integer idBySbd = sbdToIdMap.get(sbdImport.toUpperCase());
+                if (idBySbd != null && !idByCccd.equals(idBySbd)) {
+                    failed++;
+                    if (sampleErrors.size() < 8) {
+                        sampleErrors.add("Dòng " + record.lineNo + ": CCCD " + cccdImport
+                                + " và SBD " + sbdImport
+                                + " thuộc 2 thí sinh khác nhau trong CSDL! Kiểm tra lại file.");
+                    }
+                    continue;
+                }
+            }
+
             if (!validateDiemThi(record.diem, false)) {
                 failed++;
                 if (sampleErrors.size() < 8) {
                     sampleErrors.add("Dòng " + record.lineNo + ": " + getLastError());
+                }
+                if (total > 0) {
+                    int percent = Math.max(45, 45 + (int) (((i + 1) * 55.0) / total));
+                    reportProgress(progressListener, percent,
+                            "Đang lưu vào DB " + (i + 1) + "/" + total + " bản ghi...");
                 }
                 continue;
             }
 
             String cccd = record.diem.getCccd();
             boolean isNew = !existingCccd.contains(cccd);
-            
+
             boolean ok = false;
             if (isNew) {
-                // Bản ghi mới - thêm vào DB
                 ok = dao.add(record.diem);
             } else {
-                // Bản ghi đã tồn tại - kiểm tra xem dữ liệu có thay đổi không
                 DiemThiXetTuyen existing = existingDiemMap.get(cccd);
                 if (existing != null && isDiemChanged(existing, record.diem)) {
-                    // Dữ liệu có thay đổi - cập nhật DB
                     record.diem.setIdDiemThi(existing.getIdDiemThi());
                     ok = dao.update(record.diem);
                 } else {
-                    // Dữ liệu không thay đổi - bỏ qua
                     skipped++;
                     continue;
                 }
@@ -142,6 +269,12 @@ public class DiemThiXetTuyenBUS {
                     sampleErrors.add("Dòng " + record.lineNo + ": Lỗi lưu dữ liệu vào cơ sở dữ liệu");
                 }
             }
+
+            if (total > 0) {
+                int percent = Math.max(45, 45 + (int) (((i + 1) * 55.0) / total));
+                reportProgress(progressListener, percent,
+                        "Đang lưu vào DB " + (i + 1) + "/" + total + " bản ghi...");
+            }
         }
 
         StringBuilder summary = new StringBuilder();
@@ -153,11 +286,18 @@ public class DiemThiXetTuyenBUS {
             summary.append("\nMột số lỗi:\n- ").append(String.join("\n- ", sampleErrors));
         }
         lastImportSummary = summary.toString();
+        reportProgress(progressListener, 100, "Import điểm thi hoàn tất.");
         return success;
     }
 
     public String getLastImportSummary() {
         return lastImportSummary == null ? "" : lastImportSummary;
+    }
+
+    private void reportProgress(ImportProgressListener listener, int percent, String message) {
+        if (listener != null) {
+            listener.onProgress(percent, message);
+        }
     }
 
     private boolean isDiemChanged(DiemThiXetTuyen existing, DiemThiXetTuyen newDiem) {
@@ -203,28 +343,124 @@ public class DiemThiXetTuyenBUS {
     private List<ImportRecord> importFromExcel(String filePath) throws IOException {
         List<ImportRecord> result = new ArrayList<>();
         DataFormatter formatter = new DataFormatter();
+        IOUtils.setByteArrayMaxOverride(300_000_000);
 
-        try (FileInputStream fis = new FileInputStream(filePath);
-             Workbook workbook = new XSSFWorkbook(fis)) {
-            Sheet sheet = workbook.getSheetAt(0);
-            Row headerRow = sheet.getRow(0);
-            Map<String, Integer> headerMap = buildHeaderMap(headerRow, formatter);
+        try (OPCPackage pkg = OPCPackage.open(filePath, PackageAccess.READ)) {
+            XSSFReader xssfReader = new XSSFReader(pkg);
+            StylesTable styles = xssfReader.getStylesTable();
+            ReadOnlySharedStringsTable sst = new ReadOnlySharedStringsTable(pkg);
+            XSSFReader.SheetIterator sheets = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
 
-            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
-                if (row == null) {
-                    continue;
-                }
+            if (!sheets.hasNext()) return result;
 
-                DiemThiXetTuyen diem = parseExcelRow(row, headerMap, formatter);
-                if (isBlank(safe(diem.getCccd()))) {
-                    continue;
-                }
-                result.add(new ImportRecord(i + 1, diem));
+            try (java.io.InputStream sheetIs = sheets.next()) {
+                // State shared between callbacks
+                final Map<String, Integer> headerMap = new java.util.LinkedHashMap<>();
+                final Map<Integer, String> currentRowData = new java.util.HashMap<>();
+                final int[] rowNumHolder = {0};
+                final boolean[] headerParsed = {false};
+
+                XSSFSheetXMLHandler.SheetContentsHandler handler = new XSSFSheetXMLHandler.SheetContentsHandler() {
+                    @Override public void startRow(int rowNum) {
+                        rowNumHolder[0] = rowNum;
+                        currentRowData.clear();
+                    }
+
+                    @Override public void endRow(int rowNum) {
+                        if (rowNum == 0 || (!headerParsed[0] && rowNum <= 10)) {
+                            // Build header map
+                            Map<String, Integer> tempMap = new java.util.LinkedHashMap<>();
+                            for (Map.Entry<Integer, String> e : currentRowData.entrySet()) {
+                                String key = normalizeHeader(e.getValue());
+                                if (!key.isEmpty()) tempMap.put(key, e.getKey());
+                            }
+                            if (tempMap.containsKey("cccd") || tempMap.containsKey("sobaodanh") || tempMap.containsKey("to")) {
+                                headerMap.clear();
+                                headerMap.putAll(tempMap);
+                                headerParsed[0] = true;
+                            }
+                            return;
+                        }
+                        if (!headerParsed[0]) return;
+
+                        // Build a fake row-like data structure and parse it
+                        String cccd = getCellStr(headerMap, currentRowData, "cccd", "cancuoc");
+                        if (cccd == null || cccd.isEmpty()) {
+                            // fallback col 1
+                            cccd = safe(currentRowData.get(1));
+                        }
+                        if (cccd == null || cccd.isBlank()) return;
+
+                        DiemThiXetTuyen d = new DiemThiXetTuyen();
+                        d.setCccd(cccd);
+                        d.setSoBaoDanh(safe(getCellStr(headerMap, currentRowData, "sobaodanh", "sbd", "mathisinh")));
+                        // Chương trình học (năm) không phải phương thức thi - luôn mặc định THPT
+                        String pt = safe(getCellStr(headerMap, currentRowData, "dphuongthuc", "phuongthuc", "ptxt"));
+                        d.setPhuongThuc(pt.isEmpty() ? "THPT" : pt.toUpperCase());
+
+                        d.setTo(parseDecimal(getCellStr(headerMap, currentRowData, "to", "toan")));
+                        d.setVa(parseDecimal(getCellStr(headerMap, currentRowData, "va", "van", "nguvan")));
+                        d.setLi(parseDecimal(getCellStr(headerMap, currentRowData, "li", "ly", "vatly")));
+                        d.setHo(parseDecimal(getCellStr(headerMap, currentRowData, "ho", "hoa")));
+                        d.setSi(parseDecimal(getCellStr(headerMap, currentRowData, "si", "sinh", "sinhhoc")));
+                        d.setSu(parseDecimal(getCellStr(headerMap, currentRowData, "su", "lichsu")));
+                        d.setDi(parseDecimal(getCellStr(headerMap, currentRowData, "di", "dia", "diali")));
+                        d.setN1Thi(parseDecimal(getCellStr(headerMap, currentRowData, "n1thi", "n1", "nn", "ngoaingu", "mamonne")));
+                        d.setN1Cc(parseDecimal(getCellStr(headerMap, currentRowData, "n1cc", "ccnn")));
+                        d.setCncn(parseDecimal(getCellStr(headerMap, currentRowData, "cncn")));
+                        d.setCnnn(parseDecimal(getCellStr(headerMap, currentRowData, "cnnn")));
+                        d.setTi(parseDecimal(getCellStr(headerMap, currentRowData, "ti", "tin", "tinhoc")));
+                        d.setGdcd(parseDecimal(getCellStr(headerMap, currentRowData, "gdcd", "giaoduccongdan")));
+                        d.setKtpl(parseDecimal(getCellStr(headerMap, currentRowData, "ktpl", "kinhtephapluat")));
+                        d.setNl1(parseDecimal(getCellStr(headerMap, currentRowData, "nl1", "dgnl")));
+                        d.setNk1(parseDecimal(getCellStr(headerMap, currentRowData, "nk1")));
+                        d.setNk2(parseDecimal(getCellStr(headerMap, currentRowData, "nk2")));
+                        d.setNk3(parseDecimal(getCellStr(headerMap, currentRowData, "nk3")));
+                        d.setNk4(parseDecimal(getCellStr(headerMap, currentRowData, "nk4")));
+                        d.setNk5(parseDecimal(getCellStr(headerMap, currentRowData, "nk5")));
+                        d.setNk6(parseDecimal(getCellStr(headerMap, currentRowData, "nk6")));
+                        d.setNk7(parseDecimal(getCellStr(headerMap, currentRowData, "nk7")));
+                        d.setNk8(parseDecimal(getCellStr(headerMap, currentRowData, "nk8")));
+                        d.setNk9(parseDecimal(getCellStr(headerMap, currentRowData, "nk9")));
+                        d.setNk10(parseDecimal(getCellStr(headerMap, currentRowData, "nk10")));
+                        d.setDiemXetTotNghiep(parseDecimal(getCellStr(headerMap, currentRowData, "diemxettotnghiep", "diemxettn")));
+
+                        result.add(new ImportRecord(rowNum + 1, d));
+                    }
+
+                    @Override public void cell(String cellRef, String formattedValue, XSSFComment comment) {
+                        if (cellRef == null) return;
+                        int col = new CellReference(cellRef).getCol();
+                        currentRowData.put(col, formattedValue == null ? "" : formattedValue.trim());
+                    }
+
+                    @Override public void headerFooter(String text, boolean isHeader, String tagName) {}
+                };
+
+                XMLReader parser = SAXHelper.newXMLReader();
+                ContentHandler content = new XSSFSheetXMLHandler(styles, null, sst, handler, formatter, false);
+                parser.setContentHandler(content);
+                parser.parse(new InputSource(sheetIs));
             }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException("Lỗi đọc file Excel: " + e.getMessage(), e);
         }
 
         return result;
+    }
+
+    /** Tìm giá trị ô theo tên cột (hỗ trợ nhiều alias) */
+    private String getCellStr(Map<String, Integer> headerMap, Map<Integer, String> rowData, String... aliases) {
+        for (String alias : aliases) {
+            Integer col = headerMap.get(alias);
+            if (col != null) {
+                String val = rowData.get(col);
+                return val == null ? "" : val.trim();
+            }
+        }
+        return "";
     }
 
     private List<ImportRecord> importFromTextLike(String filePath) throws IOException {
@@ -261,13 +497,15 @@ public class DiemThiXetTuyenBUS {
 
         d.setCccd(readHeaderCell(row, headerMap, formatter, "cccd", "cancuoc", "cmnd", "maso"));
         d.setSoBaoDanh(readHeaderCell(row, headerMap, formatter, "sobaodanh", "sbd", "mathisinh"));
-        d.setPhuongThuc(readHeaderCell(row, headerMap, formatter, "dphuongthuc", "phuongthuc", "ptxt"));
+        String pt = readHeaderCell(row, headerMap, formatter, "dphuongthuc", "phuongthuc", "ptxt", "chuongtrinhhoc");
+        // Nếu file không có cột phương thức (như Ds thi sinh.xlsx) thì mặc định THPT
+        d.setPhuongThuc(isBlank(pt) ? "THPT" : pt);
 
         if (isBlank(safe(d.getCccd()))) {
             d.setCccd(readCell(row, 1, formatter));
         }
         if (isBlank(safe(d.getSoBaoDanh()))) {
-            d.setSoBaoDanh(readCell(row, 1, formatter));
+            d.setSoBaoDanh(readCell(row, 2, formatter));
         }
 
         d.setTo(parseDecimal(readHeaderCell(row, headerMap, formatter, "to", "toan")));
@@ -277,7 +515,7 @@ public class DiemThiXetTuyenBUS {
         d.setSi(parseDecimal(readHeaderCell(row, headerMap, formatter, "si", "sinh", "sinhhoc")));
         d.setSu(parseDecimal(readHeaderCell(row, headerMap, formatter, "su", "lichsu")));
         d.setDi(parseDecimal(readHeaderCell(row, headerMap, formatter, "di", "dia", "diali")));
-        d.setN1Thi(parseDecimal(readHeaderCell(row, headerMap, formatter, "n1thi", "n1", "nn", "ngoaingu")));
+        d.setN1Thi(parseDecimal(readHeaderCell(row, headerMap, formatter, "n1thi", "n1", "nn", "ngoaingu", "mamonne")));
         d.setN1Cc(parseDecimal(readHeaderCell(row, headerMap, formatter, "n1cc", "ccnn", "chungchingoaingu")));
         d.setCncn(parseDecimal(readHeaderCell(row, headerMap, formatter, "cncn")));
         d.setCnnn(parseDecimal(readHeaderCell(row, headerMap, formatter, "cnnn")));
@@ -377,54 +615,28 @@ public class DiemThiXetTuyenBUS {
             return false;
         }
         if (!isAcceptedCandidateCode(cccd)) {
-            lastError = "CCCD không hợp lệ (chấp nhận 12 số hoặc mã TS_xxxx)!";
+            lastError = "CCCD không hợp lệ (cần 12 số hoặc mã TS_xxxx)!";
             return false;
         }
 
-        if (!hasAnyScore(diem)) {
-            lastError = "Không có điểm hợp lệ để lưu";
-            return false;
-        }
-
-        if (!checkScore(diem.getTo(), 0, 10, "TO")
-                || !checkScore(diem.getLi(), 0, 10, "LI")
-                || !checkScore(diem.getHo(), 0, 10, "HO")
-                || !checkScore(diem.getSi(), 0, 10, "SI")
-                || !checkScore(diem.getSu(), 0, 10, "SU")
-                || !checkScore(diem.getDi(), 0, 10, "DI")
-                || !checkScore(diem.getVa(), 0, 10, "VA")
-                || !checkScore(diem.getN1Thi(), 0, 10, "N1_THI")
-                || !checkScore(diem.getN1Cc(), 0, 10, "N1_CC")
-                || !checkScore(diem.getCncn(), 0, 10, "CNCN")
-                || !checkScore(diem.getCnnn(), 0, 10, "CNNN")
-                || !checkScore(diem.getTi(), 0, 10, "TI")
-                || !checkScore(diem.getGdcd(), 0, 10, "GDCD")
-                || !checkScore(diem.getKtpl(), 0, 10, "KTPL")
-                || !checkScore(diem.getNk1(), 0, 10, "NK1")
-                || !checkScore(diem.getNk2(), 0, 10, "NK2")
-                || !checkScore(diem.getNk3(), 0, 10, "NK3")
-                || !checkScore(diem.getNk4(), 0, 10, "NK4")
-                || !checkScore(diem.getNk5(), 0, 10, "NK5")
-                || !checkScore(diem.getNk6(), 0, 10, "NK6")
-                || !checkScore(diem.getNk7(), 0, 10, "NK7")
-                || !checkScore(diem.getNk8(), 0, 10, "NK8")
-                || !checkScore(diem.getNk9(), 0, 10, "NK9")
-                || !checkScore(diem.getNk10(), 0, 10, "NK10")
-                || !checkScore(diem.getDiemXetTotNghiep(), 0, 10, "DIEM_XET_TOT_NGHIEP")
-                || !checkScore(diem.getNl1(), 0, 1200, "NL1")) {
-            return false;
-        }
-
-        if (checkDuplicate && dao.getByCccd(cccd) != null) {
-            lastError = "CCCD đã tồn tại trong hệ thống!";
-            return false;
+        // Mặc định phương thức nếu bị rỗng
+        if (phuongThuc.isEmpty()) {
+            diem.setPhuongThuc("THPT");
+            phuongThuc = "THPT";
         }
 
         diem.setCccd(trimMax(cccd, 20));
         diem.setSoBaoDanh(trimMax(soBaoDanh, 45));
-        diem.setPhuongThuc(trimMax(phuongThuc, 10));
+        diem.setPhuongThuc(trimMax(phuongThuc.toUpperCase(), 10));
         lastError = "";
         return true;
+    }
+
+
+
+
+    private boolean isNullOrZero(BigDecimal value) {
+        return value == null || value.compareTo(java.math.BigDecimal.ZERO) == 0;
     }
 
     private boolean checkScore(BigDecimal score, double min, double max, String label) {

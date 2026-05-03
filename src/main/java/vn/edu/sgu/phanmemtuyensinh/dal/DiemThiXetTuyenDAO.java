@@ -1,5 +1,6 @@
 package vn.edu.sgu.phanmemtuyensinh.dal;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.hibernate.Session;
@@ -53,8 +54,21 @@ public class DiemThiXetTuyenDAO {
 
     public DiemThiXetTuyen getByCccd(String cccd) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-            return session.createQuery("FROM DiemThiXetTuyen WHERE cccd = :cccd", DiemThiXetTuyen.class)
-                    .setParameter("cccd", cccd).uniqueResult();
+            return session.createQuery("FROM DiemThiXetTuyen WHERE cccd = :code OR soBaoDanh = :code ORDER BY idDiemThi DESC", DiemThiXetTuyen.class)
+                    .setParameter("code", cccd)
+                    .setMaxResults(1)
+                    .uniqueResult();
+        }
+    }
+
+    public DiemThiXetTuyen getByCcqdAndPhuongThuc(String cccd, String phuongThuc) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery(
+                    "FROM DiemThiXetTuyen WHERE (cccd = :code OR soBaoDanh = :code) AND phuongThuc = :pt", 
+                    DiemThiXetTuyen.class)
+                    .setParameter("code", cccd)
+                    .setParameter("pt", phuongThuc)
+                    .uniqueResult();
         }
     }
 
@@ -170,6 +184,59 @@ public class DiemThiXetTuyenDAO {
                 map.put(d.getCccd(), d);
             }
             return map;
+        }
+    }
+    
+    public BigDecimal tinhDiemGoc(String cccd, String maToHop, String maNganh) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+
+            // 1. Lấy điểm thí sinh
+            DiemThiXetTuyen d = session.createQuery(
+                    "FROM DiemThiXetTuyen WHERE cccd = :code OR soBaoDanh = :code", DiemThiXetTuyen.class)
+                    .setParameter("code", cccd)
+                    .uniqueResult();
+
+            if (d == null) return BigDecimal.ZERO;
+
+            // 2. Lấy tổ hợp môn
+            Object[] mon = session.createQuery(
+                    "SELECT t.mon1, t.mon2, t.mon3 FROM ToHopMon t WHERE t.maToHop = :ma",
+                    Object[].class)
+                    .setParameter("ma", maToHop)
+                    .uniqueResult();
+
+            if (mon == null) return BigDecimal.ZERO;
+
+            BigDecimal tong = BigDecimal.ZERO;
+
+            // 3. Map môn → điểm (THEO ENTITY CỦA BẠN)
+            java.util.Map<String, BigDecimal> map = new java.util.HashMap<>();
+            map.put("TO", d.getTo());
+            map.put("LI", d.getLi());
+            map.put("HO", d.getHo());
+            map.put("SI", d.getSi());
+            map.put("SU", d.getSu());
+            map.put("DI", d.getDi());
+            map.put("VA", d.getVa());
+            map.put("GDCD", d.getGdcd());
+            map.put("N1", d.getN1Thi()); // nếu dùng ngoại ngữ
+            map.put("TI", d.getTi());
+            map.put("KTPL", d.getKtpl());
+            map.put("NL1", d.getNl1());
+            // thêm nếu cần
+
+            // 4. Tính tổng theo tổ hợp
+            for (Object m : mon) {
+                String tenMon = (String) m;
+                BigDecimal diem = map.get(tenMon);
+                if (diem != null) tong = tong.add(diem);
+            }
+
+            return tong;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return BigDecimal.ZERO;
         }
     }
 }

@@ -46,15 +46,20 @@ mysql -u root -p xettuyen2026 < database/xettuyen2026_v2_with_users.sql
 
 ### File: `src/main/resources/hibernate.cfg.xml`
 
-Kiểm tra thông tin kết nối database:
+File này đã được đổi sang placeholder và sẽ được `HibernateUtil` override từ biến môi trường/System property:
 
 ```xml
-<property name="hibernate.connection.url">jdbc:mysql://localhost:3306/xettuyen2026?useSSL=false&serverTimezone=UTC</property>
-<property name="hibernate.connection.username">root</property>
-<property name="hibernate.connection.password">12345678</property>
+<property name="hibernate.connection.url">${db.url}</property>
+<property name="hibernate.connection.username">${db.user}</property>
+<property name="hibernate.connection.password">${db.pass}</property>
 ```
 
-**Là đổi `username` và `password` cho phù hợp với MySQL setup của bạn!**
+Có thể cấu hình bằng một trong 2 cách:
+
+- Biến môi trường: `DB_URL` hoặc bộ `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`
+- JVM args: `-Ddb.url=... -Ddb.user=... -Ddb.pass=...`
+
+Nếu không truyền `DB_URL`, hệ thống sẽ tự động ghép URL MySQL và bổ sung các tham số kết nối an toàn như `allowPublicKeyRetrieval=true`.
 
 ## 4. Chạy Ứng Dụng
 
@@ -66,8 +71,20 @@ Kiểm tra thông tin kết nối database:
 # Build project
 mvn clean compile
 
-# Chạy ứng dụng
-mvn exec:java -Dexec.mainClass="vn.edu.sgu.phanmemtuyensinh.PhanMemTuyenSinh"
+# Chạy ứng dụng (đã có cấu hình DB mặc định trong pom.xml)
+mvn exec:java
+```
+
+Mặc định `mvn exec:java` sẽ dùng:
+
+- `db.url=jdbc:mysql://localhost:3306/xettuyen2026`
+- `db.user=root`
+- `db.pass=12345678`
+
+Nếu muốn override tạm thời theo máy khác:
+
+```bash
+mvn exec:java "-Ddb.url=jdbc:mysql://localhost:3307/xettuyen2026" "-Ddb.user=root" "-Ddb.pass=mat_khau_khac"
 ```
 
 ### Option B: Chạy với IDE (NetBeans / VS Code + Maven Extension)
@@ -85,6 +102,78 @@ mvn clean package -DskipTests
 
 # Chạy JAR file
 java -jar target/PhanMemTuyenSinh-1.0-SNAPSHOT.jar
+```
+
+### Option D: Docker (build image)
+
+Project đã có sẵn `Dockerfile` để **build JAR + gom đủ thư viện runtime**.
+
+```bash
+# Build image
+docker build -t phanmemtuyensinh:latest .
+```
+
+#### Cấu hình kết nối MySQL khi chạy trong container
+
+Ứng dụng hỗ trợ override cấu hình DB bằng biến môi trường (không cần sửa `hibernate.cfg.xml`):
+
+- `DB_URL` (ưu tiên cao nhất) — ví dụ: `jdbc:mysql://host.docker.internal:3306/xettuyen2026?...`
+- hoặc tách rời: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`
+
+Ví dụ chạy (chỉ minh hoạ cấu hình DB):
+
+```bash
+docker run --rm \
+  -e DB_HOST=host.docker.internal \
+  -e DB_PORT=3306 \
+  -e DB_NAME=xettuyen2026 \
+  -e DB_USER=root \
+  -e DB_PASS=12345678 \
+  phanmemtuyensinh:latest
+```
+
+Lưu ý: đây là ứng dụng **Java Swing (GUI)**, nên để hiển thị giao diện trong Docker bạn cần cấu hình thêm X server/GUI forwarding (phụ thuộc hệ điều hành). Trên Windows thường sẽ tiện hơn nếu chạy GUI trực tiếp trên máy host và chỉ dùng Docker cho MySQL/build.
+
+### Option E: Docker Compose (MySQL cho dự án)
+
+Repo có sẵn `docker-compose.yml` để khởi động MySQL và tự tạo database `xettuyen2026`.
+
+```bash
+# Start MySQL
+docker compose up -d db
+
+# Stop
+docker compose down
+```
+
+Mặc định MySQL sẽ được map ra host port `3307` (để tránh đụng MySQL local). Nếu muốn dùng port `3306`:
+
+```powershell
+$env:MYSQL_HOST_PORT=3306
+docker compose up -d db
+```
+
+CMD (Command Prompt):
+
+```bat
+set MYSQL_HOST_PORT=3306
+docker compose up -d db
+```
+
+Bạn cũng có thể đổi mật khẩu root của MySQL:
+
+```powershell
+$env:MYSQL_ROOT_PASSWORD="your_password"
+docker compose up -d db
+```
+
+Nếu bạn chạy app trên máy host và DB chạy trong Docker ở port `3307`, hãy cấu hình lại DB bằng biến môi trường (ví dụ `DB_PORT=3307` hoặc `DB_URL=...`).
+
+Ghi chú: file SQL init trong `docker-compose.yml` chỉ chạy **lần đầu** khi volume DB còn trống. Nếu muốn import lại từ đầu:
+
+```bash
+docker compose down -v
+docker compose up -d db
 ```
 
 ## 5. Giao Diện Chính
@@ -128,7 +217,7 @@ Khi tạo tài khoản, chọn **Phân Quyền**:
 
 ### Lỗi "Access denied for user 'root'@'localhost'"
 
-→ Sửa password trong `hibernate.cfg.xml` phù hợp với MySQL setup
+→ Kiểm tra thông tin `db.user` và `db.pass` trong `pom.xml` (hoặc truyền `-Ddb.user/-Ddb.pass` khi chạy)
 
 ### Lỗi "Unknown database 'xettuyen2026'"
 
@@ -137,6 +226,22 @@ Khi tạo tài khoản, chọn **Phân Quyền**:
 ### Lỗi Maven `release version 21 not supported`
 
 → Cập nhật Maven hoặc Java version lên >= 21
+
+### Maven đang dùng Java 8 (mở ra lỗi cú pháp như `')' expected`, `illegal start of expression`)
+
+→ Kiểm tra `mvn -v` xem đang chạy Java version nào.
+
+- Nếu thấy `Java version: 1.8...` thì Maven đang dùng JDK 8 (không phù hợp với dự án).
+- Cách nhanh (PowerShell) để build/chạy bằng JDK mới trong phiên terminal hiện tại:
+
+```bash
+$env:JAVA_HOME="C:\\Path\\To\\JDK"  # ví dụ JDK 21 hoặc JDK 17
+$env:Path="$env:JAVA_HOME\\bin;" + $env:Path
+mvn -v
+mvn -DskipTests package
+```
+
+→ Để fix lâu dài: đặt biến môi trường `JAVA_HOME` của Windows trỏ tới JDK mới (>= 17, khuyến nghị 21) và đảm bảo `%JAVA_HOME%\\bin` đứng trước Java cũ trong `Path`.
 
 ## 9. Mô Tả Dự Án
 
