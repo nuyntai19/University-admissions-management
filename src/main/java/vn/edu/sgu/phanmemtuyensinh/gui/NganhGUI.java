@@ -234,8 +234,9 @@ public class NganhGUI extends JPanel {
 
     private void timKiem() {
         currentKeyword = txtTimKiem.getText().trim();
+        table.clearSelection();
+        currentId = -1;
         loadDuLieu();
-        lamMoi();
     }
 
     private void chonDong() {
@@ -254,10 +255,10 @@ public class NganhGUI extends JPanel {
 
     private void lamMoi() {
         currentId = -1;
+        currentKeyword = "";
+        if (txtTimKiem != null) txtTimKiem.setText("");
         table.clearSelection();
-        if (txtTimKiem != null && txtTimKiem.getText().isBlank()) {
-            currentKeyword = "";
-        }
+        loadDuLieu();
     }
 
     private Nganh hienThiFormNganh(Nganh source) {

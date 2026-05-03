@@ -22,6 +22,7 @@ public class NganhBUS {
     private static final Pattern MA_NGANH_PATTERN = Pattern.compile("^[0-9]{7,8}(CLC)?$", Pattern.CASE_INSENSITIVE);
 
     private NganhDAO dao = new NganhDAO();
+    private NguyenVongXetTuyenBUS nvBus = new NguyenVongXetTuyenBUS();
     private String lastError = "";
     private String lastImportSummary = "";
 
@@ -61,7 +62,11 @@ public class NganhBUS {
         if (!validateNganh(nganh, false)) {
             return false;
         }
-        return dao.update(nganh);
+        boolean ok = dao.update(nganh);
+        if (ok) {
+            nvBus.runXetTuyenForMaNganh(nganh.getMaNganh());
+        }
+        return ok;
     }
 
     public boolean delete(int idNganh) {

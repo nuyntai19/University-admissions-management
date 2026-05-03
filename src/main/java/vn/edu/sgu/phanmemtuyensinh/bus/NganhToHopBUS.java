@@ -7,7 +7,11 @@ import vn.edu.sgu.phanmemtuyensinh.dal.entity.NganhToHop;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.Nganh;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.ToHopMon;
 import vn.edu.sgu.phanmemtuyensinh.utils.DolechTable;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
@@ -17,6 +21,118 @@ public class NganhToHopBUS {
     private final NganhDAO nganhDAO = new NganhDAO();
     private final ToHopMonDAO toHopMonDAO = new ToHopMonDAO();
     private String lastError = "";
+    private String lastImportSummary = "";
+
+    public String getLastImportSummary() {
+        return lastImportSummary;
+    }
+
+    public void importAndSaveToDatabase(String filePath) throws Exception {
+        if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
+            throw new Exception("Không có quyền thực hiện: " + lastError);
+        }
+        int success = 0;
+        int failed = 0;
+        int skippedEmpty = 0;
+        StringBuilder failDetail = new StringBuilder();
+
+        try (FileInputStream fis = new FileInputStream(filePath);
+             Workbook workbook = new XSSFWorkbook(fis)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            for (Row row : sheet) {
+                if (row.getRowNum() == 0) continue; // Bỏ qua dòng tiêu đề
+
+                Cell cellMaNganh = row.getCell(1); // Column B: MANGANH
+                Cell cellMaToHop = row.getCell(5); // Column F: TEN_TO_HOP (chứa mã B03, C01...)
+
+                String maNganh = getCellValueAsString(cellMaNganh);
+                String maToHop = getCellValueAsString(cellMaToHop);
+                
+                String tenNganhChuan = getCellValueAsString(row.getCell(2)); // Cột C
+                String laToHopGoc = getCellValueAsString(row.getCell(6)); // Cột G
+
+                // Fallback nếu cột F trống, lấy từ cột D (MA_TO_HOP: B03(TO-3, VA-3, SI-1))
+                if (maToHop.isEmpty()) {
+                    String rawToHop = getCellValueAsString(row.getCell(3));
+                    if (rawToHop.contains("(")) {
+                        maToHop = rawToHop.substring(0, rawToHop.indexOf('(')).trim();
+                    } else {
+                        maToHop = rawToHop.trim();
+                    }
+                }
+
+                if (maNganh.isEmpty() || maToHop.isEmpty()) {
+                    skippedEmpty++;
+                    continue;
+                }
+
+                NganhToHop nth = new NganhToHop();
+                nth.setMaNganh(maNganh);
+                nth.setMaToHop(maToHop);
+                nth.setTenNganhChuan(tenNganhChuan);
+                nth.setTenToHop(maToHop);
+                nth.setLaToHopGoc(laToHopGoc);
+                
+                // Update xt_nganh toHopGoc if this row is Gốc
+                if ("Gốc".equalsIgnoreCase(laToHopGoc) || "Goc".equalsIgnoreCase(laToHopGoc)) {
+                    Nganh nganh = nganhDAO.getByMaNganh(maNganh);
+                    if (nganh != null) {
+                        nganh.setToHopGoc(maToHop);
+                        nganhDAO.update(nganh);
+                    }
+                }
+
+                // Các hệ số có thể parse từ chuỗi ở cột D nếu cần, nhưng hiện tại lấy mặc định là 1 (null -> 1)
+                nth.setHsMon1(null);
+                nth.setHsMon2(null);
+                nth.setHsMon3(null);
+                
+                String doLechStr = getCellValueAsString(row.getCell(7)); // Cột H: Độ lệch
+                if (!doLechStr.isEmpty()) {
+                    try {
+                        nth.setDoLech(new BigDecimal(doLechStr));
+                    } catch (Exception e) {}
+                }
+
+                // Kiểm tra xem đã tồn tại chưa
+                NganhToHop existing = dao.getByTbKeys(buildTbKeys(maNganh, maToHop));
+                boolean result;
+                if (existing != null) {
+                    nth.setId(existing.getId());
+                    result = update(nth);
+                } else {
+                    result = add(nth);
+                }
+
+                if (result) {
+                    success++;
+                } else {
+                    failed++;
+                    if (failDetail.length() < 1000) {
+                        failDetail.append("Dòng ").append(row.getRowNum() + 1)
+                                .append(": ").append(lastError).append("\n");
+                    }
+                }
+            }
+        }
+        lastImportSummary = String.format("Thành công: %d dòng\nThất bại: %d dòng\nBỏ qua dòng trống: %d\n\nChi tiết lỗi:\n%s", 
+                success, failed, skippedEmpty, failDetail.toString());
+    }
+
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) return "";
+        DataFormatter formatter = new DataFormatter();
+        return formatter.formatCellValue(cell).trim();
+    }
+
+    private Integer parseIntOrNull(String s) {
+        if (s == null || s.trim().isEmpty()) return null;
+        try {
+            return Integer.parseInt(s.trim());
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
     public List<NganhToHop> getAll() {
         return dao.getAll();
@@ -104,6 +220,10 @@ public class NganhToHopBUS {
         nth.setMaNganh(maNganh);
         nth.setMaToHop(maToHop);
         nth.setTbKeys(buildTbKeys(maNganh, maToHop));
+        
+        // Tự động cập nhật tên chuẩn từ danh mục gốc
+        nth.setTenNganhChuan(nganh.getTenNganh());
+        nth.setTenToHop(th.getTenToHop());
 
         // Always align subject list with xt_tohop_monthi
         nth.setThMon1(safeUpper(th.getMon1()));
@@ -121,12 +241,14 @@ public class NganhToHopBUS {
         applySubjectFlag(nth, nth.getThMon2());
         applySubjectFlag(nth, nth.getThMon3());
 
-        // dolech based on nganh's tohop goc
-        BigDecimal doLech = BigDecimal.ZERO;
-        if (nganh.getToHopGoc() != null && !nganh.getToHopGoc().isBlank()) {
-            doLech = DolechTable.getDoLech(nganh.getToHopGoc(), maToHop);
+        // dolech based on nganh's tohop goc only if not explicitly set
+        if (nth.getDoLech() == null) {
+            BigDecimal doLech = BigDecimal.ZERO;
+            if (nganh.getToHopGoc() != null && !nganh.getToHopGoc().isBlank()) {
+                doLech = DolechTable.getDoLech(nganh.getToHopGoc(), maToHop);
+            }
+            nth.setDoLech(doLech);
         }
-        nth.setDoLech(doLech);
 
         // Unique key check
         int currentId = isAdd ? -1 : nth.getId();

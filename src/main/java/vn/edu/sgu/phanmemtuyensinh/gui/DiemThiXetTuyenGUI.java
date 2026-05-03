@@ -61,6 +61,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
     private JButton btnXoa;
     private JButton btnImport;
     private JButton btnExport;
+    private JButton btnThongKe;
     private JButton btnTim;
     private JButton btnLamMoi;
     private JButton btnTrangTruoc;
@@ -97,22 +98,24 @@ public class DiemThiXetTuyenGUI extends JPanel {
         btnXoa = new JButton("Xóa");
         btnImport = new JButton("Import");
         btnExport = new JButton("Export");
+        btnThongKe = new JButton("Thống Kê");
         btnLamMoi = new JButton("Làm Mới");
         pnlActions.add(btnThem);
         pnlActions.add(btnSua);
         pnlActions.add(btnXoa);
         pnlActions.add(btnLamMoi);
 
-        JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         pnlSearch.setOpaque(false);
         pnlSearch.add(new JLabel("Tìm CCCD / SBD:"));
-        txtTimKiem = new JTextField(20);
+        txtTimKiem = new JTextField(18);
         btnTim = new JButton("Tìm");
         pnlSearch.add(txtTimKiem);
         pnlSearch.add(btnTim);
-        pnlSearch.add(new JLabel("  "));
+        pnlSearch.add(btnThongKe);
         pnlSearch.add(btnImport);
         pnlSearch.add(btnExport);
+
 
         JPanel pnlActionSearchSort = new JPanel(new BorderLayout(8, 8));
         pnlActionSearchSort.setOpaque(false);
@@ -129,6 +132,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
         btnXoa.addActionListener(e -> xoaDiem());
         btnImport.addActionListener(e -> importDiem());
         btnExport.addActionListener(e -> exportDiem());
+        btnThongKe.addActionListener(e -> thongKeDiem());
         btnTim.addActionListener(e -> timKiem());
         btnLamMoi.addActionListener(e -> lamMoi());
 
@@ -154,7 +158,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
         table.getSelectionModel().addListSelectionListener(e -> chonDong());
         
         // Đặt độ rộng cột mặc định
-        table.getColumnModel().getColumn(0).setPreferredWidth(120); // ID - ngang với CCCD
+        table.getColumnModel().getColumn(0).setPreferredWidth(50);  // ID - gọn lại
         table.getColumnModel().getColumn(1).setPreferredWidth(120); // CCCD
         table.getColumnModel().getColumn(2).setPreferredWidth(100); // Số Báo Danh
         table.getColumnModel().getColumn(3).setPreferredWidth(90);  // Phương Thức
@@ -164,6 +168,10 @@ public class DiemThiXetTuyenGUI extends JPanel {
             table.getColumnModel().getColumn(i).setPreferredWidth(55);
             table.getColumnModel().getColumn(i).setResizable(false);
         }
+        
+        // Cột cuối "Điểm xét TN" rộng hơn để hiển thị đầy đủ
+        table.getColumnModel().getColumn(columns.length - 1).setPreferredWidth(110);
+        table.getColumnModel().getColumn(columns.length - 1).setResizable(true);
         
         // Tắt tính năng auto-resize để giữ width cố định
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
@@ -921,4 +929,81 @@ public class DiemThiXetTuyenGUI extends JPanel {
             cell.setCellValue("");
         }
     }
+
+    private void thongKeDiem() {
+        JDialog dialog = new JDialog(
+                (java.awt.Frame) javax.swing.SwingUtilities.getWindowAncestor(this),
+                "Thống Kê Điểm Theo Môn Thi", true);
+        dialog.setLayout(new BorderLayout(10, 10));
+
+        // Tiêu đề
+        JLabel lblTitle = new JLabel("THỐNG KÊ ĐIỂM THI THEO TỪNG MÔN", JLabel.CENTER);
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblTitle.setForeground(new Color(0x1565C0));
+        lblTitle.setBorder(BorderFactory.createEmptyBorder(14, 10, 6, 10));
+        dialog.add(lblTitle, BorderLayout.NORTH);
+
+        // Bảng thống kê
+        String[] cols = {"Môn Thi", "Số có điểm", "Điểm TB", "Điểm Max", "Điểm Min", "Số bỏ trống"};
+        DefaultTableModel statModel = new DefaultTableModel(cols, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
+        };
+
+        java.util.LinkedHashMap<String, double[]> thongKe = bus.getThongKeDiemTheoMon();
+        for (java.util.Map.Entry<String, double[]> entry : thongKe.entrySet()) {
+            double[] s = entry.getValue();
+            long soCoDiem = (long) s[0];
+            String tb   = soCoDiem > 0 ? String.format("%.2f", s[1]) : "-";
+            String max  = soCoDiem > 0 ? String.format("%.2f", s[2]) : "-";
+            String min  = soCoDiem > 0 ? String.format("%.2f", s[3]) : "-";
+            long soTrong = (long) s[4];
+            statModel.addRow(new Object[]{entry.getKey(), soCoDiem, tb, max, min, soTrong});
+        }
+
+        JTable statTable = new JTable(statModel);
+        statTable.setRowHeight(26);
+        statTable.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        statTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        statTable.getTableHeader().setBackground(new Color(0x1565C0));
+        statTable.getTableHeader().setForeground(Color.WHITE);
+        statTable.setSelectionBackground(new Color(0xBBDEFB));
+        statTable.setGridColor(new Color(0xCFD8DC));
+
+        // Căn giữa các cột số
+        javax.swing.table.DefaultTableCellRenderer centerRenderer = new javax.swing.table.DefaultTableCellRenderer();
+        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
+        for (int i = 1; i < cols.length; i++) {
+            statTable.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
+        }
+        statTable.getColumnModel().getColumn(0).setPreferredWidth(120);
+        for (int i = 1; i < cols.length; i++) {
+            statTable.getColumnModel().getColumn(i).setPreferredWidth(100);
+        }
+
+        JScrollPane scroll = new JScrollPane(statTable);
+        scroll.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
+        dialog.add(scroll, BorderLayout.CENTER);
+
+        // Footer
+        long tongBanGhi = bus.countAll();
+        JLabel lblFooter = new JLabel("Tổng số bản ghi điểm thi: " + tongBanGhi, JLabel.CENTER);
+        lblFooter.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+        lblFooter.setForeground(new Color(0x555555));
+        lblFooter.setBorder(BorderFactory.createEmptyBorder(6, 10, 4, 10));
+
+        JButton btnDong = new JButton("Đóng");
+        btnDong.addActionListener(e -> dialog.dispose());
+        JPanel pnlFooter = new JPanel(new BorderLayout());
+        pnlFooter.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
+        pnlFooter.add(lblFooter, BorderLayout.NORTH);
+        JPanel pnlBtn = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        pnlBtn.add(btnDong);
+        pnlFooter.add(pnlBtn, BorderLayout.SOUTH);
+        dialog.add(pnlFooter, BorderLayout.SOUTH);
+
+        dialog.setSize(740, 580);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
 }
+

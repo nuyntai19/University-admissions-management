@@ -1,7 +1,14 @@
 package vn.edu.sgu.phanmemtuyensinh.dal.entity;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
 @Entity
 @Table(name = "xt_diemcongxetuyen")
@@ -43,6 +50,30 @@ public class DiemCongXetTuyen {
     
     @Column(name = "loai_giai")
     private String loaiGiai;
+
+    @Column(name = "cap_giai")
+    private String capGiai;
+
+    @Column(name = "doi_tuong_giai")
+    private String doiTuongGiai;
+
+    @Column(name = "ma_mon_giai")
+    private String maMonGiai;
+
+    @Column(name = "diem_cong_mon_giai")
+    private BigDecimal diemCongMonGiai;
+
+    @Column(name = "co_chung_chi")
+    private Boolean coChungChi;
+
+    @Column(name = "manganh")
+    private String maNganh;
+
+    @Column(name = "matohop")
+    private String maToHop;
+
+    @Column(name = "phuongthuc")
+    private String phuongThuc;
 
     // --- Bổ sung các trường phụ phục vụ tính toán ---
     @Transient // Không lưu xuống DB, chỉ dùng để truyền dữ liệu từ GUI
@@ -89,4 +120,20 @@ public class DiemCongXetTuyen {
     public void setMdutGoc(BigDecimal mdutGoc) { this.mdutGoc = mdutGoc; }
     public BigDecimal getDiemThgxt() { return diemThgxt; }
     public void setDiemThgxt(BigDecimal diemThgxt) { this.diemThgxt = diemThgxt; }
+    public String getCapGiai() { return capGiai; }
+    public void setCapGiai(String capGiai) { this.capGiai = capGiai; }
+    public String getDoiTuongGiai() { return doiTuongGiai; }
+    public void setDoiTuongGiai(String doiTuongGiai) { this.doiTuongGiai = doiTuongGiai; }
+    public String getMaMonGiai() { return maMonGiai; }
+    public void setMaMonGiai(String maMonGiai) { this.maMonGiai = maMonGiai; }
+    public BigDecimal getDiemCongMonGiai() { return diemCongMonGiai; }
+    public void setDiemCongMonGiai(BigDecimal diemCongMonGiai) { this.diemCongMonGiai = diemCongMonGiai; }
+    public Boolean getCoChungChi() { return coChungChi; }
+    public void setCoChungChi(Boolean coChungChi) { this.coChungChi = coChungChi; }
+    public String getMaNganh() { return maNganh; }
+    public void setMaNganh(String maNganh) { this.maNganh = maNganh; }
+    public String getMaToHop() { return maToHop; }
+    public void setMaToHop(String maToHop) { this.maToHop = maToHop; }
+    public String getPhuongThuc() { return phuongThuc; }
+    public void setPhuongThuc(String phuongThuc) { this.phuongThuc = phuongThuc; }
 }

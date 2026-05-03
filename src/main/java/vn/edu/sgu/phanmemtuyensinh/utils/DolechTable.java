@@ -1,25 +1,92 @@
 package vn.edu.sgu.phanmemtuyensinh.utils;
 
-import java.io.BufferedReader;
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * Quản lý bảng độ lệch điểm giữa các tổ hợp so với tổ hợp gốc.
+ * Dữ liệu này được dùng để gán mặc định vào database (bảng xt_nganh_tohop) 
+ * khi import hoặc thêm mới mapping.
+ */
 public final class DolechTable {
-    private static volatile Map<String, Map<String, BigDecimal>> CACHE;
-    private static final Object LOCK = new Object();
+    private static final Map<String, Map<String, BigDecimal>> TABLE = new HashMap<>();
+
+    static {
+        // Khởi tạo bảng độ lệch chuẩn theo tài liệu 'cac cong thuc tinh.txt'
+        // Cột m quy về hàng n: Điểm quy đổi = Điểm thực - (Giá trị trong ô)
+        
+        // Hàng A00
+        Map<String, BigDecimal> rA00 = new HashMap<>();
+        rA00.put("A01", new BigDecimal("-0.69"));
+        rA00.put("B00", new BigDecimal("-1.21"));
+        rA00.put("C00", new BigDecimal("2.32"));
+        rA00.put("C01", new BigDecimal("0.94"));
+        rA00.put("D01", new BigDecimal("-0.68"));
+        rA00.put("D07", new BigDecimal("-1.62"));
+        TABLE.put("A00", rA00);
+
+        // Hàng A01
+        Map<String, BigDecimal> rA01 = new HashMap<>();
+        rA01.put("A00", new BigDecimal("0.69"));
+        rA01.put("B00", new BigDecimal("-0.52"));
+        rA01.put("C00", new BigDecimal("3.01"));
+        rA01.put("C01", new BigDecimal("1.63"));
+        rA01.put("D01", new BigDecimal("0.01"));
+        rA01.put("D07", new BigDecimal("-0.93"));
+        TABLE.put("A01", rA01);
+
+        // Hàng B00
+        Map<String, BigDecimal> rB00 = new HashMap<>();
+        rB00.put("A00", new BigDecimal("1.21"));
+        rB00.put("A01", new BigDecimal("0.52"));
+        rB00.put("C00", new BigDecimal("3.53"));
+        rB00.put("C01", new BigDecimal("2.15"));
+        rB00.put("D01", new BigDecimal("0.53"));
+        rB00.put("D07", new BigDecimal("-0.41"));
+        TABLE.put("B00", rB00);
+
+        // Hàng C00
+        Map<String, BigDecimal> rC00 = new HashMap<>();
+        rC00.put("A00", new BigDecimal("-2.32"));
+        rC00.put("A01", new BigDecimal("-3.01"));
+        rC00.put("B00", new BigDecimal("-3.53"));
+        rC00.put("C01", new BigDecimal("-1.38"));
+        rC00.put("D01", new BigDecimal("-3.00"));
+        rC00.put("D07", new BigDecimal("-3.94"));
+        TABLE.put("C00", rC00);
+
+        // Hàng C01
+        Map<String, BigDecimal> rC01 = new HashMap<>();
+        rC01.put("A00", new BigDecimal("-0.94"));
+        rC01.put("A01", new BigDecimal("-1.63"));
+        rC01.put("B00", new BigDecimal("-2.15"));
+        rC01.put("C00", new BigDecimal("1.38"));
+        rC01.put("D01", new BigDecimal("-1.62"));
+        rC01.put("D07", new BigDecimal("-2.56"));
+        TABLE.put("C01", rC01);
+
+        // Hàng D01
+        Map<String, BigDecimal> rD01 = new HashMap<>();
+        rD01.put("A00", new BigDecimal("0.68"));
+        rD01.put("A01", new BigDecimal("-0.01"));
+        rD01.put("B00", new BigDecimal("-0.53"));
+        rD01.put("C00", new BigDecimal("3.0"));
+        rD01.put("C01", new BigDecimal("1.62"));
+        rD01.put("D07", new BigDecimal("-0.94"));
+        TABLE.put("D01", rD01);
+    }
 
     private DolechTable() {
     }
 
+    /**
+     * Lấy giá trị độ lệch giữa tổ hợp đang xét và tổ hợp gốc.
+     * @param toHopGoc Mã tổ hợp gốc của ngành (VD: A00)
+     * @param toHop Mã tổ hợp của thí sinh (VD: A01)
+     * @return BigDecimal độ lệch, mặc định là 0 nếu không tìm thấy.
+     */
     public static BigDecimal getDoLech(String toHopGoc, String toHop) {
         String goc = norm(toHopGoc);
         String th = norm(toHop);
@@ -27,160 +94,12 @@ public final class DolechTable {
             return BigDecimal.ZERO;
         }
 
-        Map<String, Map<String, BigDecimal>> table = ensureLoaded();
-        Map<String, BigDecimal> row = table.get(goc);
+        Map<String, BigDecimal> row = TABLE.get(goc);
         if (row == null) {
             return BigDecimal.ZERO;
         }
         BigDecimal v = row.get(th);
         return v == null ? BigDecimal.ZERO : v;
-    }
-
-    private static Map<String, Map<String, BigDecimal>> ensureLoaded() {
-        Map<String, Map<String, BigDecimal>> current = CACHE;
-        if (current != null) {
-            return current;
-        }
-
-        synchronized (LOCK) {
-            if (CACHE != null) {
-                return CACHE;
-            }
-            CACHE = loadFromDefaultPath();
-            return CACHE;
-        }
-    }
-
-    private static Map<String, Map<String, BigDecimal>> loadFromDefaultPath() {
-        Path p = Paths.get("data", "cac cong thuc tinh.txt");
-        if (!Files.exists(p)) {
-            return new HashMap<>();
-        }
-
-        try {
-            return parseAsciiTable(p);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return new HashMap<>();
-        }
-    }
-
-    private static Map<String, Map<String, BigDecimal>> parseAsciiTable(Path path) throws IOException {
-        List<String> lines = new ArrayList<>();
-        try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                lines.add(line);
-            }
-        }
-
-        List<String> headerCols = null;
-        Map<String, Map<String, BigDecimal>> result = new HashMap<>();
-
-        for (String raw : lines) {
-            String line = raw == null ? "" : raw.trim();
-            if (!line.startsWith("|") || !line.contains("gốc")) {
-                continue;
-            }
-
-            // Header line contains "gốc" and list of tohop codes.
-            List<String> cells = splitPipeRow(line);
-            int gocIdx = indexOfCellContaining(cells, "gốc");
-            if (gocIdx >= 0 && gocIdx + 1 < cells.size()) {
-                headerCols = new ArrayList<>();
-                for (int i = gocIdx + 1; i < cells.size(); i++) {
-                    String col = norm(cells.get(i));
-                    if (!col.isEmpty()) {
-                        headerCols.add(col);
-                    }
-                }
-                break;
-            }
-        }
-
-        if (headerCols == null || headerCols.isEmpty()) {
-            return result;
-        }
-
-        for (String raw : lines) {
-            String line = raw == null ? "" : raw.trim();
-            if (!line.startsWith("|") || !line.contains("Hàng")) {
-                continue;
-            }
-
-            List<String> cells = splitPipeRow(line);
-            // Expected: [STT, Hàng n, <goc>, <val col1>, <val col2>, ...]
-            if (cells.size() < 3) {
-                continue;
-            }
-
-            String goc = norm(cells.get(2));
-            if (goc.isEmpty()) {
-                continue;
-            }
-
-            Map<String, BigDecimal> row = result.computeIfAbsent(goc, k -> new HashMap<>());
-
-            int valuesStart = 3;
-            for (int i = 0; i < headerCols.size(); i++) {
-                int cellIdx = valuesStart + i;
-                if (cellIdx >= cells.size()) {
-                    break;
-                }
-
-                String txt = cells.get(cellIdx);
-                BigDecimal v = parseDecimalOrNull(txt);
-                if (v != null) {
-                    row.put(headerCols.get(i), v);
-                }
-            }
-        }
-
-        return result;
-    }
-
-    private static int indexOfCellContaining(List<String> cells, String needle) {
-        for (int i = 0; i < cells.size(); i++) {
-            String c = cells.get(i);
-            if (c != null && c.toLowerCase(Locale.ROOT).contains(needle.toLowerCase(Locale.ROOT))) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    private static List<String> splitPipeRow(String line) {
-        String trimmed = line;
-        if (trimmed.startsWith("|")) {
-            trimmed = trimmed.substring(1);
-        }
-        if (trimmed.endsWith("|")) {
-            trimmed = trimmed.substring(0, trimmed.length() - 1);
-        }
-        String[] parts = trimmed.split("\\|");
-        List<String> cells = new ArrayList<>(parts.length);
-        for (String p : parts) {
-            cells.add(p == null ? "" : p.trim());
-        }
-        return cells;
-    }
-
-    private static BigDecimal parseDecimalOrNull(String s) {
-        if (s == null) {
-            return null;
-        }
-        String t = s.trim();
-        if (t.isEmpty()) {
-            return null;
-        }
-        // Remove spaces and normalize comma decimal separator
-        t = t.replace(" ", "").replace(",", ".");
-        // Keep leading +
-        try {
-            return new BigDecimal(t);
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
 
     private static String norm(String s) {

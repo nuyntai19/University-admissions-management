@@ -18,6 +18,15 @@ public class NganhToHop {
     @Column(name = "matohop", nullable = false, length = 45)
     private String maToHop;
 
+    @Column(name = "ten_nganh_chuan", length = 255)
+    private String tenNganhChuan;
+
+    @Column(name = "ten_to_hop", length = 150)
+    private String tenToHop;
+
+    @Column(name = "la_tohop_goc", length = 20)
+    private String laToHopGoc;
+
     @Column(name = "th_mon1", length = 10)
     private String thMon1;
 
@@ -109,6 +118,30 @@ public class NganhToHop {
 
     public void setMaToHop(String maToHop) {
         this.maToHop = maToHop;
+    }
+
+    public String getTenNganhChuan() {
+        return tenNganhChuan;
+    }
+
+    public void setTenNganhChuan(String tenNganhChuan) {
+        this.tenNganhChuan = tenNganhChuan;
+    }
+
+    public String getTenToHop() {
+        return tenToHop;
+    }
+
+    public void setTenToHop(String tenToHop) {
+        this.tenToHop = tenToHop;
+    }
+
+    public String getLaToHopGoc() {
+        return laToHopGoc;
+    }
+
+    public void setLaToHopGoc(String laToHopGoc) {
+        this.laToHopGoc = laToHopGoc;
     }
 
     public String getThMon1() {

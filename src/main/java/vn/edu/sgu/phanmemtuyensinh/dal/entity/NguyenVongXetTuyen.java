@@ -12,11 +12,9 @@ public class NguyenVongXetTuyen {
     @Column(name = "idnv")
     private int idNv;
 
-    @Column(name = "nv_cccd", nullable = false, length = 45)
+    @Column(name = "nn_cccd", nullable = false, length = 45)
     private String nvCccd;
-    
-    @Column(name = "nv_sobaodanh", nullable = false, length = 45)
-    private String nvSoBaoDanh;
+
     
     @Column(name = "nv_tt", nullable = false)
     private int nvTt;
@@ -64,9 +62,6 @@ public class NguyenVongXetTuyen {
 
     public String getNvCccd() { return nvCccd; }
     public void setNvCccd(String nvCccd) { this.nvCccd = nvCccd; }
-    
-    public String getNvSoBaoDanh() { return nvSoBaoDanh; }
-    public void setNvSoBaoDanh(String nvSoBaoDanh) { this.nvSoBaoDanh = nvSoBaoDanh; }
     
     public int getNvTt() { return nvTt; }
     public void setNvTt(int nvTt) { this.nvTt = nvTt; }

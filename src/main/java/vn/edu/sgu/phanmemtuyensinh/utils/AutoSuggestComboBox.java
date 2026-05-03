@@ -50,6 +50,10 @@ public class AutoSuggestComboBox extends JPanel {
                 if (!list.isSelectionEmpty()) {
                     txtInput.setText(list.getSelectedValue());
                     popup.setVisible(false);
+                    // Trigger action listeners
+                    for (java.awt.event.ActionListener al : txtInput.getActionListeners()) {
+                        al.actionPerformed(new java.awt.event.ActionEvent(txtInput, java.awt.event.ActionEvent.ACTION_PERFORMED, null));
+                    }
                 }
             }
         });
@@ -98,5 +102,19 @@ public class AutoSuggestComboBox extends JPanel {
 
     public void setText(String text) {
         txtInput.setText(text);
+    }
+
+    public void addActionListener(java.awt.event.ActionListener l) {
+        txtInput.addActionListener(l);
+    }
+
+    public JTextField getTextField() {
+        return txtInput;
+    }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        super.setEnabled(enabled);
+        txtInput.setEnabled(enabled);
     }
 }

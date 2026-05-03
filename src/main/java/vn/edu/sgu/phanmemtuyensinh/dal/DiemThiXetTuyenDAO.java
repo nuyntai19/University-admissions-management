@@ -54,8 +54,8 @@ public class DiemThiXetTuyenDAO {
 
     public DiemThiXetTuyen getByCccd(String cccd) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-            return session.createQuery("FROM DiemThiXetTuyen WHERE cccd = :cccd ORDER BY idDiemThi DESC", DiemThiXetTuyen.class)
-                    .setParameter("cccd", cccd)
+            return session.createQuery("FROM DiemThiXetTuyen WHERE cccd = :code OR soBaoDanh = :code ORDER BY idDiemThi DESC", DiemThiXetTuyen.class)
+                    .setParameter("code", cccd)
                     .setMaxResults(1)
                     .uniqueResult();
         }
@@ -64,9 +64,9 @@ public class DiemThiXetTuyenDAO {
     public DiemThiXetTuyen getByCcqdAndPhuongThuc(String cccd, String phuongThuc) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             return session.createQuery(
-                    "FROM DiemThiXetTuyen WHERE cccd = :cccd AND phuongThuc = :pt", 
+                    "FROM DiemThiXetTuyen WHERE (cccd = :code OR soBaoDanh = :code) AND phuongThuc = :pt", 
                     DiemThiXetTuyen.class)
-                    .setParameter("cccd", cccd)
+                    .setParameter("code", cccd)
                     .setParameter("pt", phuongThuc)
                     .uniqueResult();
         }
@@ -192,15 +192,15 @@ public class DiemThiXetTuyenDAO {
 
             // 1. Lấy điểm thí sinh
             DiemThiXetTuyen d = session.createQuery(
-                    "FROM DiemThiXetTuyen WHERE cccd = :cccd", DiemThiXetTuyen.class)
-                    .setParameter("cccd", cccd)
+                    "FROM DiemThiXetTuyen WHERE cccd = :code OR soBaoDanh = :code", DiemThiXetTuyen.class)
+                    .setParameter("code", cccd)
                     .uniqueResult();
 
             if (d == null) return BigDecimal.ZERO;
 
             // 2. Lấy tổ hợp môn
             Object[] mon = session.createQuery(
-                    "SELECT t.mon1, t.mon2, t.mon3 FROM ToHopMonThi t WHERE t.maToHop = :ma",
+                    "SELECT t.mon1, t.mon2, t.mon3 FROM ToHopMon t WHERE t.maToHop = :ma",
                     Object[].class)
                     .setParameter("ma", maToHop)
                     .uniqueResult();

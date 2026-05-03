@@ -14,6 +14,18 @@ public class NganhToHopDAO {
         }
     }
 
+    public List<NganhToHop> searchNganh(String keyword, int limit) {
+        String key = "%" + keyword.toLowerCase() + "%";
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery(
+                    "FROM NganhToHop WHERE lower(maNganh) LIKE :key OR lower(tenNganhChuan) LIKE :key OR lower(maToHop) LIKE :key ORDER BY maNganh, maToHop",
+                    NganhToHop.class)
+                    .setParameter("key", key)
+                    .setMaxResults(limit)
+                    .list();
+        }
+    }
+
     public List<NganhToHop> getByMaNganh(String maNganh) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             return session.createQuery("FROM NganhToHop WHERE maNganh = :ma", NganhToHop.class)

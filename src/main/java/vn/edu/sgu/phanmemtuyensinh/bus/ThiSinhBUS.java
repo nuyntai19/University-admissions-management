@@ -171,30 +171,24 @@ public class ThiSinhBUS {
         int imported = 0;
         int updated = 0;
         int failed = 0;
-        int diemSyncFailed = 0;
         List<String> sampleErrors = new ArrayList<>();
         int total = list.size();
         for (int i = 0; i < total; i++) {
             ThiSinh ts = list.get(i);
             ThiSinh existing = dao.getByCccd(ts.getCccd());
             boolean ok;
-            ThiSinh syncSource = ts;
 
             if (existing != null) {
                 mergeImportedThiSinh(existing, ts);
                 ok = update(existing);
                 if (ok) {
                     updated++;
-                    syncSource = existing;
                 }
             } else {
                 ok = add(ts);
             }
 
             if (ok) {
-                if (!syncDiemThiRecord(syncSource)) {
-                    diemSyncFailed++;
-                }
                 imported++;
             } else {
                 failed++;
@@ -215,8 +209,7 @@ public class ThiSinhBUS {
                 + " | Dòng hợp lệ: " + list.size()
                 + " | Thành công: " + imported
                 + " | Cập nhật: " + updated
-                + " | Thất bại: " + failed
-                + " | Lỗi đồng bộ điểm thi: " + diemSyncFailed;
+                + " | Thất bại: " + failed;
         if (!lastImportRowErrors.isEmpty()) {
             int shown = Math.min(8, lastImportRowErrors.size());
             lastImportSummary += "\nDòng lỗi khi đọc/validate: " + lastImportRowErrors.size()
@@ -380,10 +373,10 @@ public class ThiSinhBUS {
                             }
                             headerWidth[0] = headers.size();
 
-                            cccdIdx[0] = findHeaderIndexInList(headers, new String[] {"cccd", "can cuoc", "so cccd"});
-                            gioiTinhIdx[0] = findHeaderIndexInList(headers, new String[] {"gioi tinh", "gioi", "gioitinh"});
-                            ngaySinhIdx[0] = findHeaderIndexInList(headers, new String[] {"ngay sinh", "ngaysinh"});
-                            noiSinhIdx[0] = findHeaderIndexInList(headers, new String[] {"noi sinh", "noisinh"});
+                            cccdIdx[0] = findHeaderIndexInList(headers, new String[] {"cccd", "cancuoc", "socccd"});
+                            gioiTinhIdx[0] = findHeaderIndexInList(headers, new String[] {"gioitinh", "gioi"});
+                            ngaySinhIdx[0] = findHeaderIndexInList(headers, new String[] {"ngaysinh"});
+                            noiSinhIdx[0] = findHeaderIndexInList(headers, new String[] {"noisinh"});
                             return;
                         }
 
@@ -458,22 +451,7 @@ public class ThiSinhBUS {
         return cccdChanged[0];
     }
 
-    private boolean syncDiemThiRecord(ThiSinh ts) {
-        if (ts == null || safe(ts.getCccd()).isEmpty()) {
-            return false;
-        }
-
-        DiemThiXetTuyen existing = diemDAO.getByCccd(ts.getCccd());
-        if (existing != null) {
-            existing.setSoBaoDanh(ts.getSoBaoDanh());
-            return diemDAO.update(existing);
-        }
-
-        DiemThiXetTuyen diem = new DiemThiXetTuyen();
-        diem.setCccd(ts.getCccd());
-        diem.setSoBaoDanh(ts.getSoBaoDanh());
-        return diemDAO.add(diem);
-    }
+    // Đã gỡ bỏ logic import/sync điểm thi theo yêu cầu
 
     private List<ThiSinh> importFromExcel(String filePath) throws IOException {
         List<ThiSinh> result = new ArrayList<>();
@@ -484,19 +462,28 @@ public class ThiSinhBUS {
             Sheet sheet = workbook.getSheetAt(0);
             int lastRow = sheet.getLastRowNum();
             Map<String, Integer> headerMap = new HashMap<>();
-
-            Row headerRow = sheet.getRow(0);
-            if (headerRow != null) {
-                headerMap = buildHeaderMapFromRow(headerRow, formatter);
+            Map<String, Integer> exactHeaderMap = new HashMap<>();
+            
+            // Tìm dòng header trong 10 dòng đầu tiên
+            int headerRowIndex = 0;
+            Row headerRow = null;
+            for (int r = 0; r <= Math.min(10, lastRow); r++) {
+                Row tempRow = sheet.getRow(r);
+                if (tempRow != null) {
+                    Map<String, Integer> tempMap = buildHeaderMapFromRow(tempRow, formatter);
+                    if (tempMap.containsKey("cccd") || tempMap.containsKey("so bao danh") || tempMap.containsKey("sobaodanh") || tempMap.containsKey("ngay sinh") || tempMap.containsKey("ngaysinh")) {
+                        headerRowIndex = r;
+                        headerRow = tempRow;
+                        headerMap = tempMap;
+                        exactHeaderMap = buildExactHeaderMapFromRow(tempRow, formatter);
+                        break;
+                    }
+                }
             }
 
-            Map<String, Integer> exactHeaderMap = headerRow == null
-                    ? new HashMap<>()
-                    : buildExactHeaderMapFromRow(headerRow, formatter);
+            lastImportSourceRows = Math.max(0, lastRow - headerRowIndex);
 
-            lastImportSourceRows = Math.max(0, lastRow);
-
-            for (int i = 1; i <= lastRow; i++) {
+            for (int i = headerRowIndex + 1; i <= lastRow; i++) {
                 Row row = sheet.getRow(i);
                 if (row == null) {
                     continue;
@@ -568,24 +555,24 @@ public class ThiSinhBUS {
 
     private ThiSinh parseThiSinhFromExcelRow(Row row, DataFormatter formatter,
             Map<String, Integer> headerMap, Map<String, Integer> exactHeaderMap) {
-        String cccd = valueFromExcelRow(row, formatter, headerMap, new String[] {"cccd", "can cuoc", "so cccd"}, 1);
+        String cccd = valueFromExcelRow(row, formatter, headerMap, new String[] {"cccd", "can cuoc", "so cccd", "cancuoc", "socccd"}, 1);
         if (cccd.isEmpty()) {
             return null;
         }
 
-        String hoTen = valueFromExcelRow(row, formatter, headerMap, new String[] {"ho ten", "ho va ten", "hoten"}, 2);
+        String hoTen = valueFromExcelRow(row, formatter, headerMap, new String[] {"ho ten", "ho va ten", "hoten", "hovaten"}, 2);
         String ho = valueFromExcelRowExact(row, formatter, exactHeaderMap, new String[] {"Họ", "ho"}, -1);
         String ten = valueFromExcelRowExact(row, formatter, exactHeaderMap, new String[] {"Tên", "ten"}, -1);
         String soBaoDanh = valueFromExcelRow(row, formatter, headerMap, new String[] {"so bao danh", "sobaodanh", "sbd"}, -1);
-        String ngaySinh = valueFromExcelRow(row, formatter, headerMap, new String[] {"ngay sinh", "ngaysinh"}, 3);
+        String ngaySinh = dateFromExcelRow(row, formatter, headerMap, new String[] {"ngay sinh", "ngaysinh"}, 3);
         String gioiTinh = valueFromExcelRow(row, formatter, headerMap, new String[] {"gioi tinh", "gioitinh"}, 4);
         String doiTuong = valueFromExcelRow(row, formatter, headerMap, new String[] {"doi tuong", "doituong", "dtut"}, 5);
         String khuVuc = valueFromExcelRow(row, formatter, headerMap, new String[] {"khu vuc", "khuvuc", "kvut"}, 6);
-        String dienThoai = valueFromExcelRow(row, formatter, headerMap, new String[] {"dien thoai", "dien_thoai", "sdt"}, -1);
+        String dienThoai = valueFromExcelRow(row, formatter, headerMap, new String[] {"dien thoai", "dienthoai", "sdt"}, -1);
         String email = valueFromExcelRow(row, formatter, headerMap, new String[] {"email"}, -1);
-        String password = valueFromExcelRow(row, formatter, headerMap, new String[] {"password", "mat khau"}, -1);
-        String updatedAt = valueFromExcelRow(row, formatter, headerMap, new String[] {"updated at", "updated_at"}, -1);
-        String maMonNn = valueFromExcelRow(row, formatter, headerMap, new String[] {"ma mon nn", "mamonnn", "ngoai ngu"}, 16);
+        String password = valueFromExcelRow(row, formatter, headerMap, new String[] {"password", "mat khau", "matkhau"}, -1);
+        String updatedAt = valueFromExcelRow(row, formatter, headerMap, new String[] {"updated at", "updatedat"}, -1);
+        String maMonNn = valueFromExcelRow(row, formatter, headerMap, new String[] {"ma mon nn", "mamonnn", "ngoai ngu", "ngoaingu"}, 16);
         String chuongTrinhHoc = valueFromExcelRow(row, formatter, headerMap, new String[] {"chuong trinh hoc", "chuongtrinhhoc"}, 21);
         String danToc = valueFromExcelRow(row, formatter, headerMap, new String[] {"dan toc", "dantoc"}, row.getLastCellNum() - 3);
         String maDanToc = valueFromExcelRow(row, formatter, headerMap, new String[] {"ma dan toc", "madantoc"}, row.getLastCellNum() - 2);
@@ -617,24 +604,24 @@ public class ThiSinhBUS {
     }
 
     private ThiSinh parseThiSinhFromParts(String[] parts, Map<String, Integer> headerMap) {
-        String cccd = valueFromParts(parts, headerMap, new String[] {"cccd", "can cuoc", "so cccd"}, 1);
-        String soBaoDanh = valueFromParts(parts, headerMap, new String[] {"so bao danh", "sobaodanh", "sbd"}, -1);
-        String hoTen = valueFromParts(parts, headerMap, new String[] {"ho ten", "ho va ten", "hoten"}, 2);
+        String cccd = valueFromParts(parts, headerMap, new String[] {"cccd", "cancuoc", "socccd"}, 1);
+        String soBaoDanh = valueFromParts(parts, headerMap, new String[] {"sobaodanh", "sbd"}, -1);
+        String hoTen = valueFromParts(parts, headerMap, new String[] {"hoten", "hovaten"}, 2);
         String ho = valueFromParts(parts, headerMap, new String[] {"ho"}, -1);
         String ten = valueFromParts(parts, headerMap, new String[] {"ten"}, -1);
-        String ngaySinh = valueFromParts(parts, headerMap, new String[] {"ngay sinh", "ngaysinh"}, 3);
-        String gioiTinh = valueFromParts(parts, headerMap, new String[] {"gioi tinh", "gioitinh"}, 4);
-        String doiTuong = valueFromParts(parts, headerMap, new String[] {"doi tuong", "doituong", "dtut"}, 5);
-        String khuVuc = valueFromParts(parts, headerMap, new String[] {"khu vuc", "khuvuc", "kvut"}, 6);
-        String dienThoai = valueFromParts(parts, headerMap, new String[] {"dien thoai", "dien_thoai", "sdt"}, -1);
+        String ngaySinh = valueFromParts(parts, headerMap, new String[] {"ngaysinh"}, 3);
+        String gioiTinh = valueFromParts(parts, headerMap, new String[] {"gioitinh"}, 4);
+        String doiTuong = valueFromParts(parts, headerMap, new String[] {"doituong", "dtut"}, 5);
+        String khuVuc = valueFromParts(parts, headerMap, new String[] {"khuvuc", "kvut"}, 6);
+        String dienThoai = valueFromParts(parts, headerMap, new String[] {"dienthoai", "sdt"}, -1);
         String email = valueFromParts(parts, headerMap, new String[] {"email"}, -1);
-        String password = valueFromParts(parts, headerMap, new String[] {"password", "mat khau"}, -1);
-        String updatedAt = valueFromParts(parts, headerMap, new String[] {"updated at", "updated_at"}, -1);
-        String maMonNn = valueFromParts(parts, headerMap, new String[] {"ma mon nn", "mamonnn", "ngoai ngu"}, 16);
-        String chuongTrinhHoc = valueFromParts(parts, headerMap, new String[] {"chuong trinh hoc", "chuongtrinhhoc"}, 21);
-        String danToc = valueFromParts(parts, headerMap, new String[] {"dan toc", "dantoc"}, parts.length - 3);
-        String maDanToc = valueFromParts(parts, headerMap, new String[] {"ma dan toc", "madantoc"}, parts.length - 2);
-        String noiSinh = valueFromParts(parts, headerMap, new String[] {"noi sinh", "noisinh"}, parts.length - 1);
+        String password = valueFromParts(parts, headerMap, new String[] {"password", "matkhau"}, -1);
+        String updatedAt = valueFromParts(parts, headerMap, new String[] {"updatedat"}, -1);
+        String maMonNn = valueFromParts(parts, headerMap, new String[] {"mamonnn", "ngoaingu"}, 16);
+        String chuongTrinhHoc = valueFromParts(parts, headerMap, new String[] {"chuongtrinhhoc"}, 21);
+        String danToc = valueFromParts(parts, headerMap, new String[] {"dantoc"}, parts.length - 3);
+        String maDanToc = valueFromParts(parts, headerMap, new String[] {"madantoc"}, parts.length - 2);
+        String noiSinh = valueFromParts(parts, headerMap, new String[] {"noisinh"}, parts.length - 1);
 
         if (cccd.isEmpty() || !isAcceptedCandidateCode(cccd)) {
             int cccdIdx = findCandidateCodeIndex(parts);
@@ -821,6 +808,48 @@ public class ThiSinhBUS {
         return "";
     }
 
+    private String dateFromExcelRow(Row row, DataFormatter formatter, Map<String, Integer> headerMap, String[] aliases, int fallbackIndex) {
+        int idx = findHeaderIndex(headerMap, aliases);
+        if (idx < 0) {
+            idx = fallbackIndex;
+        }
+        if (idx >= 0 && idx < row.getLastCellNum()) {
+            org.apache.poi.ss.usermodel.Cell cell = row.getCell(idx);
+            if (cell != null) {
+                if (cell.getCellType() == org.apache.poi.ss.usermodel.CellType.NUMERIC
+                        && org.apache.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell)) {
+                    java.util.Date date = cell.getDateCellValue();
+                    return new java.text.SimpleDateFormat("dd/MM/yyyy").format(date);
+                }
+                String val = safe(formatter.formatCellValue(cell));
+                // Nếu là số serial nguyên của Excel (ví dụ 39288 cho 25/07/2007)
+                if (val.matches("^\\d{4,5}(\\.\\d+)?$")) {
+                    try {
+                        double excelDate = Double.parseDouble(val);
+                        java.util.Date d = org.apache.poi.ss.usermodel.DateUtil.getJavaDate(excelDate);
+                        return new java.text.SimpleDateFormat("dd/MM/yyyy").format(d);
+                    } catch (Exception ignored) { }
+                }
+                // Nếu DataFormatter trả về dạng M/d/yy hoặc tương tự (VD: 2/26/07) từ Excel US locale
+                if (val.matches("^\\d{1,2}/\\d{1,2}/\\d{2}$")) {
+                    try {
+                        java.util.Date d = new java.text.SimpleDateFormat("M/d/yy").parse(val);
+                        return new java.text.SimpleDateFormat("dd/MM/yyyy").format(d);
+                    } catch (Exception ignored) { }
+                }
+                // Nếu là M/d/yyyy (VD: 7/25/2007)
+                if (val.matches("^\\d{1,2}/\\d{1,2}/\\d{4}$")) {
+                    try {
+                        java.util.Date d = new java.text.SimpleDateFormat("M/d/yyyy").parse(val);
+                        return new java.text.SimpleDateFormat("dd/MM/yyyy").format(d);
+                    } catch (Exception ignored) { }
+                }
+                return val;
+            }
+        }
+        return "";
+    }
+
     private String valueFromParts(String[] parts, Map<String, Integer> headerMap, String[] aliases, int fallbackIndex) {
         int idx = findHeaderIndex(headerMap, aliases);
         if (idx >= 0 && idx < parts.length) {
@@ -837,7 +866,7 @@ public class ThiSinhBUS {
             return -1;
         }
         for (String alias : aliases) {
-            Integer idx = headerMap.get(normalizeHeader(alias));
+            Integer idx = headerMap.get(alias); // alias is expected to be pre-normalized
             if (idx != null) {
                 return idx;
             }
@@ -866,7 +895,7 @@ public class ThiSinhBUS {
         for (int i = 0; i < headers.size(); i++) {
             String key = normalizeHeader(headers.get(i));
             for (String alias : aliases) {
-                if (key.equals(normalizeHeader(alias))) {
+                if (key.equals(alias)) { // alias is expected to be pre-normalized
                     return i;
                 }
             }
@@ -1153,19 +1182,15 @@ public class ThiSinhBUS {
             return false;
         }
         if (!isValidDate(ngaySinh)) {
-            lastError = "Ngày sinh không hợp lệ (dd/MM/yy, dd/MM/yyyy hoặc yyyy-MM-dd)!";
+            lastError = "Ngày sinh [" + ngaySinh + "] không hợp lệ (cần dd/MM/yyyy)!";
             return false;
         }
         String normalizedKhuVuc = normalizeKhuVuc(khuVuc);
         if (normalizedKhuVuc == null) {
-            lastError = "Khu vực chỉ chấp nhận: KV1, KV2-NT, KV2, KV3!";
+            lastError = "Khu vực chỉ chấp nhận: KV1, KV2-NT, KV2, KV3 (hoặc để trống)!";
             return false;
         }
         String normalizedDoiTuong = normalizeDoiTuong(doiTuong);
-        if (normalizedDoiTuong == null) {
-            lastError = "Đối tượng phải thuộc: 01, 02, 03, 04, 05, 06, 06a, 07, 07a (hoặc để trống)!";
-            return false;
-        }
         if (checkDuplicate && dao.getByCccd(cccd) != null) {
             lastError = "CCCD đã tồn tại trong hệ thống!";
             return false;
@@ -1200,7 +1225,7 @@ public class ThiSinhBUS {
     private String normalizeKhuVuc(String value) {
         String v = safe(value).toUpperCase(Locale.ROOT).replace("_", "").replace(" ", "");
         if (v.isEmpty()) {
-            return null;
+            return "";
         }
         if ("KV1".equals(v) || "1".equals(v)) {
             return "KV1";
@@ -1218,26 +1243,8 @@ public class ThiSinhBUS {
     }
 
     private String normalizeDoiTuong(String value) {
-        String v = safe(value).toUpperCase(Locale.ROOT).replace(" ", "");
-        if (v.isEmpty()) {
-            return "";
-        }
-        if (v.startsWith("DT")) {
-            v = v.substring(2);
-        }
-        if ("06A".equals(v) || "6A".equals(v)) {
-            return "06a";
-        }
-        if ("07A".equals(v) || "7A".equals(v)) {
-            return "07a";
-        }
-        if (v.matches("\\d{1,2}")) {
-            int code = Integer.parseInt(v);
-            if (code >= 1 && code <= 7) {
-                return String.format("%02d", code);
-            }
-        }
-        return null;
+        // Không validate, chấp nhận mọi giá trị đối tượng ưu tiên
+        return safe(value);
     }
 
     private boolean isValidDate(String text) {
