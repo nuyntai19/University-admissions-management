@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kết quả xét tuyển - SGU 2026</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>🎓 Tra cứu xét tuyển <span>ĐH Sài Gòn 2026</span></h1>
+            <nav>
+                <a th:href="@{/tinhdiem}">📊 Công cụ tính điểm</a>
+                <a th:href="@{/logout}">🚪 Đăng xuất</a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Thông tin thí sinh -->
+        <div class="card">
+            <div class="card-title">📋 Thông tin thí sinh</div>
+            <table class="result-table">
+                <tr>
+                    <td class="label-col">Họ tên:</td>
+                    <td class="value-col" th:text="${thiSinh.hoTen}"></td>
+                </tr>
+                <tr>
+                    <td class="label-col">CCCD:</td>
+                    <td class="value-col" th:text="${thiSinh.cccd}"></td>
+                </tr>
+                <tr>
+                    <td class="label-col">Ngày sinh:</td>
+                    <td class="value-col" th:text="${thiSinh.ngaySinh}"></td>
+                </tr>
+                <tr th:if="${thiSinh.doiTuong != null}">
+                    <td class="label-col">Đối tượng ưu tiên:</td>
+                    <td class="value-col" th:text="${thiSinh.doiTuong}"></td>
+                </tr>
+                <tr th:if="${thiSinh.khuVuc != null}">
+                    <td class="label-col">Khu vực ưu tiên:</td>
+                    <td class="value-col" th:text="${thiSinh.khuVuc}"></td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Kết quả nguyện vọng -->
+        <div class="card">
+            <div class="card-title">🎯 Kết quả xét tuyển</div>
+
+            <div th:if="${#lists.isEmpty(nvList)}" class="alert alert-info">
+                Không tìm thấy nguyện vọng nào trong hệ thống.
+            </div>
+
+            <table th:if="${!#lists.isEmpty(nvList)}" class="result-table">
+                <thead>
+                    <tr>
+                        <th>NV</th>
+                        <th>Mã ngành</th>
+                        <th>Tên ngành</th>
+                        <th>Phương thức</th>
+                        <th>Tổ hợp</th>
+                        <th>Điểm THXT</th>
+                        <th>Điểm cộng</th>
+                        <th>Điểm ƯT</th>
+                        <th>Điểm XT</th>
+                        <th>Kết quả</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="nv : ${nvList}">
+                        <td th:text="${nv.nvTt}"></td>
+                        <td th:text="${nv.nvMaNganh}"></td>
+                        <td th:text="${nv.nvTenMaNganh}"></td>
+                        <td th:text="${nv.ttPhuongThuc}"></td>
+                        <td th:text="${nv.ttThm}"></td>
+                        <td th:text="${nv.diemThxt != null ? nv.diemThxt : '-'}"></td>
+                        <td th:text="${nv.diemCong != null ? nv.diemCong : '-'}"></td>
+                        <td th:text="${nv.diemUtqd != null ? nv.diemUtqd : '-'}"></td>
+                        <td class="dxt-value" th:text="${nv.diemXetTuyen != null ? nv.diemXetTuyen : '-'}"></td>
+                        <td>
+                            <span class="badge"
+                                  th:classappend="${nv.nvKetQua != null && nv.nvKetQua.contains('Đạt') && !nv.nvKetQua.contains('Không') ? 'badge-success' : (nv.nvKetQua != null && (nv.nvKetQua.contains('Trượt') || nv.nvKetQua.contains('Không')) ? 'badge-danger' : 'badge-warning')}"
+                                  th:text="${nv.nvKetQua != null ? nv.nvKetQua : 'Chưa xét'}"></span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">© 2026 Đại học Sài Gòn - Hệ thống tra cứu xét tuyển</div>
+</body>
+</html>

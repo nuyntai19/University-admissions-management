@@ -1,0 +1,32 @@
+﻿
+SV thực hiện Spring MVC làm ứng dụng cho thí sinh
+1.  Tra cứu kết quả xét tuyển
+Thí sinh nhập username là số căn cước công dân, pass là 08 chữ số của ngày sinh, tháng sinh, năm sinh. Kết quả:
+- Không tìm thấy
+- Tìm thấy:
+o Trúng tuyển ngành, điểm, tổ hợp, phương thức.
+o Không trúng tuyển.
+
+2. Thí sinh tra cứu cách tính điểm xét tuyển
+a. Phương thức ĐGNL:
+- Nhập điểm thi (thang 1200 điểm)
+- Chọn ngành xét tuyển
+- Chọn đối tượng ưu tiên, khu vực ưu tiên.
+- Chọn điểm cộng (nếu có) (tự bổ sung)
+- Hiển thị điểm quy đổi về thang điểm 30 tương ứng với từng nguyện vọng (ngành)
+xét tuyển theo tổ hợp gốc.
+- Hiển thị kết quả xét tuyển (đạt/không đạt) so với điểm ngưỡng.
+- Hiển thị kết quả xét tuyển (đạt/không đạt) so với điểm trúng tuyển (nếu có)
+
+
+b. Phương thức VSAT/THPT
+- Cho thí sinh nhập điểm thi từng môn (thang 150, thang 10) và chọn ngành xét tuyển
+- Điểm môn Tiếng Anh/ Quy đổi tiếng Anh (nếu có)
+- Chọn đối tượng ưu tiên, khu vực ưu tiên.
+- Hiển thị điểm quy đổi về thang 10 tương ứng (nếu là VSAT)
+- Chọn môn có điểm cộng, và mức điểm cộng tương ứng (tự bổ sung). 
+- Hiển thị điểm tính xét tuyển các THM tương ứng của ngành
+
+
+
+

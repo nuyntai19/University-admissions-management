@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tính điểm V-SAT / THPT - SGU 2026</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>🎓 Tra cứu xét tuyển <span>ĐH Sài Gòn 2026</span></h1>
+            <nav>
+                <a th:href="@{/tinhdiem}">← Quay lại</a>
+                <a th:href="@{/login}">🔐 Đăng nhập</a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <div class="card-title">📊 Công cụ tham khảo tính điểm xét tuyển</div>
+            <p class="card-subtitle">Điểm thi VSAT (thang điểm 150). Môn thi không có điểm: nhập 0.</p>
+
+            <form th:action="@{/tinhdiem/vsat}" method="post">
+                <div class="form-grid three-col">
+                    <div class="form-group">
+                        <label>Chọn ngành:</label>
+                        <select name="maNganh" required>
+                            <option value="">-- Chọn ngành --</option>
+                            <option th:each="n : ${nganhList}" th:value="${n.maNganh}" th:text="${n.maNganh + ' - ' + n.tenNganh}"
+                                    th:selected="${nganh != null && nganh.maNganh == n.maNganh}"></option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Điểm môn Toán:</label>
+                        <input type="number" name="diemTO" step="0.5" min="0" max="150"
+                               th:value="${diemMap != null ? diemMap['TO'] : '0'}">
+                    </div>
+                    <div class="form-group">
+                        <label>Điểm môn Sinh học:</label>
+                        <input type="number" name="diemSI" step="0.5" min="0" max="150"
+                               th:value="${diemMap != null ? diemMap['SI'] : '0'}">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Điểm cộng (≤3.0):</label>
+                        <input type="number" name="diemCong" step="0.1" min="0" max="3"
+                               th:value="${diemCong != null ? diemCong : '0'}">
+                    </div>
+                    <div class="form-group">
+                        <label>Điểm môn Ngữ văn:</label>
+                        <input type="number" name="diemVA" step="0.5" min="0" max="150"
+                               th:value="${diemMap != null ? diemMap['VA'] : '0'}">
+                    </div>
+                    <div class="form-group">
+                        <label>Điểm môn Lịch sử:</label>
+                        <input type="number" name="diemSU" step="0.5" min="0" max="150"
+                               th:value="${diemMap != null ? diemMap['SU'] : '0'}">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Khu vực ưu tiên:</label>
+                        <select name="khuVuc">
+                            <option value="">Không có</option>
+                            <option value="KV1" th:selected="${khuVuc == 'KV1'}">Khu vực 1</option>
+                            <option value="KV2-NT" th:selected="${khuVuc == 'KV2-NT'}">Khu vực 2NT</option>
+                            <option value="KV2" th:selected="${khuVuc == 'KV2'}">Khu vực 2</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Điểm môn Vật lý:</label>
+                        <input type="number" name="diemLI" step="0.5" min="0" max="150"
+                               th:value="${diemMap != null ? diemMap['LI'] : '0'}">
+                    </div>
+                    <div class="form-group">
+                        <label>Điểm môn Địa lý:</label>
+                        <input type="number" name="diemDI" step="0.5" min="0" max="150"
+                               th:value="${diemMap != null ? diemMap['DI'] : '0'}">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Đối tượng ưu tiên:</label>
+                        <select name="doiTuong">
+                            <option value="">Không đối tượng</option>
+                            <option th:each="dt : ${ {'01','02','03','04','05','06','07'} }"
+                                    th:value="${dt}" th:text="'Đối tượng ' + ${dt}"
+                                    th:selected="${doiTuong == dt}"></option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Điểm môn Hóa học:</label>
+                        <input type="number" name="diemHO" step="0.5" min="0" max="150"
+                               th:value="${diemMap != null ? diemMap['HO'] : '0'}">
+                    </div>
+                    <div class="form-group">
+                        <label>Điểm môn Tiếng Anh:</label>
+                        <input type="number" name="diemN1" step="0.5" min="0" max="150"
+                               th:value="${diemMap != null ? diemMap['N1'] : '0'}">
+                    </div>
+                </div>
+
+                <div class="btn-group" style="justify-content:flex-end;">
+                    <button type="submit" class="btn btn-primary">Tính điểm</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- KẾT QUẢ -->
+        <div th:if="${hasResult}" class="card">
+            <div class="card-title" style="color:#c0392b;">
+                Tính điểm vào ngành xét tuyển: <span th:text="${nganh.tenNganh}"></span>
+                (<span th:text="${nganh.maNganh}"></span>)
+            </div>
+            <p class="card-subtitle">
+                Tổ hợp gốc: <span class="badge badge-info" th:text="${toHopGoc}"></span>.
+                Ngưỡng đầu vào:
+                <span class="badge badge-warning" th:text="${nganh.diemSan != null ? nganh.diemSan : 'Chưa có'}"></span>
+            </p>
+
+            <table class="result-table" style="margin-bottom:16px;">
+                <tr>
+                    <td class="label-col">Khu vực ưu tiên</td>
+                    <td class="value-col" th:text="${khuVuc != null && khuVuc != '' ? khuVuc : 'Không có'}"></td>
+                </tr>
+                <tr>
+                    <td class="label-col">Đối tượng ưu tiên</td>
+                    <td class="value-col" th:text="${doiTuong != null && doiTuong != '' ? 'Đối tượng ' + doiTuong : 'Không'}"></td>
+                    <td style="font-weight:600" th:text="${mDut}"></td>
+                </tr>
+                <tr>
+                    <td class="label-col">Điểm cộng (≤3)</td>
+                    <td class="value-col" th:text="${diemCong}"></td>
+                </tr>
+            </table>
+
+            <!-- Filter & Sort UI -->
+            <div class="result-filter-bar" style="display:flex; gap:16px; margin-bottom:16px; background:#f8f9fa; padding:12px; border-radius:6px; align-items:center; border: 1px solid #e0e0e0; flex-wrap: wrap;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <label for="filterStatus" style="margin:0; font-weight:600; color:#34495e;">Trạng thái:</label>
+                    <select id="filterStatus" onchange="applyFilters()" style="padding:6px; border-radius:4px; border:1px solid #ccc; outline:none;">
+                        <option value="all">Tất cả</option>
+                        <option value="dat">Đạt</option>
+                        <option value="khongdat">Không Đạt</option>
+                    </select>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <label for="sortScore" style="margin:0; font-weight:600; color:#34495e;">Sắp xếp điểm:</label>
+                    <select id="sortScore" onchange="applyFilters()" style="padding:6px; border-radius:4px; border:1px solid #ccc; outline:none;">
+                        <option value="default">Mặc định</option>
+                        <option value="desc">Giảm dần (Cao nhất xếp trước)</option>
+                        <option value="asc">Tăng dần (Thấp nhất xếp trước)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Từng tổ hợp -->
+            <div id="resultsWrapper">
+                <div th:each="r, stat : ${results}" class="tohop-section" 
+                     th:classappend="${r.best ? 'is-best' : ''}"
+                     th:attr="data-score=${r.diemXetTuyen}, data-status=${r.ketQua == 'Đạt' ? 'dat' : 'khongdat'}, data-index=${stat.index}">
+                <div class="tohop-header">
+                    <h4>
+                        <span th:text="${stat.count}"></span>)
+                        Tổ hợp <span th:text="${r.maToHop}"></span>
+                        – <span th:text="${r.tenToHop}"></span>
+                    </h4>
+                    <span th:if="${r.best}" class="badge badge-best">✅ Điểm cao nhất</span>
+                </div>
+
+                <table class="result-table">
+                    <!-- Từng môn -->
+                    <tr th:each="md : ${r.monDetails}">
+                        <td class="label-col">
+                            Điểm môn <span th:text="${md.tenMon}"></span>:<span th:text="${md.diemGoc}"></span>
+                        </td>
+                        <td class="value-col">
+                            <span th:if="${md.congThuc != null}" th:text="${md.congThuc}"></span>
+                            <span th:if="${md.loi != null}" style="color:#e74c3c;" th:text="${md.loi}"></span>
+                        </td>
+                    </tr>
+                    <!-- Xét ngưỡng -->
+                    <tr>
+                        <td class="label-col">Xét ngưỡng = Tổng điểm 3 môn + điểm ưu tiên</td>
+                        <td class="value-col">
+                            <span th:text="${r.diemXetNguong}"></span>
+                        </td>
+                    </tr>
+                    <!-- ĐTHXT -->
+                    <tr>
+                        <td class="label-col">Điểm tổ hợp xét tuyển (ĐTHXT)</td>
+                        <td class="value-col"><strong th:text="${r.dthxt}"></strong></td>
+                    </tr>
+                    <!-- Độ lệch -->
+                    <tr>
+                        <td class="label-col">Độ lệch với TH Gốc (<span th:text="${r.toHopGoc}"></span>)</td>
+                        <td class="value-col" th:text="${r.doLech}"></td>
+                    </tr>
+                    <!-- Điểm ưu tiên -->
+                    <tr>
+                        <td class="label-col">Điểm ưu tiên (ĐUT)</td>
+                        <td class="value-col" th:text="${r.dut}"></td>
+                    </tr>
+                    <!-- ĐXT -->
+                    <tr class="highlight-row">
+                        <td class="label-col">Điểm xét tuyển (ĐXT) = ĐTHGXT + ĐC + ĐUT</td>
+                        <td class="value-col">
+                            <span class="dxt-value" th:text="${r.diemXetTuyen}"></span>
+                            &nbsp;→&nbsp;
+                            <span class="badge"
+                                  th:classappend="${r.ketQua == 'Đạt' ? 'badge-success' : (r.ketQua == 'Không đạt' ? 'badge-danger' : 'badge-warning')}"
+                                  th:text="${r.ketQua}"></span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:if="${hasResult}">
+    function applyFilters() {
+        const filter = document.getElementById('filterStatus').value;
+        const sort = document.getElementById('sortScore').value;
+        const wrapper = document.getElementById('resultsWrapper');
+        if (!wrapper) return;
+        
+        const cards = Array.from(wrapper.querySelectorAll('.tohop-section'));
+        
+        // Sort
+        cards.sort((a, b) => {
+            if (sort === 'default') {
+                return parseInt(a.getAttribute('data-index')) - parseInt(b.getAttribute('data-index'));
+            }
+            const scoreA = parseFloat(a.getAttribute('data-score')) || 0;
+            const scoreB = parseFloat(b.getAttribute('data-score')) || 0;
+            if (sort === 'desc') return scoreB - scoreA;
+            return scoreA - scoreB;
+        });
+        
+        // Apply sort & filter
+        cards.forEach(card => {
+            wrapper.appendChild(card); // Re-append to change order
+            const status = card.getAttribute('data-status');
+            if (filter === 'all' || filter === status) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+    </script>
+    </div>
+
+    <div class="footer">© 2026 Đại học Sài Gòn - Hệ thống tra cứu xét tuyển</div>
+</body>
+</html>

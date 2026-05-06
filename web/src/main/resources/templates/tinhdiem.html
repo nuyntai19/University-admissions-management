@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Công cụ tính điểm xét tuyển - SGU 2026</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>🎓 Tra cứu xét tuyển <span>ĐH Sài Gòn 2026</span></h1>
+            <nav>
+                <a th:href="@{/login}">🔐 Đăng nhập tra cứu</a>
+                <a th:href="@{/tinhdiem}">📊 Tính điểm</a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card" style="text-align:center;">
+            <div class="card-title">📊 Công cụ tham khảo tính điểm xét tuyển</div>
+            <p class="card-subtitle">Chọn phương thức xét tuyển để bắt đầu tính điểm</p>
+        </div>
+
+        <div class="method-grid">
+            <a th:href="@{/tinhdiem/dgnl}" class="method-card" style="text-decoration:none;">
+                <div class="icon">📝</div>
+                <h3>ĐGNL</h3>
+                <p>Đánh giá năng lực<br>Thang điểm 1200</p>
+            </a>
+            <a th:href="@{/tinhdiem/vsat}" class="method-card" style="text-decoration:none;">
+                <div class="icon">📊</div>
+                <h3>V-SAT</h3>
+                <p>Điểm thi V-SAT<br>Thang điểm 150</p>
+            </a>
+            <a th:href="@{/tinhdiem/thpt}" class="method-card" style="text-decoration:none;">
+                <div class="icon">🎓</div>
+                <h3>THPT</h3>
+                <p>Tốt nghiệp THPT<br>Thang điểm 10</p>
+            </a>
+        </div>
+    </div>
+
+    <div class="footer">© 2026 Đại học Sài Gòn - Hệ thống tra cứu xét tuyển</div>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tính điểm ĐGNL - SGU 2026</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>🎓 Tra cứu xét tuyển <span>ĐH Sài Gòn 2026</span></h1>
+            <nav>
+                <a th:href="@{/tinhdiem}">← Quay lại</a>
+                <a th:href="@{/login}">🔐 Đăng nhập</a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <div class="card-title">📝 Công cụ tham khảo tính điểm xét tuyển</div>
+            <p class="card-subtitle">Điểm thi Đánh giá năng lực cao nhất. Môn thi không có điểm: nhập 0.</p>
+
+            <form th:action="@{/tinhdiem/dgnl}" method="post">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Chọn ngành:</label>
+                        <select name="maNganh" required>
+                            <option value="">-- Chọn ngành --</option>
+                            <option th:each="n : ${nganhList}" th:value="${n.maNganh}" th:text="${n.maNganh + ' - ' + n.tenNganh}"
+                                    th:selected="${nganh != null && nganh.maNganh == n.maNganh}"></option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Điểm thi:</label>
+                        <input type="number" name="diemThi" step="0.01" min="0" max="1200" required
+                               th:value="${diemThi != null ? diemThi : ''}" placeholder="VD: 890">
+                    </div>
+                    <div class="form-group">
+                        <label>Điểm cộng (≤3.0):</label>
+                        <input type="number" name="diemCong" step="0.1" min="0" max="3"
+                               th:value="${diemCong != null ? diemCong : '0'}" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Khu vực ưu tiên:</label>
+                        <select name="khuVuc">
+                            <option value="">Không có</option>
+                            <option value="KV1" th:selected="${khuVuc == 'KV1'}">Khu vực 1</option>
+                            <option value="KV2-NT" th:selected="${khuVuc == 'KV2-NT'}">Khu vực 2NT</option>
+                            <option value="KV2" th:selected="${khuVuc == 'KV2'}">Khu vực 2</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Đối tượng ưu tiên:</label>
+                        <select name="doiTuong">
+                            <option value="">Không đối tượng</option>
+                            <option th:each="dt : ${ {'01','02','03','04','05','06','07'} }"
+                                    th:value="${dt}" th:text="'Đối tượng ' + ${dt}"
+                                    th:selected="${doiTuong == dt}"></option>
+                        </select>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">Tính điểm</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- KẾT QUẢ -->
+        <div th:if="${hasResult}" class="card">
+            <div class="card-title" style="color:#c0392b;">
+                Tính quy đổi điểm xét tuyển DGNL: <span th:text="${nganh.tenNganh}"></span>
+            </div>
+            <p class="card-subtitle">
+                Tổ hợp gốc quy đổi theo ngành: <span class="badge badge-info" th:text="${toHopGoc}"></span>,
+                ngưỡng đầu vào:
+                <span class="badge badge-warning" th:text="${nguong != null ? nguong : 'Chưa có'}"></span>
+            </p>
+            <p><a th:href="@{/tinhdiem/dgnl}">← Quay lại</a></p>
+
+            <table class="result-table">
+                <thead>
+                    <tr><th>Nội dung</th><th>Chi tiết điểm</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="label-col">Điểm thi ĐGNL</td>
+                        <td class="value-col" th:text="${diemThi}"></td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">Công thức quy đổi về thang 30 (THXT gốc: <span th:text="${toHopGoc}"></span>)</td>
+                        <td class="value-col" th:text="${congThuc}"></td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">Điểm thi quy đổi</td>
+                        <td class="value-col" th:text="${diemQuyDoi}"></td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">Điểm cộng</td>
+                        <td class="value-col" th:text="${diemCong}"></td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">Điểm ưu tiên quy đổi</td>
+                        <td class="value-col" th:text="${dut}"></td>
+                    </tr>
+                    <tr class="highlight-row">
+                        <td class="label-col">Điểm xét tuyển = điểm thi quy đổi + điểm cộng + điểm ưu tiên quy đổi</td>
+                        <td class="value-col">
+                            <span class="dxt-value" th:text="${dxt}"></span>
+                            &nbsp;→&nbsp;
+                            <span class="badge" th:classappend="${ketQua == 'Đạt' ? 'badge-success' : 'badge-danger'}" th:text="${ketQua}"></span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">© 2026 Đại học Sài Gòn - Hệ thống tra cứu xét tuyển</div>
+</body>
+</html>
