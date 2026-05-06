@@ -13,14 +13,18 @@ import java.util.List;
 @Service
 public class TraCuuService {
 
-    @Autowired
-    private NguyenVongRepository nvRepo;
+    @Autowired private NguyenVongRepository nvRepo;
+    @Autowired private DiemThiRepository diemThiRepo;
+    @Autowired private DiemCongRepository diemCongRepo;
+    @Autowired private NganhRepository nganhRepo;
 
-    @Autowired
-    private DiemThiRepository diemThiRepo;
-
-    @Autowired
-    private DiemCongRepository diemCongRepo;
+    /**
+     * Lấy danh sách toàn bộ ngành để tra cứu điểm chuẩn/chỉ tiêu.
+     */
+    public java.util.Map<String, Nganh> getAllNganhMap() {
+        return nganhRepo.findAll().stream()
+                .collect(java.util.stream.Collectors.toMap(Nganh::getMaNganh, n -> n, (existing, replacement) -> existing));
+    }
 
     /**
      * Lấy danh sách nguyện vọng của thí sinh theo CCCD, sắp xếp theo thứ tự NV.
@@ -41,8 +45,8 @@ public class TraCuuService {
     /**
      * Lấy điểm cộng (chứng chỉ, giải...) của thí sinh.
      */
-    public DiemCongXetTuyen getDiemCongByCccd(String cccd) {
-        if (cccd == null || cccd.trim().isEmpty()) return null;
-        return diemCongRepo.findByTsCccd(cccd.trim()).orElse(null);
+    public List<DiemCongXetTuyen> getDiemCongByCccd(String cccd) {
+        if (cccd == null || cccd.trim().isEmpty()) return List.of();
+        return diemCongRepo.findByTsCccd(cccd.trim());
     }
 }

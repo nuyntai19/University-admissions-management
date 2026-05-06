@@ -26,12 +26,14 @@ public class TraCuuController {
 
         List<NguyenVongXetTuyen> nvList = traCuuService.getNguyenVongByCccd(ts.getCccd());
         List<DiemThiXetTuyen> diemList = traCuuService.getDiemThiByCccd(ts.getCccd());
-        DiemCongXetTuyen diemCong = traCuuService.getDiemCongByCccd(ts.getCccd());
+        List<DiemCongXetTuyen> diemCongList = traCuuService.getDiemCongByCccd(ts.getCccd());
+        java.util.Map<String, Nganh> nganhMap = traCuuService.getAllNganhMap();
 
         model.addAttribute("thiSinh", ts);
         model.addAttribute("nvList", nvList);
         model.addAttribute("diemList", diemList);
-        model.addAttribute("diemCong", diemCong);
+        model.addAttribute("diemCongList", diemCongList);
+        model.addAttribute("nganhMap", nganhMap);
         return "tracuu";
     }
 }
