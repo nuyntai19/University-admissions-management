@@ -214,6 +214,14 @@ CREATE TABLE `xt_nguoidung` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Đang đổ dữ liệu cho bảng `xt_nguoidung`
+--
+
+INSERT INTO `xt_nguoidung` (`idnguoidung`, `taikhoan`, `matkhau`, `hoten`, `email`, `dienthoai`, `phanquyen`, `trangthaihoatdong`, `ngaytao`, `ngaysua`) VALUES
+(1, 'admin', 'admin123', 'Administrator', 'admin@sgu.edu.vn', '0123456789', 'admin', 1, '2026-04-13 12:57:10', '2026-04-13 12:57:10'),
+(2, 'user01', 'user123', 'User 01', 'user01@sgu.edu.vn', '0987654321', 'user', 1, '2026-04-13 12:57:10', '2026-04-13 12:57:10');
+
+--
 -- Table structure for table `xt_nguyenvongxettuyen`
 --
 
@@ -299,4 +307,4 @@ CREATE TABLE `xt_tohop_monthi` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-05-04 10:27:12
+-- Dump completed on 2026-05-05 with initial data
