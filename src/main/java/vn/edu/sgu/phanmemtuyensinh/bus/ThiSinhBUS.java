@@ -570,7 +570,6 @@ public class ThiSinhBUS {
         String khuVuc = valueFromExcelRow(row, formatter, headerMap, new String[] {"khu vuc", "khuvuc", "kvut"}, 6);
         String dienThoai = valueFromExcelRow(row, formatter, headerMap, new String[] {"dien thoai", "dienthoai", "sdt"}, -1);
         String email = valueFromExcelRow(row, formatter, headerMap, new String[] {"email"}, -1);
-        String password = valueFromExcelRow(row, formatter, headerMap, new String[] {"password", "mat khau", "matkhau"}, -1);
         String updatedAt = valueFromExcelRow(row, formatter, headerMap, new String[] {"updated at", "updatedat"}, -1);
         String maMonNn = valueFromExcelRow(row, formatter, headerMap, new String[] {"ma mon nn", "mamonnn", "ngoai ngu", "ngoaingu"}, 16);
         String chuongTrinhHoc = valueFromExcelRow(row, formatter, headerMap, new String[] {"chuong trinh hoc", "chuongtrinhhoc"}, 21);
@@ -598,7 +597,6 @@ public class ThiSinhBUS {
         ts.setDanToc(danToc);
         ts.setMaDanToc(maDanToc);
         ts.setNoiSinh(noiSinh);
-        ts.setPassword(password);
         ts.setUpdatedAt(updatedAt);
         return ts;
     }
@@ -615,7 +613,6 @@ public class ThiSinhBUS {
         String khuVuc = valueFromParts(parts, headerMap, new String[] {"khuvuc", "kvut"}, 6);
         String dienThoai = valueFromParts(parts, headerMap, new String[] {"dienthoai", "sdt"}, -1);
         String email = valueFromParts(parts, headerMap, new String[] {"email"}, -1);
-        String password = valueFromParts(parts, headerMap, new String[] {"password", "matkhau"}, -1);
         String updatedAt = valueFromParts(parts, headerMap, new String[] {"updatedat"}, -1);
         String maMonNn = valueFromParts(parts, headerMap, new String[] {"mamonnn", "ngoaingu"}, 16);
         String chuongTrinhHoc = valueFromParts(parts, headerMap, new String[] {"chuongtrinhhoc"}, 21);
@@ -690,7 +687,6 @@ public class ThiSinhBUS {
         ts.setDanToc(danToc);
         ts.setMaDanToc(maDanToc);
         ts.setNoiSinh(noiSinh);
-        ts.setPassword(password);
         ts.setUpdatedAt(updatedAt);
         return ts;
     }
@@ -1052,6 +1048,7 @@ public class ThiSinhBUS {
         target.setMaDanToc(pick(target.getMaDanToc(), source.getMaDanToc()));
         target.setChuongTrinhHoc(pick(target.getChuongTrinhHoc(), source.getChuongTrinhHoc()));
         target.setMaMonNn(pick(target.getMaMonNn(), source.getMaMonNn()));
+        target.setPassword(deriveStudentPassword(target));
         target.setUpdatedAt(LocalDate.now().toString());
     }
 
@@ -1089,9 +1086,9 @@ public class ThiSinhBUS {
         if (safe(ts.getUpdatedAt()).isEmpty()) {
             ts.setUpdatedAt(LocalDate.now().toString());
         }
-        if (safe(ts.getPassword()).isEmpty()) {
-            ts.setPassword("123456");
-        }
+
+        // Khi import thí sinh: luôn sinh password từ ngày sinh (ddMMyyyy), bỏ qua cột password của file nguồn.
+        ts.setPassword(deriveStudentPassword(ts));
     }
 
     private String normalizeCandidateCode(String value) {
@@ -1202,7 +1199,7 @@ public class ThiSinhBUS {
         ts.setTen(trimMax(ten, 100));
         ts.setNgaySinh(trimMax(ngaySinh, 45));
         ts.setDienThoai(trimMax(dienThoai, 20));
-        ts.setPassword(trimMax(password.isEmpty() ? "123456" : password, 100));
+        ts.setPassword(trimMax(password, 100));
         ts.setGioiTinh(trimMax(gioiTinh, 10));
         ts.setEmail(trimMax(email, 100));
         ts.setNoiSinh(trimMax(noiSinh, 45));
