@@ -1,9 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
 /* ===== RESET & BASE ===== */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-    font-family: 'Segoe UI', Tahoma, sans-serif;
-    background: #f0f4f8;
+    font-family: 'Outfit', 'Segoe UI', Tahoma, sans-serif;
+    background: #f4f7f9;
     color: #333;
     line-height: 1.6;
 }
@@ -47,9 +49,10 @@ a:hover { text-decoration: underline; }
 /* ===== CARD ===== */
 .card {
     background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    padding: 28px 32px;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.04), 0 1px 8px rgba(0,0,0,0.02);
+    border: 1px solid rgba(0,0,0,0.05);
+    padding: 32px;
     margin: 24px 0;
 }
 .card-title {
