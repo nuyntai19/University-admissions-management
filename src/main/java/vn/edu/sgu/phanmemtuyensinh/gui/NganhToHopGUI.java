@@ -77,7 +77,7 @@ public class NganhToHopGUI extends JPanel {
         txtBoLoc = new JTextField();
         txtBoLoc.setPreferredSize(new Dimension(200, 30));
         txtBoLoc.setMaximumSize(new Dimension(220, 30));
-        txtBoLoc.setToolTipText("Nhập Mã ngành hoặc Mã tổ hợp...");
+        txtBoLoc.setToolTipText("Nhập mã ngành để xem các tổ hợp môn của ngành, hoặc nhập mã/tên tổ hợp");
         btnLoc = new JButton("Lọc");
 
         pnlLoc.add(lblBoLoc);
@@ -95,7 +95,7 @@ public class NganhToHopGUI extends JPanel {
         pnlTop.add(pnlActions, BorderLayout.CENTER);
         add(pnlTop, BorderLayout.NORTH);
 
-        String[] columns = { "ID", "Mã Ngành", "Mã Tổ Hợp", "Môn 1", "HS1", "Môn 2", "HS2", "Môn 3", "HS3", "Độ lệch" };
+        String[] columns = { "ID", "Mã Ngành", "Tên Ngành", "Mã Tổ Hợp", "Tên Tổ Hợp", "Môn 1", "HS1", "Môn 2", "HS2", "Môn 3", "HS3", "Độ lệch" };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -103,11 +103,21 @@ public class NganhToHopGUI extends JPanel {
             }
         };
         table = new JTable(tableModel);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
         
         TableColumnModel tcm = table.getColumnModel();
         tcm.getColumn(0).setPreferredWidth(50);
         tcm.getColumn(1).setPreferredWidth(100);
-        tcm.getColumn(2).setPreferredWidth(100);
+        tcm.getColumn(2).setPreferredWidth(240);
+        tcm.getColumn(3).setPreferredWidth(100);
+        tcm.getColumn(4).setPreferredWidth(220);
+        tcm.getColumn(5).setPreferredWidth(80);
+        tcm.getColumn(6).setPreferredWidth(60);
+        tcm.getColumn(7).setPreferredWidth(80);
+        tcm.getColumn(8).setPreferredWidth(60);
+        tcm.getColumn(9).setPreferredWidth(80);
+        tcm.getColumn(10).setPreferredWidth(60);
+        tcm.getColumn(11).setPreferredWidth(90);
 
         add(new JScrollPane(table), BorderLayout.CENTER);
 
@@ -166,7 +176,9 @@ public class NganhToHopGUI extends JPanel {
             for (NganhToHop nth : allData) {
                 String mn = nth.getMaNganh() == null ? "" : nth.getMaNganh().toUpperCase(Locale.ROOT);
                 String mt = nth.getMaToHop() == null ? "" : nth.getMaToHop().toUpperCase(Locale.ROOT);
-                if (mn.contains(keyword) || mt.contains(keyword)) {
+                String tenNganh = nth.getTenNganhChuan() == null ? "" : nth.getTenNganhChuan().toUpperCase(Locale.ROOT);
+                String tenToHop = nth.getTenToHop() == null ? "" : nth.getTenToHop().toUpperCase(Locale.ROOT);
+                if (mn.contains(keyword) || mt.contains(keyword) || tenNganh.contains(keyword) || tenToHop.contains(keyword)) {
                     filteredData.add(nth);
                 }
             }
@@ -211,7 +223,9 @@ public class NganhToHopGUI extends JPanel {
             tableModel.addRow(new Object[] {
                     nth.getId(),
                     nth.getMaNganh(),
+                    nth.getTenNganhChuan(),
                     nth.getMaToHop(),
+                    nth.getTenToHop(),
                     nth.getThMon1(),
                     nth.getHsMon1(),
                     nth.getThMon2(),
@@ -249,10 +263,12 @@ public class NganhToHopGUI extends JPanel {
         NganhToHop source = new NganhToHop();
         source.setId(currentId);
         source.setMaNganh(String.valueOf(tableModel.getValueAt(row, 1)));
-        source.setMaToHop(String.valueOf(tableModel.getValueAt(row, 2)));
-        source.setHsMon1(parseIntOrNull(String.valueOf(tableModel.getValueAt(row, 4))));
-        source.setHsMon2(parseIntOrNull(String.valueOf(tableModel.getValueAt(row, 6))));
-        source.setHsMon3(parseIntOrNull(String.valueOf(tableModel.getValueAt(row, 8))));
+        source.setTenNganhChuan(String.valueOf(tableModel.getValueAt(row, 2)));
+        source.setMaToHop(String.valueOf(tableModel.getValueAt(row, 3)));
+        source.setTenToHop(String.valueOf(tableModel.getValueAt(row, 4)));
+        source.setHsMon1(parseIntOrNull(String.valueOf(tableModel.getValueAt(row, 6))));
+        source.setHsMon2(parseIntOrNull(String.valueOf(tableModel.getValueAt(row, 8))));
+        source.setHsMon3(parseIntOrNull(String.valueOf(tableModel.getValueAt(row, 10))));
 
         NganhToHop nth = showNganhToHopFormDialog(source);
         if (nth != null) {

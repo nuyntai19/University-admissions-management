@@ -12,6 +12,7 @@ import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
+import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -19,6 +20,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
+import javax.swing.JTabbedPane;
 import javax.swing.table.DefaultTableModel;
 
 import vn.edu.sgu.phanmemtuyensinh.bus.NguyenVongXetTuyenBUS;
@@ -30,7 +32,7 @@ public class NguyenVongXetTuyenGUI extends JPanel {
     private NguyenVongXetTuyenDialog dialog;
 
     private JTextField txtSearch;
-    private JButton btnThem, btnSua, btnXoa, btnLamMoi, btnXetTuyen, btnImport;
+    private JButton btnThem, btnSua, btnXoa, btnLamMoi, btnXetTuyen, btnImport, btnBaoCao;
 
     private JTable table;
     private DefaultTableModel tableModel;
@@ -72,6 +74,7 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         btnXoa     = btn("Xóa",     new Color(220, 53, 69));
         btnImport  = btn("Import",  new Color(0, 123, 255));
         btnLamMoi  = btn("Làm mới", new Color(23, 162, 184));
+        btnBaoCao  = btn("Báo cáo", new Color(111, 66, 193));
         
         pnlLeft.add(btnThem); 
         pnlLeft.add(btnSua); 
@@ -105,6 +108,7 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         hint.setForeground(new Color(120, 120, 120));
 
         row2.add(btnXetTuyen);
+        row2.add(btnBaoCao);
         row2.add(hint);
 
         wrapper.add(row1);
@@ -135,7 +139,7 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         };
         table = new JTable(tableModel);
         table.setRowHeight(28);
-        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
         int[] widths = {50, 130, 100, 120, 110, 260, 100, 100, 100, 100, 120, 100};
         for (int i = 0; i < widths.length; i++)
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
@@ -219,6 +223,7 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         btnLamMoi.addActionListener(e -> loadDuLieu());
         btnXetTuyen.addActionListener(e -> xetTuyen());
         btnImport.addActionListener(e -> importExcel());
+        btnBaoCao.addActionListener(e -> moBaoCaoTrungTuyen());
     }
 
     private NguyenVongXetTuyenDialog getDialog() {
@@ -335,5 +340,92 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Lỗi import: " + ex.getMessage());
         }
+    }
+
+    private void moBaoCaoTrungTuyen() {
+        List<Object[]> chiTiet = bus.getTrungTuyenChiTiet();
+        List<Object[]> tongHop = bus.getThongKeTrungTuyenTheoNganhPhuongThuc();
+
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Báo cáo trúng tuyển", true);
+        dialog.setSize(1180, 720);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout(10, 10));
+
+        JLabel lblTitle = new JLabel("BÁO CÁO TRÚNG TUYỂN THEO NGÀNH / PHƯƠNG THỨC", JLabel.CENTER);
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
+
+        JPanel pnlSummary = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        pnlSummary.add(createReportChip("Tổng bản ghi trúng tuyển: " + chiTiet.size(), new Color(46, 125, 50)));
+        pnlSummary.add(createReportChip("Tổng nhóm ngành/phương thức: " + tongHop.size(), new Color(30, 136, 229)));
+
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.addTab("Chi tiết trúng tuyển", new JScrollPane(createChiTietTable(chiTiet)));
+        tabs.addTab("Tổng hợp theo ngành/phương thức", new JScrollPane(createTongHopTable(tongHop)));
+
+        JPanel header = new JPanel(new BorderLayout(0, 8));
+        header.setBorder(BorderFactory.createEmptyBorder(12, 12, 0, 12));
+        header.add(lblTitle, BorderLayout.NORTH);
+        header.add(pnlSummary, BorderLayout.SOUTH);
+
+        dialog.add(header, BorderLayout.NORTH);
+        dialog.add(tabs, BorderLayout.CENTER);
+        dialog.setVisible(true);
+    }
+
+    private JTable createChiTietTable(List<Object[]> data) {
+        DefaultTableModel model = new DefaultTableModel(new String[]{
+                "Mã ngành", "Tên ngành", "CCCD", "Nguyện vọng", "Phương thức", "Tổ hợp",
+                "Điểm THXT", "Điểm cộng", "Điểm UT", "Điểm XT"
+        }, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+
+        for (Object[] row : data) {
+            model.addRow(row);
+        }
+
+        JTable table = new JTable(model);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
+        int[] widths = {100, 220, 130, 90, 110, 110, 90, 90, 90, 90};
+        for (int i = 0; i < widths.length; i++) {
+            table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+        }
+        return table;
+    }
+
+    private JTable createTongHopTable(List<Object[]> data) {
+        DefaultTableModel model = new DefaultTableModel(new String[]{
+                "Mã ngành", "Tên ngành", "Phương thức", "Số trúng tuyển"
+        }, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+
+        for (Object[] row : data) {
+            model.addRow(row);
+        }
+
+        JTable table = new JTable(model);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
+        int[] widths = {100, 260, 120, 120};
+        for (int i = 0; i < widths.length; i++) {
+            table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+        }
+        return table;
+    }
+
+    private JLabel createReportChip(String text, Color color) {
+        JLabel chip = new JLabel(text);
+        chip.setOpaque(true);
+        chip.setBackground(color);
+        chip.setForeground(Color.WHITE);
+        chip.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
+        chip.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        return chip;
     }
 }

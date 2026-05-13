@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -43,6 +44,10 @@ public class NganhBUS {
             return getAll();
         }
         return dao.searchByKeyword(keyword.trim());
+    }
+
+    public Map<String, Long> countNguyenVongByMaNganh() {
+        return nvBus.countByMaNganh();
     }
 
     public boolean add(Nganh nganh) {

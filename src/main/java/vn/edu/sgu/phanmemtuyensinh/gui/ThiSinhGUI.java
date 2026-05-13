@@ -2,22 +2,32 @@ package vn.edu.sgu.phanmemtuyensinh.gui;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -25,15 +35,20 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.table.DefaultTableModel;
+
+import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumnModel;
 
 import com.toedter.calendar.JDateChooser;
 
 import vn.edu.sgu.phanmemtuyensinh.bus.ThiSinhBUS;
+import vn.edu.sgu.phanmemtuyensinh.dal.entity.DiemThiXetTuyen;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.ThiSinh;
 
 public class ThiSinhGUI extends JPanel {
@@ -58,8 +73,15 @@ public class ThiSinhGUI extends JPanel {
     private JButton btnTrangTruoc;
     private JButton btnTrangSau;
     private JLabel lblThongTinTrang;
+    private JPanel pnlThongKe;
+    private JLabel lblTongSo;
+    private JTable tableThongKeKhuVuc;
+    private JTable tableThongKeDoiTuong;
+    private DefaultTableModel modelThongKeKhuVuc;
+    private DefaultTableModel modelThongKeDoiTuong;
     private JTable table;
     private DefaultTableModel tableModel;
+    private List<ThiSinh> currentDataList;
 
     private int currentId = -1;
     private int currentPage = 1;
@@ -71,6 +93,7 @@ public class ThiSinhGUI extends JPanel {
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         buildTop();
+        buildThongKePanel();
         buildTable();
         buildBottom();
 
@@ -113,6 +136,7 @@ public class ThiSinhGUI extends JPanel {
         pnlTop.setOpaque(false);
         pnlTop.add(lblTitle, BorderLayout.NORTH);
         pnlTop.add(pnlActionSearch, BorderLayout.CENTER);
+        pnlTop.add(buildThongKePanel(), BorderLayout.SOUTH);
 
         btnThem.addActionListener(e -> themThiSinh());
         btnSua.addActionListener(e -> suaThiSinh());
@@ -154,8 +178,6 @@ public class ThiSinhGUI extends JPanel {
         progressDialog.setLocationRelativeTo(this);
 
         SwingWorker<Integer, String> worker = new SwingWorker<>() {
-            private String errorMessage;
-
             @Override
             protected Integer doInBackground() {
                 return bus.createAccountsForAll((percent, message) -> {
@@ -179,7 +201,7 @@ public class ThiSinhGUI extends JPanel {
                     JOptionPane.showMessageDialog(ThiSinhGUI.this,
                             "Tạo tài khoản hoàn tất. Số tài khoản mới: " + created);
                     loadPage();
-                } catch (Exception ex) {
+                } catch (InterruptedException | ExecutionException ex) {
                     JOptionPane.showMessageDialog(ThiSinhGUI.this,
                             "Lỗi trong quá trình tạo tài khoản: " + ex.getMessage(),
                             "Lỗi",
@@ -200,20 +222,52 @@ public class ThiSinhGUI extends JPanel {
 
     private void buildTable() {
         String[] columns = {
-                "ID", "CCCD", "Số Báo Danh", "Họ", "Tên", "Ngày Sinh", "Điện Thoại",
-                "Mật Khẩu", "Giới Tính", "Email", "Nơi Sinh", "Updated At", "Đối Tượng", "Khu Vực"
+                "ID", "CCCD", "Số Báo Danh", "Họ Tên", "Ngày Sinh", "Điện Thoại",
+                "Giới Tính", "Email", "Đối Tượng", "Khu Vực", "Chi tiết"
         };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false;
+                return false; // Không cho phép edit bất kỳ ô nào
             }
         };
 
         table = new JTable(tableModel);
-        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+        table.setFillsViewportHeight(true);
+        table.setRowHeight(34);
         configureColumnWidths();
+        int detailCol = tableModel.getColumnCount() - 1;
+        table.getColumnModel().getColumn(detailCol).setCellRenderer(new EyeButtonRenderer());
         table.getSelectionModel().addListSelectionListener(e -> chonDong());
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int col = table.columnAtPoint(e.getPoint());
+                int row = table.rowAtPoint(e.getPoint());
+                // Click đơn vào cột Chi tiết → mở dialog
+                if (col == detailCol && row >= 0 && currentDataList != null && row < currentDataList.size()) {
+                    showThiSinhDetail(currentDataList.get(row));
+                    return;
+                }
+                // Double-click bất kỳ cột nào khác → cũng mở dialog
+                if (e.getClickCount() == 2 && row >= 0 && currentDataList != null && row < currentDataList.size()) {
+                    showThiSinhDetail(currentDataList.get(row));
+                }
+            }
+        });
+        // Đổi cursor thành HAND khi hover vào cột Chi tiết
+        table.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                int col = table.columnAtPoint(e.getPoint());
+                if (col == detailCol) {
+                    table.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+                } else {
+                    table.setCursor(java.awt.Cursor.getDefaultCursor());
+                }
+            }
+        });
 
         JScrollPane scrollPane = new JScrollPane(table);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
@@ -249,6 +303,71 @@ public class ThiSinhGUI extends JPanel {
         add(pnlPaging, BorderLayout.SOUTH);
     }
 
+    private JPanel buildThongKePanel() {
+        if (pnlThongKe != null) {
+            return pnlThongKe;
+        }
+
+        pnlThongKe = new JPanel(new BorderLayout(10, 10));
+        pnlThongKe.setOpaque(false);
+        pnlThongKe.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
+        pnlThongKe.setPreferredSize(new Dimension(0, 190));
+
+        JPanel pnlSummary = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        pnlSummary.setOpaque(false);
+        lblTongSo = createStatChip("Tổng thí sinh: 0");
+        pnlSummary.add(lblTongSo);
+
+        JPanel pnlTables = new JPanel(new GridLayout(1, 2, 10, 0));
+        pnlTables.setOpaque(false);
+
+        modelThongKeKhuVuc = createThongKeTableModel("Khu vực");
+        modelThongKeDoiTuong = createThongKeTableModel("Đối tượng");
+        tableThongKeKhuVuc = new JTable(modelThongKeKhuVuc);
+        tableThongKeDoiTuong = new JTable(modelThongKeDoiTuong);
+        ModernTheme.styleTable(tableThongKeKhuVuc);
+        ModernTheme.styleTable(tableThongKeDoiTuong);
+        tableThongKeKhuVuc.setRowHeight(24);
+        tableThongKeDoiTuong.setRowHeight(24);
+
+        pnlTables.add(wrapThongKeTable("Thống kê theo khu vực", tableThongKeKhuVuc));
+        pnlTables.add(wrapThongKeTable("Thống kê theo đối tượng", tableThongKeDoiTuong));
+
+        pnlThongKe.add(pnlSummary, BorderLayout.NORTH);
+        pnlThongKe.add(pnlTables, BorderLayout.CENTER);
+        return pnlThongKe;
+    }
+
+    private DefaultTableModel createThongKeTableModel(String firstColumnName) {
+        return new DefaultTableModel(new String[] { firstColumnName, "Số lượng" }, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+    }
+
+    private JPanel wrapThongKeTable(String title, JTable table) {
+        JPanel panel = new JPanel(new BorderLayout(0, 6));
+        panel.setOpaque(false);
+        JLabel lbl = new JLabel(title);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lbl.setForeground(new Color(45, 62, 80));
+        panel.add(lbl, BorderLayout.NORTH);
+        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JLabel createStatChip(String text) {
+        JLabel chip = new JLabel(text);
+        chip.setOpaque(true);
+        chip.setBackground(new Color(32, 129, 226));
+        chip.setForeground(Color.WHITE);
+        chip.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
+        chip.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        return chip;
+    }
+
     private void loadPage() {
         tableModel.setRowCount(0);
 
@@ -261,22 +380,22 @@ public class ThiSinhGUI extends JPanel {
             list = bus.searchByKeyword(currentKeyword, currentPage, PAGE_SIZE);
         }
 
+        currentDataList = list;
+
         for (ThiSinh ts : list) {
-            tableModel.addRow(new Object[]{
+            String hoTen = (ts.getHo() == null ? "" : ts.getHo()) + (ts.getTen() == null ? "" : " " + ts.getTen());
+            tableModel.addRow(new Object[] {
                     ts.getIdThiSinh(),
                     ts.getCccd(),
                     ts.getSoBaoDanh(),
-                    ts.getHo(),
-                    ts.getTen(),
+                    hoTen.trim(),
                     ts.getNgaySinh(),
                     ts.getDienThoai(),
-                    ts.getPassword(),
                     ts.getGioiTinh(),
                     ts.getEmail(),
-                    ts.getNoiSinh(),
-                    ts.getUpdatedAt(),
                     ts.getDoiTuong(),
-                    ts.getKhuVuc()
+                    ts.getKhuVuc(),
+                    "Chi tiết"
             });
         }
 
@@ -287,6 +406,7 @@ public class ThiSinhGUI extends JPanel {
         }
 
         updatePagingInfo();
+        refreshThongKe();
     }
 
     private int getTotalPages() {
@@ -319,6 +439,305 @@ public class ThiSinhGUI extends JPanel {
         table.clearSelection();
         loadPage();
     }
+
+    private void refreshThongKe() {
+        if (lblTongSo == null || modelThongKeKhuVuc == null || modelThongKeDoiTuong == null) {
+            return;
+        }
+
+        lblTongSo.setText("Tổng thí sinh: " + bus.countAll());
+        fillThongKeTable(modelThongKeKhuVuc, bus.countByKhuVuc());
+        fillThongKeTable(modelThongKeDoiTuong, bus.countByDoiTuong());
+    }
+
+    private void fillThongKeTable(DefaultTableModel model, List<Object[]> data) {
+        model.setRowCount(0);
+        if (data == null) {
+            return;
+        }
+        for (Object[] row : data) {
+            if (row == null || row.length < 2) {
+                continue;
+            }
+            model.addRow(new Object[] { String.valueOf(row[0]), String.valueOf(row[1]) });
+        }
+    }
+
+    private void showThiSinhDetail(ThiSinh ts) {
+        if (ts == null) {
+            return;
+        }
+
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Chi tiết thí sinh",
+                java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.setSize(980, 720);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout(10, 10));
+        dialog.getContentPane().setBackground(new Color(236, 242, 250));
+
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(new Color(32, 129, 226));
+        header.setBorder(BorderFactory.createEmptyBorder(14, 18, 14, 18));
+        JLabel title = new JLabel("CHI TIẾT THÔNG TIN THÍ SINH", JLabel.CENTER);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        title.setForeground(Color.WHITE);
+        header.add(title, BorderLayout.CENTER);
+
+        JPanel summary = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        summary.setOpaque(false);
+        summary.add(createInfoChip("CCCD", nullToEmpty(ts.getCccd()), new Color(52, 152, 219)));
+        summary.add(createInfoChip("SBD", nullToEmpty(ts.getSoBaoDanh()), new Color(46, 204, 113)));
+        summary.add(createInfoChip("ĐT", nullToEmpty(ts.getDoiTuong()), new Color(241, 196, 15)));
+        summary.add(createInfoChip("KV", nullToEmpty(ts.getKhuVuc()), new Color(155, 89, 182)));
+
+        JPanel infoCard = new JPanel(new GridBagLayout());
+        infoCard.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(213, 223, 240)),
+                BorderFactory.createEmptyBorder(14, 16, 14, 16)));
+        infoCard.setBackground(Color.WHITE);
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new java.awt.Insets(6, 8, 6, 8);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 0.0;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+
+        addInfoRow(infoCard, gbc, "ID", String.valueOf(ts.getIdThiSinh()));
+        addInfoRow(infoCard, gbc, "CCCD", nullToEmpty(ts.getCccd()));
+        addInfoRow(infoCard, gbc, "Số báo danh", nullToEmpty(ts.getSoBaoDanh()));
+        addInfoRow(infoCard, gbc, "Họ", nullToEmpty(ts.getHo()));
+        addInfoRow(infoCard, gbc, "Tên", nullToEmpty(ts.getTen()));
+        addInfoRow(infoCard, gbc, "Họ và tên",
+                ((ts.getHo() == null ? "" : ts.getHo()) + " " + (ts.getTen() == null ? "" : ts.getTen())).trim());
+        addInfoRow(infoCard, gbc, "Ngày sinh", nullToEmpty(ts.getNgaySinh()));
+        addInfoRow(infoCard, gbc, "Điện thoại", nullToEmpty(ts.getDienThoai()));
+        addInfoRow(infoCard, gbc, "Mật khẩu", nullToEmpty(ts.getPassword()));
+        addInfoRow(infoCard, gbc, "Giới tính", nullToEmpty(ts.getGioiTinh()));
+        addInfoRow(infoCard, gbc, "Email", nullToEmpty(ts.getEmail()));
+        addInfoRow(infoCard, gbc, "Nơi sinh", nullToEmpty(ts.getNoiSinh()));
+        addInfoRow(infoCard, gbc, "Updated At", nullToEmpty(ts.getUpdatedAt()));
+        addInfoRow(infoCard, gbc, "Đối tượng", nullToEmpty(ts.getDoiTuong()));
+        addInfoRow(infoCard, gbc, "Khu vực", nullToEmpty(ts.getKhuVuc()));
+        addInfoRow(infoCard, gbc, "Dân tộc", nullToEmpty(ts.getDanToc()));
+        addInfoRow(infoCard, gbc, "Mã dân tộc", nullToEmpty(ts.getMaDanToc()));
+        addInfoRow(infoCard, gbc, "Chương trình học", nullToEmpty(ts.getChuongTrinhHoc()));
+        addInfoRow(infoCard, gbc, "Mã môn NN", nullToEmpty(ts.getMaMonNn()));
+
+        List<DiemThiXetTuyen> diemList = bus.getDiemThiByCccd(ts.getCccd());
+        JPanel scorePanel = buildScorePanel(diemList);
+
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        tabs.addTab("Thông tin thí sinh",
+                wrapSection("THÔNG TIN CÁ NHÂN", new JScrollPane(infoCard), new Color(245, 249, 255)));
+        tabs.addTab("Điểm thi", wrapSection("XEM CHI TIẾT CÁC ĐIỂM CỦA THÍ SINH", new JScrollPane(scorePanel),
+                new Color(250, 248, 240)));
+
+        JPanel body = new JPanel(new BorderLayout(0, 12));
+        body.setOpaque(false);
+        body.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        body.add(summary, BorderLayout.NORTH);
+        body.add(tabs, BorderLayout.CENTER);
+
+        JButton btnClose = new JButton("Đóng");
+        btnClose.addActionListener(e -> dialog.dispose());
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        footer.setOpaque(false);
+        footer.add(btnClose);
+
+        dialog.add(header, BorderLayout.NORTH);
+        dialog.add(body, BorderLayout.CENTER);
+        dialog.add(footer, BorderLayout.SOUTH);
+        dialog.setVisible(true);
+    }
+
+    private JPanel buildScorePanel(List<DiemThiXetTuyen> diemList) {
+        JPanel panel = new JPanel();
+        panel.setLayout(new javax.swing.BoxLayout(panel, javax.swing.BoxLayout.Y_AXIS));
+        panel.setOpaque(false);
+
+        JPanel note = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        note.setOpaque(false);
+        note.add(createInfoChip("THPT", "Điểm thi phổ thông", new Color(52, 152, 219)));
+        note.add(createInfoChip("ĐGNL", "Đánh giá năng lực", new Color(46, 204, 113)));
+        note.add(createInfoChip("V-SAT", "Nếu có", new Color(231, 76, 60)));
+        panel.add(note, BorderLayout.NORTH);
+
+        if (diemList == null || diemList.isEmpty()) {
+            JLabel empty = new JLabel("Thí sinh chưa có dữ liệu điểm thi.", JLabel.CENTER);
+            empty.setOpaque(true);
+            empty.setBackground(new Color(255, 250, 240));
+            empty.setBorder(BorderFactory.createEmptyBorder(18, 12, 18, 12));
+            empty.setAlignmentX(Component.LEFT_ALIGNMENT);
+            panel.add(note);
+            panel.add(Box.createVerticalStrut(10));
+            panel.add(empty);
+            return panel;
+        }
+
+        for (DiemThiXetTuyen d : diemList) {
+            panel.add(createScoreCard(d));
+            panel.add(Box.createVerticalStrut(10));
+        }
+        return panel;
+    }
+
+    private JPanel createScoreCard(DiemThiXetTuyen d) {
+        JPanel card = new JPanel(new BorderLayout(0, 10));
+        card.setBackground(Color.WHITE);
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(213, 223, 240)),
+                BorderFactory.createEmptyBorder(12, 14, 12, 14)));
+
+        JPanel head = new JPanel(new BorderLayout());
+        head.setOpaque(false);
+        JLabel method = new JLabel("Phương thức: " + nullToEmpty(d.getPhuongThuc()));
+        method.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        method.setForeground(new Color(38, 50, 70));
+
+        JLabel total = new JLabel("Điểm xét TN: " + formatBigDecimal(d.getDiemXetTotNghiep()));
+        total.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        total.setForeground(new Color(192, 57, 43));
+        head.add(method, BorderLayout.WEST);
+        head.add(total, BorderLayout.EAST);
+        card.add(head, BorderLayout.NORTH);
+
+        JPanel grid = new JPanel(new GridLayout(0, 4, 10, 8));
+        grid.setOpaque(false);
+        addScoreCell(grid, "TO", d.getTo());
+        addScoreCell(grid, "LI", d.getLi());
+        addScoreCell(grid, "HO", d.getHo());
+        addScoreCell(grid, "SI", d.getSi());
+        addScoreCell(grid, "SU", d.getSu());
+        addScoreCell(grid, "DI", d.getDi());
+        addScoreCell(grid, "VA", d.getVa());
+        addScoreCell(grid, "GDCD", d.getGdcd());
+        addScoreCell(grid, "N1_THI", d.getN1Thi());
+        addScoreCell(grid, "N1_CC", d.getN1Cc());
+        addScoreCell(grid, "CNCN", d.getCncn());
+        addScoreCell(grid, "CNNN", d.getCnnn());
+        addScoreCell(grid, "TI", d.getTi());
+        addScoreCell(grid, "KTPL", d.getKtpl());
+        addScoreCell(grid, "NL1", d.getNl1());
+        addScoreCell(grid, "NK1", d.getNk1());
+        addScoreCell(grid, "NK2", d.getNk2());
+        addScoreCell(grid, "NK3", d.getNk3());
+        addScoreCell(grid, "NK4", d.getNk4());
+        addScoreCell(grid, "NK5", d.getNk5());
+        addScoreCell(grid, "NK6", d.getNk6());
+        addScoreCell(grid, "NK7", d.getNk7());
+        addScoreCell(grid, "NK8", d.getNk8());
+        addScoreCell(grid, "NK9", d.getNk9());
+        addScoreCell(grid, "NK10", d.getNk10());
+        card.add(grid, BorderLayout.CENTER);
+
+        return card;
+    }
+
+    private void addScoreCell(JPanel panel, String label, BigDecimal value) {
+        JPanel cell = new JPanel(new BorderLayout());
+        cell.setOpaque(true);
+        cell.setBackground(new Color(247, 250, 255));
+        cell.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(222, 230, 242)),
+                BorderFactory.createEmptyBorder(6, 8, 6, 8)));
+
+        JLabel lblKey = new JLabel(label);
+        lblKey.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblKey.setForeground(new Color(52, 73, 94));
+
+        JLabel lblValue = new JLabel(formatBigDecimal(value), JLabel.CENTER);
+        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblValue.setForeground(new Color(31, 97, 141));
+
+        cell.add(lblKey, BorderLayout.NORTH);
+        cell.add(lblValue, BorderLayout.CENTER);
+        panel.add(cell);
+    }
+
+    private JPanel wrapSection(String sectionTitle, JComponent innerComponent, Color background) {
+        JPanel wrapper = new JPanel(new BorderLayout(0, 8));
+        wrapper.setBackground(background);
+        wrapper.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+
+        JLabel lblTitle = new JLabel(sectionTitle);
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblTitle.setForeground(new Color(38, 50, 70));
+        wrapper.add(lblTitle, BorderLayout.NORTH);
+        wrapper.add(innerComponent, BorderLayout.CENTER);
+        return wrapper;
+    }
+
+    private JPanel createInfoChip(String label, String value, Color color) {
+        JPanel chip = new JPanel(new BorderLayout());
+        chip.setBackground(color);
+        chip.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        JLabel lbl = new JLabel(label + ": " + (value == null || value.isBlank() ? "-" : value));
+        lbl.setForeground(Color.WHITE);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        chip.add(lbl, BorderLayout.CENTER);
+        return chip;
+    }
+
+    private void addInfoRow(JPanel panel, GridBagConstraints gbc, String label, String value) {
+        gbc.gridx = 0;
+        gbc.weightx = 0.35;
+        JLabel lblKey = new JLabel(label + ":");
+        lblKey.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblKey.setForeground(new Color(52, 73, 94));
+        panel.add(lblKey, gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 0.65;
+        JLabel lblValue = new JLabel(value == null || value.isBlank() ? "-" : value);
+        lblValue.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lblValue.setForeground(new Color(45, 62, 80));
+        panel.add(lblValue, gbc);
+
+        gbc.gridy++;
+    }
+
+    private String formatBigDecimal(BigDecimal value) {
+        return value == null ? "-" : value.stripTrailingZeros().toPlainString();
+    }
+
+    private class EyeButtonRenderer extends JPanel implements TableCellRenderer {
+    private final JLabel labelBtn; // Dùng JLabel thay vì JButton
+
+    EyeButtonRenderer() {
+        // Dùng GridBagLayout để bọc nhãn luôn nằm ngay ngắn ở giữa ô
+        setLayout(new GridBagLayout());
+        setOpaque(true);
+
+        // Cấu hình JLabel giả làm Button
+        labelBtn = new JLabel("Chi tiết", JLabel.CENTER);
+        labelBtn.setOpaque(true); // BẮT BUỘC phải bật true để nhãn hiển thị màu nền
+        labelBtn.setForeground(Color.WHITE); // Màu chữ trắng
+        labelBtn.setBackground(new Color(0, 123, 255)); // Màu nền xanh chuẩn
+        labelBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        labelBtn.setPreferredSize(new Dimension(100, 28));
+
+        add(labelBtn);
+    }
+
+    @Override
+    public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+        // Đồng bộ màu nền của Panel chứa button với nền của dòng được chọn
+        if (isSelected) {
+            setBackground(table.getSelectionBackground());
+            labelBtn.setBackground(new Color(0, 104, 214)); // Nút sậm màu hơn chút khi row được chọn
+        } else {
+            setBackground(table.getBackground());
+            labelBtn.setBackground(new Color(0, 123, 255)); // Trả về màu xanh dương
+        }
+        return this;
+    }
+
+    }
+
+
 
     private void chonDong() {
         int row = table.getSelectedRow();
@@ -410,7 +829,7 @@ public class ThiSinhGUI extends JPanel {
         progressDialog.setLocationRelativeTo(this);
 
         SwingWorker<Integer, String> worker = new SwingWorker<>() {
-            private String errorMessage;
+            private final String[] errorMessage = new String[1];
 
             @Override
             protected Integer doInBackground() {
@@ -420,7 +839,7 @@ public class ThiSinhGUI extends JPanel {
                         publish(message);
                     });
                 } catch (IOException ex) {
-                    errorMessage = ex.getMessage();
+                    errorMessage[0] = ex.getMessage();
                     return -1;
                 }
             }
@@ -435,9 +854,9 @@ public class ThiSinhGUI extends JPanel {
             @Override
             protected void done() {
                 progressDialog.dispose();
-                if (errorMessage != null) {
+                if (errorMessage[0] != null) {
                     JOptionPane.showMessageDialog(ThiSinhGUI.this,
-                            "Lỗi import: " + errorMessage,
+                            "Lỗi import: " + errorMessage[0],
                             "Lỗi",
                             JOptionPane.ERROR_MESSAGE);
                     return;
@@ -451,7 +870,7 @@ public class ThiSinhGUI extends JPanel {
                                     + "\n(Đã thêm vào DB: " + imported + ")");
                     currentPage = 1;
                     loadPage();
-                } catch (Exception ex) {
+                } catch (InterruptedException | ExecutionException ex) {
                     JOptionPane.showMessageDialog(ThiSinhGUI.this,
                             "Lỗi import: " + ex.getMessage(),
                             "Lỗi",
@@ -502,7 +921,7 @@ public class ThiSinhGUI extends JPanel {
         ((JTextField) dcNgaySinh.getDateEditor().getUiComponent()).setEditable(false);
         JTextField txtDienThoai = new JTextField();
         JTextField txtMatKhau = new JTextField();
-        JComboBox<String> cboGioiTinh = new JComboBox<>(new String[]{"Nam", "Nữ", "Khác"});
+        JComboBox<String> cboGioiTinh = new JComboBox<>(new String[] { "Nam", "Nữ", "Khác" });
         JTextField txtEmail = new JTextField();
         JTextField txtNoiSinh = new JTextField();
         JTextField txtDoiTuong = new JTextField();
@@ -698,7 +1117,8 @@ public class ThiSinhGUI extends JPanel {
 
         String dt = normalizeDoiTuong(ts.getDoiTuong());
         if (dt == null) {
-            JOptionPane.showMessageDialog(this, "Đối tượng phải thuộc: 01, 02, 03, 04, 05, 06, 06a, 07, 07a (hoặc để trống)!");
+            JOptionPane.showMessageDialog(this,
+                    "Đối tượng phải thuộc: 01, 02, 03, 04, 05, 06, 06a, 07, 07a (hoặc để trống)!");
             return false;
         }
         ts.setDoiTuong(dt);
@@ -763,7 +1183,7 @@ public class ThiSinhGUI extends JPanel {
         }
 
         String text = value.trim();
-        String[] patterns = {"dd/MM/yyyy", "dd/MM/yy", "yyyy-MM-dd"};
+        String[] patterns = { "dd/MM/yyyy", "dd/MM/yy", "yyyy-MM-dd" };
         for (String pattern : patterns) {
             SimpleDateFormat sdf = new SimpleDateFormat(pattern);
             sdf.setLenient(false);
@@ -781,16 +1201,15 @@ public class ThiSinhGUI extends JPanel {
         columns.getColumn(0).setPreferredWidth(70);
         columns.getColumn(1).setPreferredWidth(120);
         columns.getColumn(2).setPreferredWidth(120);
-        columns.getColumn(3).setPreferredWidth(120);
+        columns.getColumn(3).setPreferredWidth(180);
         columns.getColumn(4).setPreferredWidth(120);
         columns.getColumn(5).setPreferredWidth(120);
-        columns.getColumn(6).setPreferredWidth(120);
-        columns.getColumn(7).setPreferredWidth(120);
+        columns.getColumn(6).setPreferredWidth(100);
+        columns.getColumn(7).setPreferredWidth(180);
         columns.getColumn(8).setPreferredWidth(100);
-        columns.getColumn(9).setPreferredWidth(170);
+        columns.getColumn(9).setPreferredWidth(110);
+        columns.getColumn(10).setMinWidth(120);
         columns.getColumn(10).setPreferredWidth(150);
-        columns.getColumn(11).setPreferredWidth(130);
-        columns.getColumn(12).setPreferredWidth(110);
-        columns.getColumn(13).setPreferredWidth(100);
+        columns.getColumn(10).setMaxWidth(180);
     }
 }

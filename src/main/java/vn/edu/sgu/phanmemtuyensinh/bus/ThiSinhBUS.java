@@ -79,6 +79,10 @@ public class ThiSinhBUS {
         return dao.getById(idThiSinh);
     }
 
+    public List<DiemThiXetTuyen> getDiemThiByCccd(String cccd) {
+        return diemDAO.getListByCccd(cccd);
+    }
+
     public List<ThiSinh> getPage(int page, int pageSize) {
         return dao.getPage(page, pageSize);
     }
@@ -97,6 +101,14 @@ public class ThiSinhBUS {
 
     public long countByKeyword(String keyword) {
         return dao.countByKeyword(keyword);
+    }
+
+    public List<Object[]> countByDoiTuong() {
+        return dao.countByDoiTuong();
+    }
+
+    public List<Object[]> countByKhuVuc() {
+        return dao.countByKhuVuc();
     }
 
     public boolean add(ThiSinh ts) {

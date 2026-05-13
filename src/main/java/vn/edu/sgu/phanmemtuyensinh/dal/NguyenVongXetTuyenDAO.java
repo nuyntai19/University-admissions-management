@@ -1,6 +1,8 @@
 package vn.edu.sgu.phanmemtuyensinh.dal;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -33,6 +35,52 @@ public class NguyenVongXetTuyenDAO {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             return session.createQuery("FROM NguyenVongXetTuyen WHERE nvMaNganh = :ma", NguyenVongXetTuyen.class)
                     .setParameter("ma", maNganh).list();
+        }
+    }
+
+    public Map<String, Long> countByMaNganh() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            List<Object[]> rows = session.createQuery(
+                    "SELECT nv.nvMaNganh, COUNT(nv) FROM NguyenVongXetTuyen nv GROUP BY nv.nvMaNganh",
+                    Object[].class)
+                    .list();
+            Map<String, Long> result = new HashMap<>();
+            for (Object[] row : rows) {
+                if (row[0] != null) {
+                    result.put(String.valueOf(row[0]), (Long) row[1]);
+                }
+            }
+            return result;
+        }
+    }
+
+    public List<Object[]> getTrungTuyenChiTiet() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery(
+                            "SELECT nv.nvMaNganh, nv.nvTenMaNganh, nv.nvCccd, nv.nvTt, nv.ttPhuongThuc, nv.ttThm, "
+                                    + "nv.diemThxt, nv.diemCong, nv.diemUtqd, nv.diemXetTuyen "
+                                    + "FROM NguyenVongXetTuyen nv "
+                                    + "WHERE nv.nvKetQua = 'Đạt' "
+                                    + "ORDER BY nv.nvMaNganh, nv.ttPhuongThuc, nv.diemXetTuyen DESC",
+                            Object[].class)
+                    .list();
+        }
+    }
+
+    public List<Object[]> getThongKeTrungTuyenTheoNganhPhuongThuc() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            // Nhóm THPT và trống cùng nhau, chỉ tách riêng ĐGNL và V-SAT
+            return session.createQuery(
+                            "SELECT nv.nvMaNganh, nv.nvTenMaNganh, "
+                                    + "CASE WHEN nv.ttPhuongThuc IN ('ĐGNL', 'V-SAT') THEN nv.ttPhuongThuc ELSE 'THPT / Không' END AS ptGroup, "
+                                    + "COUNT(nv) "
+                                    + "FROM NguyenVongXetTuyen nv "
+                                    + "WHERE nv.nvKetQua = 'Đạt' "
+                                    + "GROUP BY nv.nvMaNganh, nv.nvTenMaNganh, "
+                                    + "CASE WHEN nv.ttPhuongThuc IN ('ĐGNL', 'V-SAT') THEN nv.ttPhuongThuc ELSE 'THPT / Không' END "
+                                    + "ORDER BY nv.nvMaNganh, ptGroup",
+                            Object[].class)
+                    .list();
         }
     }
 

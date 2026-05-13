@@ -53,6 +53,10 @@ public class NguyenVongXetTuyenBUS {
         return dao.getByCccd(cccd);
     }
 
+    public Map<String, Long> countByMaNganh() {
+        return dao.countByMaNganh();
+    }
+
     public int getNextThuTu(String cccd) {
         List<NguyenVongXetTuyen> list = dao.getByCccd(cccd);
         if (list == null || list.isEmpty()) return 1;
@@ -241,6 +245,14 @@ public class NguyenVongXetTuyenBUS {
         return runXetTuyenForList(list);
     }
 
+    public List<Object[]> getTrungTuyenChiTiet() {
+        return dao.getTrungTuyenChiTiet();
+    }
+
+    public List<Object[]> getThongKeTrungTuyenTheoNganhPhuongThuc() {
+        return dao.getThongKeTrungTuyenTheoNganhPhuongThuc();
+    }
+
     /**
      * HÀM LÕI: Tính và lưu điểm xét tuyển cho danh sách nguyện vọng.
      * Thực hiện đúng các bước trong file 'cac cong thuc tinh.txt'
@@ -270,8 +282,12 @@ public class NguyenVongXetTuyenBUS {
         }
 
         DiemCongXetTuyenDAO dcDAO = new DiemCongXetTuyenDAO();
-        Map<String, DiemCongXetTuyen> dCongMap = new HashMap<>();
-        for (DiemCongXetTuyen dc : dcDAO.getAll()) dCongMap.put(dc.getTsCccd(), dc);
+        Map<String, List<DiemCongXetTuyen>> dCongMap = new HashMap<>();
+        for (DiemCongXetTuyen dc : dcDAO.getAll()) {
+            if (dc.getTsCccd() != null) {
+                dCongMap.computeIfAbsent(normalizeCccdKey(dc.getTsCccd()), k -> new ArrayList<>()).add(dc);
+            }
+        }
 
         ThiSinhDAO thiSinhDAO = new ThiSinhDAO();
         Map<String, ThiSinh> thiSinhMap = new HashMap<>();
@@ -309,8 +325,8 @@ public class NguyenVongXetTuyenBUS {
                 }
 
                 // 2. Lấy thông tin điểm cộng (Chứng chỉ, giải...)
-                DiemCongXetTuyen dcRecord = dCongMap.get(cccd);
-                int mucCC = (dcRecord != null) ? getMucChungChi(dcRecord.getChungChi(), dcRecord.getMucDatDuoc()) : 0;
+                List<DiemCongXetTuyen> dcRecords = dCongMap.getOrDefault(normalizeCccdKey(cccd), java.util.Collections.emptyList());
+                int mucCC = getBestMucChungChi(dcRecords);
                 
                 // Xác định mức điểm ưu tiên gốc (MĐUT) từ thông tin thí sinh
                 ThiSinh ts = thiSinhMap.get(cccd);
@@ -358,12 +374,11 @@ public class NguyenVongXetTuyenBUS {
 
                 // 5. TÍNH ĐIỂM CỘNG (ĐC) - Mục 3.3
                 BigDecimal diemCong = BigDecimal.ZERO;
-                if (dcRecord != null) {
-                    if (dcRecord.getDiemCongMonGiai() != null) diemCong = diemCong.add(dcRecord.getDiemCongMonGiai());
-                    
-                    boolean coTiengAnh = isToHopHasEnglish(finalToHop, thmMap);
-                    if (!coTiengAnh && mucCC > 0) {
-                        diemCong = diemCong.add(new BigDecimal(mucCC == 1 ? "1.0" : mucCC == 2 ? "1.5" : "2.0"));
+                if (!dcRecords.isEmpty()) {
+                    diemCong = diemCong.add(getBestDiemGiai(dcRecords, thmMap.get(finalToHop)));
+
+                    if (!isToHopHasEnglish(finalToHop, thmMap) && mucCC > 0) {
+                        diemCong = diemCong.add(getDiemCongChungChi(mucCC));
                     }
                 }
                 if (diemCong.compareTo(new BigDecimal("3.0")) > 0) diemCong = new BigDecimal("3.0");
@@ -470,6 +485,60 @@ public class NguyenVongXetTuyenBUS {
         ToHopMon thm = thmMap.get(maToHop);
         if (thm == null) return false;
         return "N1".equalsIgnoreCase(thm.getMon1()) || "N1".equalsIgnoreCase(thm.getMon2()) || "N1".equalsIgnoreCase(thm.getMon3());
+    }
+
+    private int getBestMucChungChi(List<DiemCongXetTuyen> records) {
+        int best = 0;
+        for (DiemCongXetTuyen dc : records) {
+            int muc = getMucChungChi(dc.getChungChi(), dc.getMucDatDuoc());
+            if (muc > best) {
+                best = muc;
+            }
+        }
+        return best;
+    }
+
+    private BigDecimal getDiemCongChungChi(int mucCC) {
+        return new BigDecimal(mucCC == 1 ? "1.0" : mucCC == 2 ? "1.5" : "2.0");
+    }
+
+    private BigDecimal getBestDiemGiai(List<DiemCongXetTuyen> records, ToHopMon toHop) {
+        BigDecimal best = BigDecimal.ZERO;
+        for (DiemCongXetTuyen dc : records) {
+            // Lấy điểm cao nhất giữa điểm cộng môn và điểm cộng không môn
+            BigDecimal diemMon = value(dc.getDiemCongMonGiai());
+            BigDecimal diemKoMon = value(dc.getDiemCongKhongMon());
+            BigDecimal diem = diemMon.max(diemKoMon);
+            if (diem.compareTo(best) > 0) {
+                best = diem;
+            }
+        }
+        return best;
+    }
+
+    private boolean hasAwardSubject(ToHopMon toHop, String monCode) {
+        if (toHop == null || monCode == null || monCode.isBlank()) {
+            return false;
+        }
+        String mon = monCode.trim().toUpperCase(Locale.ROOT);
+        return mon.equalsIgnoreCase(toHop.getMon1())
+                || mon.equalsIgnoreCase(toHop.getMon2())
+                || mon.equalsIgnoreCase(toHop.getMon3());
+    }
+
+    private BigDecimal value(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private String normalizeCccdKey(String value) {
+        if (value == null) {
+            return "";
+        }
+        String digits = value.trim().replaceAll("\\D", "");
+        if (digits.isEmpty()) {
+            return value.trim().toUpperCase(Locale.ROOT);
+        }
+        return digits.replaceFirst("^0+(?!$)", "");
     }
 
     private BigDecimal tinhDiemToHop(Map<String, BigDecimal> diemMap, ToHopMon thm) {

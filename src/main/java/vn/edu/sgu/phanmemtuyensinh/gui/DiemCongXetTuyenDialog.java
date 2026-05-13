@@ -9,6 +9,7 @@ import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,12 +37,17 @@ import vn.edu.sgu.phanmemtuyensinh.utils.AutoSuggestComboBox;
 public class DiemCongXetTuyenDialog extends JDialog {
 
     private AutoSuggestComboBox cbCccd;
+    private JTextField txtMaNganh;
+    private JTextField txtMaToHop;
+    private JTextField txtPhuongThuc;
     private JComboBox<String> cbCC;
     private JTextField txtMucCC;
     private JTextField txtCapGiai;
     private JTextField txtDoiTuongGiai;
     private JTextField txtMaMonGiai;
     private JTextField txtLoaiGiai;
+    private JTextField txtDiemCongMonNhap;
+    private JTextField txtDiemCongKoMonNhap;
 
     private JTextField txtDiemQuyDoi;
     private JTextField txtDiemCc;
@@ -110,6 +116,32 @@ public class DiemCongXetTuyenDialog extends JDialog {
         g.gridx = 1; g.gridwidth = 3;
         pnlForm.add(cbCccd, g);
 
+        // Group 1.1: Liên kết nguyện vọng
+        JPanel pnlLienKet = new JPanel(new GridBagLayout());
+        pnlLienKet.setBackground(Color.WHITE);
+        pnlLienKet.setBorder(createTitledBorder("Liên kết nguyện vọng / tổ hợp"));
+        GridBagConstraints gL = new GridBagConstraints();
+        gL.insets = new Insets(5, 5, 5, 5);
+        gL.fill = GridBagConstraints.HORIZONTAL;
+
+        txtMaNganh = new JTextField();
+        txtMaToHop = new JTextField();
+        txtPhuongThuc = new JTextField();
+        styleInput(txtMaNganh, inputSize);
+        styleInput(txtMaToHop, inputSize);
+        styleInput(txtPhuongThuc, inputSize);
+
+        gL.gridx = 0; gL.gridy = 0; pnlLienKet.add(label("Mã ngành:"), gL);
+        gL.gridx = 1; pnlLienKet.add(txtMaNganh, gL);
+        gL.gridx = 2; pnlLienKet.add(label("Mã tổ hợp:"), gL);
+        gL.gridx = 3; pnlLienKet.add(txtMaToHop, gL);
+
+        gL.gridx = 0; gL.gridy = 1; pnlLienKet.add(label("Phương thức:"), gL);
+        gL.gridx = 1; gL.gridwidth = 3; pnlLienKet.add(txtPhuongThuc, gL);
+
+        g.gridx = 0; g.gridy = 1; g.gridwidth = 4;
+        pnlForm.add(pnlLienKet, g);
+
         // Group 2: Chứng chỉ ngoại ngữ
         JPanel pnlNgoaiNgu = new JPanel(new GridBagLayout());
         pnlNgoaiNgu.setBackground(Color.WHITE);
@@ -127,7 +159,7 @@ public class DiemCongXetTuyenDialog extends JDialog {
         gN.gridx = 2; pnlNgoaiNgu.add(label("Điểm/Bậc CC:"), gN);
         gN.gridx = 3; pnlNgoaiNgu.add(txtMucCC, gN);
 
-        g.gridx = 0; g.gridy = 1; g.gridwidth = 4;
+        g.gridx = 0; g.gridy = 2; g.gridwidth = 4;
         pnlForm.add(pnlNgoaiNgu, g);
 
         // Group 3: Giải thưởng
@@ -141,11 +173,15 @@ public class DiemCongXetTuyenDialog extends JDialog {
         txtDoiTuongGiai = new JTextField();
         txtMaMonGiai = new JTextField();
         txtLoaiGiai = new JTextField();
-        
+        txtDiemCongMonNhap = new JTextField();
+        txtDiemCongKoMonNhap = new JTextField();
+
         styleInput(txtCapGiai, inputSize);
         styleInput(txtDoiTuongGiai, inputSize);
         styleInput(txtMaMonGiai, inputSize);
         styleInput(txtLoaiGiai, inputSize);
+        styleInput(txtDiemCongMonNhap, inputSize);
+        styleInput(txtDiemCongKoMonNhap, inputSize);
 
         gG.gridx = 0; gG.gridy = 0; pnlGiai.add(label("Cấp giải:"), gG);
         gG.gridx = 1; pnlGiai.add(txtCapGiai, gG);
@@ -157,7 +193,12 @@ public class DiemCongXetTuyenDialog extends JDialog {
         gG.gridx = 2; pnlGiai.add(label("Loại giải:"), gG);
         gG.gridx = 3; pnlGiai.add(txtLoaiGiai, gG);
 
-        g.gridx = 0; g.gridy = 2; g.gridwidth = 4;
+        gG.gridx = 0; gG.gridy = 2; pnlGiai.add(label("Điểm cộng môn (*):"), gG);
+        gG.gridx = 1; pnlGiai.add(txtDiemCongMonNhap, gG);
+        gG.gridx = 2; pnlGiai.add(label("Điểm cộng ko môn (*):"), gG);
+        gG.gridx = 3; pnlGiai.add(txtDiemCongKoMonNhap, gG);
+
+        g.gridx = 0; g.gridy = 3; g.gridwidth = 4;
         pnlForm.add(pnlGiai, g);
 
         // Group 4: Kết quả (Tự động tính)
@@ -196,11 +237,11 @@ public class DiemCongXetTuyenDialog extends JDialog {
         gK.gridx = 2; pnlKetQua.add(label("Tổng kết:"), gK);
         gK.gridx = 3; pnlKetQua.add(txtTongKet, gK);
 
-        g.gridx = 0; g.gridy = 3; g.gridwidth = 4;
+        g.gridx = 0; g.gridy = 4; g.gridwidth = 4;
         pnlForm.add(pnlKetQua, g);
 
         // Blank space
-        g.gridy = 4; g.weighty = 1.0;
+        g.gridy = 5; g.weighty = 1.0;
         pnlForm.add(new JLabel(""), g);
 
         JScrollPane scroll = new JScrollPane(pnlForm);
@@ -222,6 +263,9 @@ public class DiemCongXetTuyenDialog extends JDialog {
 
     private void fillData() {
         cbCccd.setText(data.getTsCccd());
+        txtMaNganh.setText(data.getMaNganh());
+        txtMaToHop.setText(data.getMaToHop());
+        txtPhuongThuc.setText(data.getPhuongThuc());
         String cc = data.getChungChi();
         if (cc != null && cc.startsWith("Tiếng Anh - ")) {
             cc = cc.replace("Tiếng Anh - ", "");
@@ -234,26 +278,32 @@ public class DiemCongXetTuyenDialog extends JDialog {
             }
         }
         if (!found) cbCC.setSelectedItem(data.getChungChi() != null ? data.getChungChi() : "None");
-        
+
         txtMucCC.setText(data.getMucDatDuoc());
-        
+
         txtCapGiai.setText(data.getCapGiai());
         txtDoiTuongGiai.setText(data.getDoiTuongGiai());
         txtMaMonGiai.setText(data.getMaMonGiai());
         txtLoaiGiai.setText(data.getLoaiGiai());
-        
+
+        // Hiển thị điểm cộng từ database
+        txtDiemCongMonNhap.setText(data.getDiemCongMonGiai() != null ? data.getDiemCongMonGiai().toString() : "");
+        txtDiemCongKoMonNhap.setText(data.getDiemCongKhongMon() != null ? data.getDiemCongKhongMon().toString() : "");
+
+        // Tính lại điểm quy đổi và điểm cộng CC từ loại chứng chỉ
         int mucCC = getMucChungChi(data.getChungChi(), data.getMucDatDuoc());
-        String diemQuyDoiStr = "";
-        String diemCongCcStr = "";
-        if (mucCC > 0) {
-            diemQuyDoiStr = mucCC == 1 ? "8.0" : mucCC == 2 ? "9.0" : "10.0";
-            diemCongCcStr = mucCC == 1 ? "1.0" : mucCC == 2 ? "1.5" : "2.0";
-        }
-        
+        String diemQuyDoiStr = mucCC > 0 ? (mucCC == 1 ? "8.0" : mucCC == 2 ? "9.0" : "10.0") : "";
+        String diemCongCcStr = mucCC > 0 ? (mucCC == 1 ? "1.0" : mucCC == 2 ? "1.5" : "2.0") : "";
+
         txtDiemQuyDoi.setText(diemQuyDoiStr);
         txtDiemCc.setText(diemCongCcStr);
-        txtDiemMon.setText(data.getDiemCongMonGiai() != null ? data.getDiemCongMonGiai().toString() : "0.0");
-        txtDiemKoMon.setText(data.getDiemCongKhongMon() != null ? data.getDiemCongKhongMon().toString() : "0.0");
+
+        // Hiển thị điểm cộng giải (từ database hoặc mặc định 0)
+        BigDecimal diemMon = data.getDiemCongMonGiai();
+        BigDecimal diemKoMon = data.getDiemCongKhongMon();
+        txtDiemMon.setText(diemMon != null ? diemMon.toString() : "0.0");
+        txtDiemKoMon.setText(diemKoMon != null ? diemKoMon.toString() : "0.0");
+
         txtDiemUt.setText(data.getDiemUtxt() != null ? data.getDiemUtxt().toString() : "0.0");
         txtTongKet.setText(data.getDiemTong() != null ? data.getDiemTong().toString() : "0.0");
     }
@@ -384,12 +434,19 @@ public class DiemCongXetTuyenDialog extends JDialog {
         String cc = cbCC.getSelectedItem().toString();
         data.setChungChi("None".equals(cc) ? null : cc);
         data.setMucDatDuoc(txtMucCC.getText().trim());
+
+        data.setMaNganh(txtMaNganh.getText().trim());
+        data.setMaToHop(txtMaToHop.getText().trim());
+        data.setPhuongThuc(txtPhuongThuc.getText().trim());
         
         data.setCapGiai(txtCapGiai.getText().trim());
         data.setDoiTuongGiai(txtDoiTuongGiai.getText().trim());
         data.setMaMonGiai(txtMaMonGiai.getText().trim());
         data.setLoaiGiai(txtLoaiGiai.getText().trim());
-        
+
+        data.setDiemCongMonGiai(parseDiem(txtDiemCongMonNhap.getText().trim()));
+        data.setDiemCongKhongMon(parseDiem(txtDiemCongKoMonNhap.getText().trim()));
+
         // Tạo dcKeys giả lập nếu chưa có
         if (data.getDcKeys() == null || data.getDcKeys().isEmpty()) {
             data.setDcKeys("KEY_" + data.getTsCccd() + "_" + System.currentTimeMillis());
@@ -400,7 +457,19 @@ public class DiemCongXetTuyenDialog extends JDialog {
 
     public String getChungChiStr() { return cbCC.getSelectedItem().toString(); }
     public String getMucDatDuocStr() { return txtMucCC.getText().trim(); }
-    
+
+    public BigDecimal getDiemCongMonNhap() { return parseDiem(txtDiemCongMonNhap.getText().trim()); }
+    public BigDecimal getDiemCongKoMonNhap() { return parseDiem(txtDiemCongKoMonNhap.getText().trim()); }
+
+    private BigDecimal parseDiem(String s) {
+        if (s == null || s.trim().isEmpty()) return null;
+        try {
+            return new BigDecimal(s.trim().replace(",", "."));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     // Gửi tạm dữ liệu về GUI tính toán nếu cần, tuy nhiên trong version này 
     // ta lấy trực tiếp từ data (loaiGiai, capGiai) cho vào BUS xử lý.
     public String getGiaiThuongStr() { 

@@ -101,6 +101,30 @@ public class ThiSinhDAO {
         }
     }
 
+    public List<Object[]> countByDoiTuong() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery(
+                            "SELECT COALESCE(NULLIF(TRIM(ts.doiTuong), ''), 'Chưa rõ'), COUNT(ts) "
+                                    + "FROM ThiSinh ts "
+                                    + "GROUP BY COALESCE(NULLIF(TRIM(ts.doiTuong), ''), 'Chưa rõ') "
+                                    + "ORDER BY COUNT(ts) DESC",
+                            Object[].class)
+                    .list();
+        }
+    }
+
+    public List<Object[]> countByKhuVuc() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery(
+                            "SELECT COALESCE(NULLIF(TRIM(ts.khuVuc), ''), 'Chưa rõ'), COUNT(ts) "
+                                    + "FROM ThiSinh ts "
+                                    + "GROUP BY COALESCE(NULLIF(TRIM(ts.khuVuc), ''), 'Chưa rõ') "
+                                    + "ORDER BY COUNT(ts) DESC",
+                            Object[].class)
+                    .list();
+        }
+    }
+
     public List<ThiSinh> searchByHoTen(String hoTen) {
         return searchByKeyword(hoTen, 1, Integer.MAX_VALUE);
     }

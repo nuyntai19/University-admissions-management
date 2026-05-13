@@ -1,10 +1,19 @@
 package vn.edu.sgu.phanmemtuyensinh.bus;
 
 import vn.edu.sgu.phanmemtuyensinh.dal.DiemCongXetTuyenDAO;
+import vn.edu.sgu.phanmemtuyensinh.dal.NguyenVongXetTuyenDAO;
+import vn.edu.sgu.phanmemtuyensinh.dal.ToHopMonDAO;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.DiemCongXetTuyen;
+import vn.edu.sgu.phanmemtuyensinh.dal.entity.NguyenVongXetTuyen;
+import vn.edu.sgu.phanmemtuyensinh.dal.entity.ToHopMon;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.ThiSinh;
 
 public class DiemCongXetTuyenBUS {
@@ -22,10 +31,179 @@ public class DiemCongXetTuyenBUS {
     public long countAll() { return dao.countAll(); }
     public long countAll(String keyword) { return dao.countAll(keyword); }
 
-    public void tinhToanDiemCongVaUuTien(DiemCongXetTuyen d, String loaiCC, String mucCC, String loaiGiai, String kv, String dt, BigDecimal diemThiGoc) {
+    public List<DiemCongTongHopRow> getTongHopTheoNguyenVongPage(String keyword, int offset, int limit) {
+        List<DiemCongTongHopRow> rows = buildTongHopTheoNguyenVong(keyword);
+        int from = Math.max(0, Math.min(offset, rows.size()));
+        int to = Math.max(from, Math.min(from + limit, rows.size()));
+        return rows.subList(from, to);
+    }
+
+    public long countTongHopTheoNguyenVong(String keyword) {
+        return buildTongHopTheoNguyenVong(keyword).size();
+    }
+
+    private List<DiemCongTongHopRow> buildTongHopTheoNguyenVong(String keyword) {
+        String kw = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+
+        NguyenVongXetTuyenDAO nvDao = new NguyenVongXetTuyenDAO();
+        ToHopMonDAO toHopDao = new ToHopMonDAO();
+
+        Map<String, List<DiemCongXetTuyen>> diemCongByCccd = new HashMap<>();
+        for (DiemCongXetTuyen dc : dao.getAll()) {
+            if (dc == null || dc.getTsCccd() == null || dc.getTsCccd().isBlank()) {
+                continue;
+            }
+            diemCongByCccd.computeIfAbsent(normalizeCccdKey(dc.getTsCccd()), k -> new ArrayList<>()).add(dc);
+        }
+
+        Map<String, ToHopMon> toHopMap = new HashMap<>();
+        for (ToHopMon th : toHopDao.getAll()) {
+            if (th.getMaToHop() != null) {
+                toHopMap.put(th.getMaToHop().trim().toUpperCase(Locale.ROOT), th);
+            }
+        }
+
+        List<DiemCongTongHopRow> rows = new ArrayList<>();
+        List<NguyenVongXetTuyen> nguyenVongList = nvDao.getAll();
+        nguyenVongList.sort(Comparator
+                .comparing((NguyenVongXetTuyen nv) -> safe(nv.getNvCccd()))
+                .thenComparingInt(NguyenVongXetTuyen::getNvTt));
+
+        for (NguyenVongXetTuyen nv : nguyenVongList) {
+            String cccd = safe(nv.getNvCccd());
+            if (!kw.isEmpty() && !cccd.toLowerCase(Locale.ROOT).contains(kw)) {
+                continue;
+            }
+
+            List<DiemCongXetTuyen> sources = diemCongByCccd.getOrDefault(normalizeCccdKey(cccd), List.of());
+            if (sources.isEmpty()) {
+                continue;
+            }
+
+            DiemCongTongHopRow row = new DiemCongTongHopRow();
+            row.idDiemCong = sources.get(0).getIdDiemCong();
+            row.cccd = cccd;
+            row.nguyenVong = nv.getNvTt();
+            row.maNganh = safe(nv.getNvMaNganh());
+            row.maToHop = safe(nv.getTtThm());
+            row.phuongThuc = safe(nv.getTtPhuongThuc());
+
+            ToHopMon toHop = toHopMap.get(row.maToHop.toUpperCase(Locale.ROOT));
+            boolean toHopCoTiengAnh = hasSubject(toHop, "N1");
+            BigDecimal diemTiengAnh = BigDecimal.ZERO;
+            BigDecimal diemGiai = BigDecimal.ZERO;
+
+            for (DiemCongXetTuyen dc : sources) {
+                if (hasCertificate(dc) && value(dc.getDiemCC()).compareTo(diemTiengAnh) > 0) {
+                    row.chungChi = safe(dc.getChungChi());
+                    row.mucDatDuoc = safe(dc.getMucDatDuoc());
+                    row.diemQuyDoiChungChi = dc.getDiemQuyDoiChungChi();
+                    row.coChungChi = Boolean.TRUE.equals(dc.getCoChungChi()) || !row.chungChi.isBlank();
+                    diemTiengAnh = value(dc.getDiemCC());
+                }
+
+                if (hasAward(dc)) {
+                    BigDecimal applied = getAppliedAwardPoint(dc, toHop);
+                    if (applied.compareTo(diemGiai) > 0) {
+                        row.capGiai = safe(dc.getCapGiai());
+                        row.doiTuongGiai = safe(dc.getDoiTuongGiai());
+                        row.maMonGiai = safe(dc.getMaMonGiai());
+                        row.loaiGiai = safe(dc.getLoaiGiai());
+                        row.diemCongMonGiai = value(dc.getDiemCongMonGiai());
+                        row.diemCongKhongMon = value(dc.getDiemCongKhongMon());
+                        diemGiai = applied;
+                    }
+                }
+            }
+
+            row.diemCongCc = toHopCoTiengAnh ? BigDecimal.ZERO : diemTiengAnh;
+            row.diemUuTien = value(nv.getDiemUtqd());
+            row.tongDiemCong = row.diemCongCc.add(diemGiai);
+            if (row.tongDiemCong.compareTo(new BigDecimal("3.0")) > 0) {
+                row.tongDiemCong = new BigDecimal("3.0");
+            }
+            rows.add(row);
+        }
+
+        rows.sort(Comparator
+                .comparingInt((DiemCongTongHopRow row) -> row.idDiemCong)
+                .thenComparing(row -> safe(row.cccd))
+                .thenComparingInt(row -> row.nguyenVong));
+        return rows;
+    }
+
+    private BigDecimal getAppliedAwardPoint(DiemCongXetTuyen dc, ToHopMon toHop) {
+        if (hasSubject(toHop, dc.getMaMonGiai())) {
+            return value(dc.getDiemCongMonGiai());
+        }
+        return value(dc.getDiemCongKhongMon());
+    }
+
+    private boolean hasCertificate(DiemCongXetTuyen dc) {
+        return dc != null && (Boolean.TRUE.equals(dc.getCoChungChi()) || !safe(dc.getChungChi()).isBlank());
+    }
+
+    private boolean hasAward(DiemCongXetTuyen dc) {
+        return dc != null
+                && (!safe(dc.getCapGiai()).isBlank()
+                || !safe(dc.getLoaiGiai()).isBlank()
+                || !safe(dc.getMaMonGiai()).isBlank());
+    }
+
+    private boolean hasSubject(ToHopMon toHop, String monCode) {
+        String mon = safe(monCode).toUpperCase(Locale.ROOT);
+        if (toHop == null || mon.isBlank()) {
+            return false;
+        }
+        return mon.equals(safe(toHop.getMon1()).toUpperCase(Locale.ROOT))
+                || mon.equals(safe(toHop.getMon2()).toUpperCase(Locale.ROOT))
+                || mon.equals(safe(toHop.getMon3()).toUpperCase(Locale.ROOT));
+    }
+
+    private BigDecimal value(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private String normalizeCccdKey(String value) {
+        String digits = safe(value).replaceAll("\\D", "");
+        if (digits.isEmpty()) {
+            return safe(value).toUpperCase(Locale.ROOT);
+        }
+        return digits.replaceFirst("^0+(?!$)", "");
+    }
+
+    public static class DiemCongTongHopRow {
+        public int idDiemCong;
+        public String cccd;
+        public int nguyenVong;
+        public String maNganh;
+        public String maToHop;
+        public String phuongThuc;
+        public String chungChi;
+        public String mucDatDuoc;
+        public BigDecimal diemQuyDoiChungChi;
+        public BigDecimal diemCongCc;
+        public boolean coChungChi;
+        public String capGiai;
+        public String doiTuongGiai;
+        public String maMonGiai;
+        public String loaiGiai;
+        public BigDecimal diemCongMonGiai;
+        public BigDecimal diemCongKhongMon;
+        public BigDecimal diemUuTien;
+        public BigDecimal tongDiemCong;
+    }
+
+    public void tinhToanDiemCongVaUuTien(DiemCongXetTuyen d, String loaiCC, String mucCC, String loaiGiai,
+                                         String kv, String dt, BigDecimal diemThiGoc,
+                                         BigDecimal diemCongMonNhap, BigDecimal diemCongKhongMonNhap) {
         // 1. Xác định mức chứng chỉ
         int mucCCInt = getMucChungChi(loaiCC, mucCC);
-        
+
         // Cập nhật điểm quy đổi và điểm cộng CC
         if (mucCCInt > 0) {
             d.setDiemQuyDoiChungChi(new BigDecimal(mucCCInt == 1 ? "8.0" : mucCCInt == 2 ? "9.0" : "10.0"));
@@ -38,26 +216,38 @@ public class DiemCongXetTuyenBUS {
             diemCongCC = new BigDecimal(mucCCInt == 1 ? "1.0" : mucCCInt == 2 ? "1.5" : "2.0");
         }
 
-        // Tính điểm môn giải
-        BigDecimal diemCongGiai = BigDecimal.ZERO;
-        if (loaiGiai != null && loaiGiai.toLowerCase().contains("nhất")) {
-            diemCongGiai = diemCongGiai.add(new BigDecimal("2.0"));
-        } else if (loaiGiai != null && loaiGiai.toLowerCase().contains("nhì")) {
-            diemCongGiai = diemCongGiai.add(new BigDecimal("1.5"));
-        } else if (loaiGiai != null && loaiGiai.toLowerCase().contains("ba")) {
-            diemCongGiai = diemCongGiai.add(new BigDecimal("1.0"));
+        // Điểm cộng giải - Tính tự động từ loại giải nếu không có điểm nhập tay
+        BigDecimal diemCongMonGiai = BigDecimal.ZERO;
+        BigDecimal diemCongKoMonGiai = BigDecimal.ZERO;
+        if (diemCongMonNhap != null) {
+            diemCongMonGiai = diemCongMonNhap;
+            diemCongKoMonGiai = (diemCongKhongMonNhap != null) ? diemCongKhongMonNhap : BigDecimal.ZERO;
+        } else if (loaiGiai != null) {
+            // Tính tự động từ loại giải (logic cũ)
+            if (loaiGiai.toLowerCase().contains("nhất")) {
+                diemCongMonGiai = new BigDecimal("2.0");
+                diemCongKoMonGiai = new BigDecimal("1.0");
+            } else if (loaiGiai.toLowerCase().contains("nhì")) {
+                diemCongMonGiai = new BigDecimal("1.5");
+                diemCongKoMonGiai = new BigDecimal("0.75");
+            } else if (loaiGiai.toLowerCase().contains("ba")) {
+                diemCongMonGiai = new BigDecimal("1.0");
+                diemCongKoMonGiai = new BigDecimal("0.5");
+            }
         }
-        
-        d.setDiemCongKhongMon(diemCongCC); // Ta lưu tạm điểm cộng CC vào trường này để hiển thị trên bảng
-        d.setDiemCongMonGiai(diemCongGiai);
-        
-        BigDecimal dCC = diemCongCC.add(diemCongGiai);
-        if(dCC.compareTo(new BigDecimal("3.0")) > 0) dCC = new BigDecimal("3.0");
-        d.setDiemCC(dCC);
 
-        // 2. Lấy Mức ưu tiên gốc (MĐUT)
+        d.setDiemCongMonGiai(diemCongMonGiai);
+        d.setDiemCongKhongMon(diemCongKoMonGiai);
+
+        // Tổng điểm cộng CC + điểm cộng giải (lấy điểm cao nhất giữa môn và không môn)
+        BigDecimal diemCongGiai = diemCongMonGiai.max(diemCongKoMonGiai);
+        BigDecimal tongDiemCC = diemCongCC.add(diemCongGiai);
+        if(tongDiemCC.compareTo(new BigDecimal("3.0")) > 0) tongDiemCC = new BigDecimal("3.0");
+        d.setDiemCC(tongDiemCC);
+
+        // 3. Lấy Mức ưu tiên gốc (MĐUT)
         BigDecimal mdutGoc = BigDecimal.ZERO;
-        
+
         // Khu vực
         if (kv != null) {
             String kvUpper = kv.trim().toUpperCase();
@@ -65,28 +255,28 @@ public class DiemCongXetTuyenBUS {
             else if (kvUpper.equals("KV2-NT") || kvUpper.equals("KV2NT") || kvUpper.equals("2NT")) mdutGoc = mdutGoc.add(new BigDecimal("0.5"));
             else if (kvUpper.equals("KV2") || kvUpper.equals("2")) mdutGoc = mdutGoc.add(new BigDecimal("0.25"));
         }
-        
+
         // Đối tượng
         if (dt != null) {
             String dtTrim = dt.trim();
-            if (dtTrim.equals("01") || dtTrim.equals("1") || dtTrim.equals("02") || dtTrim.equals("2") 
+            if (dtTrim.equals("01") || dtTrim.equals("1") || dtTrim.equals("02") || dtTrim.equals("2")
                 || dtTrim.equals("03") || dtTrim.equals("3") || dtTrim.equals("04") || dtTrim.equals("4")) {
                 mdutGoc = mdutGoc.add(new BigDecimal("2.0"));
-            } else if (dtTrim.equals("05") || dtTrim.equals("5") || dtTrim.equals("06") || dtTrim.equals("6") 
+            } else if (dtTrim.equals("05") || dtTrim.equals("5") || dtTrim.equals("06") || dtTrim.equals("6")
                        || dtTrim.equals("06A") || dtTrim.equals("07") || dtTrim.equals("7") || dtTrim.equals("07A")) {
                 mdutGoc = mdutGoc.add(new BigDecimal("1.0"));
             }
         }
 
-        // 3. Tính ĐUT thực tế theo ngưỡng 22.5
-        BigDecimal tongXet = diemThiGoc.add(dCC);
+        // 4. Tính ĐUT thực tế theo ngưỡng 22.5
+        BigDecimal tongXet = diemThiGoc.add(tongDiemCC);
         if (tongXet.compareTo(new BigDecimal("22.5")) < 0) {
             d.setDiemUtxt(mdutGoc);
         } else {
             BigDecimal heSo = new BigDecimal("30").subtract(tongXet).divide(new BigDecimal("7.5"), 4, RoundingMode.HALF_UP);
             d.setDiemUtxt(heSo.multiply(mdutGoc).setScale(2, RoundingMode.HALF_UP));
         }
-        d.setDiemTong(d.getDiemCC().add(d.getDiemUtxt()));
+        d.setDiemTong(tongDiemCC.add(d.getDiemUtxt()));
     }
 
     private int getMucChungChi(String loaiCC, String diemStr) {
@@ -331,4 +521,4 @@ public class DiemCongXetTuyenBUS {
         if (s == null || s.isBlank()) return null;
         try { return new BigDecimal(s.replace(",", ".")); } catch (Exception e) { return null; }
     }
-}
+}

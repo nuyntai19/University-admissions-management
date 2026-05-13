@@ -1,6 +1,7 @@
 package vn.edu.sgu.phanmemtuyensinh.gui;
 
 import vn.edu.sgu.phanmemtuyensinh.bus.DiemCongXetTuyenBUS;
+import vn.edu.sgu.phanmemtuyensinh.bus.DiemCongXetTuyenBUS.DiemCongTongHopRow;
 import vn.edu.sgu.phanmemtuyensinh.bus.NguyenVongXetTuyenBUS;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.DiemCongXetTuyen;
 import javax.swing.*;
@@ -74,6 +75,10 @@ public class DiemCongXetTuyenGUI extends JPanel {
         model = new DefaultTableModel(new String[]{
             "ID",                  // iddiemcong
             "CCCD",                // ts_cccd
+            "Nguyện vọng",       // nv_tt
+            "Mã ngành",           // manganh
+            "Mã tổ hợp",          // matohop
+            "Phương thức",        // phuongthuc
             // --- Nhóm Chứng chỉ ngoại ngữ (từ file Ds quy doi tieng Anh) ---
             "Chứng chỉ",          // chung_chi_ngoai_ngu
             "Điểm/Bậc CC",        // diem_chung_chi
@@ -89,7 +94,7 @@ public class DiemCongXetTuyenGUI extends JPanel {
             "Điểm cộng ko môn",   // diem_cong_khong_mon
             // --- Tổng hợp ---
             "Điểm UT",            // diemUtxt
-            "Tổng kết"            // diemTong
+            "Tổng điểm cộng"     // diem cong ap dung theo nguyen vong
         }, 0);
         table = new JTable(model);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
@@ -98,6 +103,10 @@ public class DiemCongXetTuyenGUI extends JPanel {
         int[] colWidths = {
             40,   // ID
             120,  // CCCD
+            95,   // Nguyện vọng
+            95,   // Mã ngành
+            95,   // Mã tổ hợp
+            90,   // Phương thức
             130,  // Chứng chỉ
             100,  // Điểm/Bậc CC
             90,   // Điểm quy đổi
@@ -110,7 +119,7 @@ public class DiemCongXetTuyenGUI extends JPanel {
             110,  // Điểm cộng môn
             120,  // Điểm cộng ko môn
             70,   // Điểm UT
-            70    // Tổng kết
+            120   // Tổng điểm cộng
         };
         for (int i = 0; i < colWidths.length && i < table.getColumnCount(); i++) {
             table.getColumnModel().getColumn(i).setPreferredWidth(colWidths[i]);
@@ -174,9 +183,10 @@ public class DiemCongXetTuyenGUI extends JPanel {
 
         if (dialog.isConfirm()) {
             DiemCongXetTuyen d = dialog.getData();
-            bus.tinhToanDiemCongVaUuTien(d, dialog.getChungChiStr(), dialog.getMucDatDuocStr(), 
-                                          dialog.getGiaiThuongStr(), dialog.getKhuVucStr(), 
-                                          dialog.getDoiTuongStr(), new BigDecimal("24.0"));
+            bus.tinhToanDiemCongVaUuTien(d, dialog.getChungChiStr(), dialog.getMucDatDuocStr(),
+                                          dialog.getGiaiThuongStr(), dialog.getKhuVucStr(),
+                                          dialog.getDoiTuongStr(), new BigDecimal("24.0"),
+                                          dialog.getDiemCongMonNhap(), dialog.getDiemCongKoMonNhap());
             if (bus.save(d)) {
                 loadData();
                 // Tự động tính lại nguyện vọng nếu CCCD này đã có
@@ -201,31 +211,41 @@ public class DiemCongXetTuyenGUI extends JPanel {
     }
 
     private void updateAction() {
-        if (selectedId == -1) {
+        int row = table.getSelectedRow();
+        if (row == -1) {
             JOptionPane.showMessageDialog(this, "Vui lòng chọn một dòng để sửa!");
             return;
         }
 
-        DiemCongXetTuyen initData = bus.getById(selectedId);
+        // Lấy ID và dữ liệu hiển thị từ dòng table
+        int recordId = ((Number) model.getValueAt(row, 0)).intValue();
+        String tableToHop = (String) model.getValueAt(row, 4); // Mã tổ hợp từ table (C07 hoặc C03)
+
+        // Lấy entity từ database bằng ID (để đảm bảo attached với Hibernate session)
+        DiemCongXetTuyen initData = bus.getById(recordId);
         if (initData == null) {
             JOptionPane.showMessageDialog(this, "Không tìm thấy dữ liệu trong Database!");
             return;
         }
+
+        // Cập nhật mã tổ hợp hiển thị từ table (vì table hiển thị theo nguyện vọng, không phải bản ghi gốc)
+        initData.setMaToHop(tableToHop);
 
         DiemCongXetTuyenDialog dialog = new DiemCongXetTuyenDialog((Frame) SwingUtilities.getWindowAncestor(this), initData);
         dialog.setVisible(true);
 
         if (dialog.isConfirm()) {
             DiemCongXetTuyen d = dialog.getData();
-            bus.tinhToanDiemCongVaUuTien(d, dialog.getChungChiStr(), dialog.getMucDatDuocStr(), 
-                                          dialog.getGiaiThuongStr(), dialog.getKhuVucStr(), 
-                                          dialog.getDoiTuongStr(), new BigDecimal("24.0"));
+            bus.tinhToanDiemCongVaUuTien(d, dialog.getChungChiStr(), dialog.getMucDatDuocStr(),
+                                          dialog.getGiaiThuongStr(), dialog.getKhuVucStr(),
+                                          dialog.getDoiTuongStr(), new BigDecimal("24.0"),
+                                          dialog.getDiemCongMonNhap(), dialog.getDiemCongKoMonNhap());
             if (bus.update(d)) {
                 loadData();
                 // Tự động tính lại nguyện vọng nếu CCCD này đã có
                 int nvUpdated = nvBus.runXetTuyenForCccd(d.getTsCccd());
                 if (nvUpdated > 0) {
-                    JOptionPane.showMessageDialog(this, 
+                    JOptionPane.showMessageDialog(this,
                         "Sửa thành công!\nĐã tự động tính lại điểm cho " + nvUpdated + " nguyện vọng của CCCD: " + d.getTsCccd());
                 } else {
                     JOptionPane.showMessageDialog(this, "Sửa thành công!");
@@ -263,35 +283,39 @@ public class DiemCongXetTuyenGUI extends JPanel {
         if (model == null || lblPageInfo == null) return;
         model.setRowCount(0);
         String keyword = txtSearch != null ? txtSearch.getText().trim() : "";
-        totalRecords = bus.countAll(keyword);
+        totalRecords = bus.countTongHopTheoNguyenVong(keyword);
         int maxPage = (int) Math.ceil((double) totalRecords / pageSize);
         if (maxPage == 0) maxPage = 1;
         if (currentPage > maxPage) currentPage = maxPage;
         
         lblPageInfo.setText("Trang " + currentPage + " / " + maxPage + " (" + totalRecords + " dòng)");
 
-        List<DiemCongXetTuyen> list = bus.getPage(keyword, (currentPage - 1) * pageSize, pageSize);
+        List<DiemCongTongHopRow> list = bus.getTongHopTheoNguyenVongPage(keyword, (currentPage - 1) * pageSize, pageSize);
         if (list != null) {
-            for (DiemCongXetTuyen d : list) {
+            for (DiemCongTongHopRow d : list) {
                 model.addRow(new Object[]{
-                    d.getIdDiemCong(),
-                    d.getTsCccd(),
+                    d.idDiemCong,
+                    d.cccd,
+                    d.nguyenVong,
+                    safe(d.maNganh),
+                    safe(d.maToHop),
+                    safe(d.phuongThuc),
                     // Nhóm Chứng chỉ
-                    safe(d.getChungChi()),
-                    safe(d.getMucDatDuoc()),
-                    d.getDiemQuyDoiChungChi(),
-                    d.getDiemCC(),
-                    d.getCoChungChi() != null && d.getCoChungChi() ? "Có" : "",
+                    safe(d.chungChi),
+                    safe(d.mucDatDuoc),
+                    d.diemQuyDoiChungChi,
+                    d.diemCongCc,
+                    d.coChungChi ? "Có" : "",
                     // Nhóm Giải thưởng
-                    safe(d.getCapGiai()),
-                    safe(d.getDoiTuongGiai()),
-                    safe(d.getMaMonGiai()),
-                    safe(d.getLoaiGiai()),
-                    d.getDiemCongMonGiai(),
-                    d.getDiemCongKhongMon(),
+                    safe(d.capGiai),
+                    safe(d.doiTuongGiai),
+                    safe(d.maMonGiai),
+                    safe(d.loaiGiai),
+                    d.diemCongMonGiai,
+                    d.diemCongKhongMon,
                     // Tổng hợp
-                    d.getDiemUtxt(),
-                    d.getDiemTong()
+                    d.diemUuTien,
+                    d.tongDiemCong
                 });
             }
         }

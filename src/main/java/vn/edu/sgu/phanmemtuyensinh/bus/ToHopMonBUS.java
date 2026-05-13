@@ -382,7 +382,7 @@ public class ToHopMonBUS {
         String mon1 = normalizeMonCode(safe(toHop.getMon1()));
         String mon2 = normalizeMonCode(safe(toHop.getMon2()));
         String mon3 = normalizeMonCode(safe(toHop.getMon3()));
-        String ten = safe(toHop.getTenToHop());
+        String ten = normalizeTenToHop(maToHop, mon1, mon2, mon3, safe(toHop.getTenToHop()));
 
         if (maToHop.isBlank()) {
             lastError = "Mã tổ hợp không được để trống";
@@ -539,6 +539,49 @@ public class ToHopMonBUS {
                 .replace('Đ', 'D')
                 .replace('đ', 'd');
         return normalized.toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeTenToHop(String maToHop, String mon1, String mon2, String mon3, String tenToHop) {
+        String ten = safe(tenToHop);
+        if (!ten.isBlank() && !ten.equalsIgnoreCase(safe(maToHop))) {
+            return ten;
+        }
+
+        String display1 = subjectDisplayName(mon1);
+        String display2 = subjectDisplayName(mon2);
+        String display3 = subjectDisplayName(mon3);
+        if (display1.isBlank() || display2.isBlank() || display3.isBlank()) {
+            return ten;
+        }
+        return display1 + ", " + display2 + ", " + display3;
+    }
+
+    private String subjectDisplayName(String monCode) {
+        return switch (safe(monCode).toUpperCase(Locale.ROOT)) {
+            case "TO" -> "To\u00e1n";
+            case "LI" -> "V\u1eadt l\u00ed";
+            case "HO" -> "H\u00f3a h\u1ecdc";
+            case "SI" -> "Sinh h\u1ecdc";
+            case "VA" -> "Ng\u1eef v\u0103n";
+            case "SU" -> "L\u1ecbch s\u1eed";
+            case "DI" -> "\u0110\u1ecba l\u00ed";
+            case "N1" -> "Ti\u1ebfng Anh";
+            case "TI" -> "Tin h\u1ecdc";
+            case "KTPL" -> "GDKT&PL";
+            case "CNCN" -> "C\u00f4ng ngh\u1ec7 c\u00f4ng nghi\u1ec7p";
+            case "CNNN" -> "C\u00f4ng ngh\u1ec7 n\u00f4ng nghi\u1ec7p";
+            case "GDCD" -> "GDCD";
+            case "KHTN" -> "Khoa h\u1ecdc t\u1ef1 nhi\u00ean";
+            case "KHXH" -> "Khoa h\u1ecdc x\u00e3 h\u1ed9i";
+            case "NK1" -> "N\u0103ng khi\u1ebfu 1";
+            case "NK2" -> "N\u0103ng khi\u1ebfu 2";
+            case "NK3" -> "N\u0103ng khi\u1ebfu 3";
+            case "NK4" -> "N\u0103ng khi\u1ebfu 4";
+            case "NK5" -> "N\u0103ng khi\u1ebfu 5";
+            case "NK6" -> "N\u0103ng khi\u1ebfu 6";
+            case "NK7" -> "N\u0103ng khi\u1ebfu 7";
+            default -> safe(monCode).toUpperCase(Locale.ROOT);
+        };
     }
 
     private String safe(String value) {

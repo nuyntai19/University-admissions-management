@@ -61,6 +61,16 @@ public class DiemThiXetTuyenDAO {
         }
     }
 
+    public List<DiemThiXetTuyen> getListByCccd(String cccd) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery(
+                            "FROM DiemThiXetTuyen WHERE cccd = :code OR soBaoDanh = :code ORDER BY idDiemThi DESC",
+                            DiemThiXetTuyen.class)
+                    .setParameter("code", cccd)
+                    .list();
+        }
+    }
+
     public DiemThiXetTuyen getByCcqdAndPhuongThuc(String cccd, String phuongThuc) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             return session.createQuery(

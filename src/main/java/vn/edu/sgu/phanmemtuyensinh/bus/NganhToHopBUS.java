@@ -223,7 +223,7 @@ public class NganhToHopBUS {
         
         // Tự động cập nhật tên chuẩn từ danh mục gốc
         nth.setTenNganhChuan(nganh.getTenNganh());
-        nth.setTenToHop(th.getTenToHop());
+        nth.setTenToHop(resolveTenToHop(th));
 
         // Always align subject list with xt_tohop_monthi
         nth.setThMon1(safeUpper(th.getMon1()));
@@ -313,6 +313,54 @@ public class NganhToHopBUS {
             case "CNNN" -> nth.setCnnn(1);
             default -> nth.setKhac(1);
         }
+    }
+
+    private String resolveTenToHop(ToHopMon th) {
+        if (th == null) {
+            return "";
+        }
+
+        String ten = th.getTenToHop() == null ? "" : th.getTenToHop().trim();
+        String ma = safeUpper(th.getMaToHop());
+        if (!ten.isEmpty() && !safeUpper(ten).equals(ma)) {
+            return ten;
+        }
+
+        String mon1 = subjectDisplayName(th.getMon1());
+        String mon2 = subjectDisplayName(th.getMon2());
+        String mon3 = subjectDisplayName(th.getMon3());
+        if (mon1.isEmpty() || mon2.isEmpty() || mon3.isEmpty()) {
+            return ten.isEmpty() ? ma : ten;
+        }
+        return mon1 + ", " + mon2 + ", " + mon3;
+    }
+
+    private String subjectDisplayName(String monCode) {
+        return switch (safeUpper(monCode)) {
+            case "TO" -> "To\u00e1n";
+            case "LI" -> "V\u1eadt l\u00ed";
+            case "HO" -> "H\u00f3a h\u1ecdc";
+            case "SI" -> "Sinh h\u1ecdc";
+            case "VA" -> "Ng\u1eef v\u0103n";
+            case "SU" -> "L\u1ecbch s\u1eed";
+            case "DI" -> "\u0110\u1ecba l\u00ed";
+            case "N1" -> "Ti\u1ebfng Anh";
+            case "TI" -> "Tin h\u1ecdc";
+            case "KTPL" -> "GDKT&PL";
+            case "CNCN" -> "C\u00f4ng ngh\u1ec7 c\u00f4ng nghi\u1ec7p";
+            case "CNNN" -> "C\u00f4ng ngh\u1ec7 n\u00f4ng nghi\u1ec7p";
+            case "GDCD" -> "GDCD";
+            case "KHTN" -> "Khoa h\u1ecdc t\u1ef1 nhi\u00ean";
+            case "KHXH" -> "Khoa h\u1ecdc x\u00e3 h\u1ed9i";
+            case "NK1" -> "N\u0103ng khi\u1ebfu 1";
+            case "NK2" -> "N\u0103ng khi\u1ebfu 2";
+            case "NK3" -> "N\u0103ng khi\u1ebfu 3";
+            case "NK4" -> "N\u0103ng khi\u1ebfu 4";
+            case "NK5" -> "N\u0103ng khi\u1ebfu 5";
+            case "NK6" -> "N\u0103ng khi\u1ebfu 6";
+            case "NK7" -> "N\u0103ng khi\u1ebfu 7";
+            default -> safeUpper(monCode);
+        };
     }
 
     private String safeUpper(String s) {
