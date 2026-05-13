@@ -8,9 +8,14 @@ import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
+import java.text.NumberFormat;
+import java.text.Normalizer;
 import java.awt.RenderingHints;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -20,7 +25,14 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableModel;
 
+import vn.edu.sgu.phanmemtuyensinh.bus.NguyenVongXetTuyenBUS;
+import vn.edu.sgu.phanmemtuyensinh.bus.ThiSinhBUS;
+import vn.edu.sgu.phanmemtuyensinh.dal.entity.NguyenVongXetTuyen;
+
 public class DashboardGUI extends JPanel {
+
+    private final ThiSinhBUS thiSinhBUS = new ThiSinhBUS();
+    private final NguyenVongXetTuyenBUS nguyenVongBUS = new NguyenVongXetTuyenBUS();
 
     public DashboardGUI() {
         setLayout(new BorderLayout(14, 14));
@@ -44,17 +56,19 @@ public class DashboardGUI extends JPanel {
         JPanel pnlMain = new JPanel(new BorderLayout(14, 14));
         pnlMain.setOpaque(false);
 
+    DashboardStats stats = loadDashboardStats();
+
         JPanel statRow = new JPanel(new GridLayout(1, 4, 12, 12));
         statRow.setOpaque(false);
-        statRow.add(createStatCard("Thí sinh", "1.245", new Color(52, 152, 219)));
-        statRow.add(createStatCard("Nguyện vọng", "3.872", new Color(46, 204, 113)));
-        statRow.add(createStatCard("Trúng tuyển", "928", new Color(155, 89, 182)));
-        statRow.add(createStatCard("Tỷ lệ đậu", "74.5%", new Color(26, 188, 156)));
+    statRow.add(createStatCard("Thí sinh", formatCount(stats.totalThiSinh), new Color(52, 152, 219), "Tổng số thí sinh trong hệ thống"));
+    statRow.add(createStatCard("Nguyện vọng", formatCount(stats.totalNguyenVong), new Color(46, 204, 113), "Tổng số nguyện vọng xét tuyển"));
+    statRow.add(createStatCard("Trúng tuyển", formatCount(stats.datCount), new Color(155, 89, 182), "Số nguyện vọng đạt / trúng tuyển"));
+    statRow.add(createStatCard("Tỷ lệ đậu/rớt", formatPercent(stats.passRate), new Color(26, 188, 156), stats.rateHint));
 
         JPanel centerRow = new JPanel(new BorderLayout(12, 12));
         centerRow.setOpaque(false);
-        centerRow.add(createQuickActionPanel(), BorderLayout.WEST);
-        centerRow.add(createRecentTablePanel(), BorderLayout.CENTER);
+    centerRow.add(createQuickActionPanel(), BorderLayout.WEST);
+    centerRow.add(createRecentTablePanel(stats.latestResults), BorderLayout.CENTER);
 
         pnlMain.add(statRow, BorderLayout.NORTH);
         pnlMain.add(centerRow, BorderLayout.CENTER);
@@ -67,7 +81,7 @@ public class DashboardGUI extends JPanel {
         add(lblFooter, BorderLayout.SOUTH);
     }
 
-    private JPanel createStatCard(String title, String value, Color bgColor) {
+    private JPanel createStatCard(String title, String value, Color bgColor, String hintText) {
         JPanel card = new GradientCard(bgColor.darker(), bgColor);
         card.setLayout(new BorderLayout(10, 10));
         card.setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
@@ -80,7 +94,7 @@ public class DashboardGUI extends JPanel {
         lblValue.setFont(new Font("Segoe UI", Font.BOLD, 40));
         lblValue.setForeground(Color.WHITE);
 
-        JLabel lblHint = new JLabel("Cập nhật mới nhất");
+        JLabel lblHint = new JLabel(hintText);
         lblHint.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblHint.setForeground(new Color(240, 244, 255));
 
@@ -122,7 +136,7 @@ public class DashboardGUI extends JPanel {
         return panel;
     }
 
-    private JPanel createRecentTablePanel() {
+    private JPanel createRecentTablePanel(List<NguyenVongXetTuyen> recentResults) {
         JPanel panel = new JPanel(new BorderLayout(8, 8));
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createCompoundBorder(
@@ -162,10 +176,15 @@ public class DashboardGUI extends JPanel {
             }
         };
 
-        model.addRow(new Object[]{"001207012439", "7480201", "PT2", "26.04734", "Trúng tuyển"});
-        model.addRow(new Object[]{"001207009704", "7310401", "PT2", "15.39429", "Rớt"});
-        model.addRow(new Object[]{"001207008593", "7310401", "PT2", "8.13143", "Rớt"});
-        model.addRow(new Object[]{"001207005157", "7510302", "PT2", "0.50000", "Rớt"});
+        for (NguyenVongXetTuyen nv : recentResults) {
+            model.addRow(new Object[]{
+                safe(nv.getNvCccd()),
+                safe(nv.getNvMaNganh()),
+                safe(nv.getTtPhuongThuc()),
+                formatScore(nv),
+                displayResult(nv.getNvKetQua())
+            });
+        }
 
         JTable table = new JTable(model);
         ModernTheme.styleTable(table);
@@ -178,6 +197,104 @@ public class DashboardGUI extends JPanel {
         panel.add(top, BorderLayout.NORTH);
         panel.add(new JScrollPane(table), BorderLayout.CENTER);
         return panel;
+    }
+
+    private DashboardStats loadDashboardStats() {
+        DashboardStats stats = new DashboardStats();
+        stats.totalThiSinh = thiSinhBUS.countAll();
+
+        List<NguyenVongXetTuyen> allResults = nguyenVongBUS.getAll();
+        if (allResults == null) {
+            allResults = new ArrayList<>();
+        }
+
+        stats.totalNguyenVong = allResults.size();
+        long dat = 0;
+        long rot = 0;
+
+        for (NguyenVongXetTuyen nv : allResults) {
+            String result = normalizeText(nv.getNvKetQua());
+            if (isExactFailedResult(result)) {
+                rot++;
+            } else if (isExactPassedResult(result)) {
+                dat++;
+            }
+        }
+
+        stats.datCount = dat;
+        stats.rotCount = rot;
+        long evaluated = dat + rot;
+        stats.passRate = evaluated == 0 ? 0d : (double) dat / (double) evaluated;
+        stats.rateHint = String.format(Locale.US, "Đậu: %s • Rớt: %s",
+                formatPercent(stats.passRate),
+                formatPercent(evaluated == 0 ? 0d : (double) rot / (double) evaluated));
+
+        allResults.sort(Comparator.comparingInt(NguyenVongXetTuyen::getIdNv).reversed());
+        stats.latestResults = allResults.stream().limit(4).toList();
+        return stats;
+    }
+
+    private String formatCount(long value) {
+        return NumberFormat.getIntegerInstance(new Locale("vi", "VN")).format(value);
+    }
+
+    private String formatPercent(double ratio) {
+        return String.format(Locale.US, "%.1f%%", ratio * 100d);
+    }
+
+    private String formatScore(NguyenVongXetTuyen nv) {
+        if (nv.getDiemXetTuyen() == null) {
+            return "-";
+        }
+        return nv.getDiemXetTuyen().stripTrailingZeros().toPlainString();
+    }
+
+    private String displayResult(String result) {
+        String normalized = normalizeText(result);
+        if (isExactFailedResult(normalized)) {
+            return "Rớt";
+        }
+        if (isExactPassedResult(normalized)) {
+            return "Trúng tuyển";
+        }
+        return result == null || result.isBlank() ? "Chưa có" : result.trim();
+    }
+
+    private boolean isExactPassedResult(String normalizedResult) {
+        return "dat".equals(normalizedResult)
+                || "trungtuyen".equals(normalizedResult)
+                || "dattuyen".equals(normalizedResult);
+    }
+
+    private boolean isExactFailedResult(String normalizedResult) {
+        return "truot".equals(normalizedResult)
+                || "rot".equals(normalizedResult)
+                || "khongdat".equals(normalizedResult)
+                || "khongtrungtuyen".equals(normalizedResult);
+    }
+
+    private String normalizeText(String text) {
+        if (text == null) {
+            return "";
+        }
+        String normalized = Normalizer.normalize(text, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "");
+        normalized = normalized.replace('đ', 'd').replace('Đ', 'D');
+        return normalized.toLowerCase(Locale.ROOT).replaceAll("\\s+", "");
+    }
+
+    private String safe(String text) {
+        return text == null ? "" : text;
+    }
+
+    private static class DashboardStats {
+        long totalThiSinh;
+        long totalNguyenVong;
+        long datCount;
+        long rotCount;
+        double passRate;
+        String rateHint;
+        List<NguyenVongXetTuyen> latestResults = List.of();
     }
 
     private JLabel createChip(String text, Color bg) {
