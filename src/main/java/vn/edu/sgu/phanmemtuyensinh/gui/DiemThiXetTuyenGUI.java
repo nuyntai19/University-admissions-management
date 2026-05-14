@@ -107,7 +107,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
 
         JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         pnlSearch.setOpaque(false);
-        pnlSearch.add(new JLabel("Tìm CCCD / SBD:"));
+        pnlSearch.add(new JLabel("Tìm:"));
         txtTimKiem = new JTextField(18);
         btnTim = new JButton("Tìm");
         pnlSearch.add(txtTimKiem);

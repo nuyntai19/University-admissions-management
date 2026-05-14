@@ -95,7 +95,8 @@ public class DiemThiXetTuyenDAO {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             return session.createQuery(
                             "FROM DiemThiXetTuyen d "
-                                    + "WHERE lower(d.cccd) LIKE :key OR lower(d.soBaoDanh) LIKE :key "
+                            + "WHERE lower(d.cccd) LIKE :key OR lower(d.soBaoDanh) LIKE :key "
+                            + "OR lower(d.phuongThuc) LIKE :key "
                                     + "ORDER BY d.idDiemThi DESC",
                             DiemThiXetTuyen.class)
                     .setParameter("key", key)
@@ -110,7 +111,8 @@ public class DiemThiXetTuyenDAO {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             Long total = session.createQuery(
                             "SELECT COUNT(d) FROM DiemThiXetTuyen d "
-                                    + "WHERE lower(d.cccd) LIKE :key OR lower(d.soBaoDanh) LIKE :key",
+                            + "WHERE lower(d.cccd) LIKE :key OR lower(d.soBaoDanh) LIKE :key "
+                            + "OR lower(d.phuongThuc) LIKE :key",
                             Long.class)
                     .setParameter("key", key)
                     .uniqueResult();
