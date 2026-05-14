@@ -65,10 +65,10 @@ public class DashboardGUI extends JPanel {
     statRow.add(createStatCard("Trúng tuyển", formatCount(stats.datCount), new Color(155, 89, 182), "Số nguyện vọng đạt / trúng tuyển"));
     statRow.add(createStatCard("Tỷ lệ đậu/rớt", formatPercent(stats.passRate), new Color(26, 188, 156), stats.rateHint));
 
-        JPanel centerRow = new JPanel(new BorderLayout(12, 12));
+        JPanel centerRow = new JPanel(new GridLayout(1, 2, 12, 12));
         centerRow.setOpaque(false);
-    centerRow.add(createQuickActionPanel(), BorderLayout.WEST);
-    centerRow.add(createRecentTablePanel(stats.latestResults), BorderLayout.CENTER);
+        centerRow.add(createBarChartPanel(stats.scoreDistribution));
+        centerRow.add(createPieChartPanel(stats.topMajors));
 
         pnlMain.add(statRow, BorderLayout.NORTH);
         pnlMain.add(centerRow, BorderLayout.CENTER);
@@ -105,97 +105,132 @@ public class DashboardGUI extends JPanel {
         return card;
     }
 
-    private JPanel createQuickActionPanel() {
+    private JPanel createBarChartPanel(int[] dist) {
         JPanel panel = new JPanel(new BorderLayout(8, 8));
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(220, 228, 240)),
-                BorderFactory.createEmptyBorder(12, 12, 12, 12)
+                BorderFactory.createEmptyBorder(15, 15, 15, 15)
         ));
-        panel.setPreferredSize(new java.awt.Dimension(300, 0));
 
-        JLabel title = new JLabel("Tác vụ nhanh");
+        JLabel title = new JLabel("Phổ điểm xét tuyển");
         title.setFont(new Font("Segoe UI", Font.BOLD, 15));
         title.setForeground(ModernTheme.TEXT_DARK);
-
-        JPanel actions = new JPanel(new GridLayout(0, 1, 8, 8));
-        actions.setOpaque(false);
-
-        List<JButton> buttons = Arrays.asList(
-                new JButton("Thêm thí sinh"),
-                new JButton("Import điểm thi"),
-                new JButton("Chạy xét tuyển"),
-                new JButton("Xuất báo cáo")
-        );
-        for (JButton btn : buttons) {
-            actions.add(btn);
-        }
-
         panel.add(title, BorderLayout.NORTH);
-        panel.add(actions, BorderLayout.CENTER);
+
+        JPanel chart = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                int w = getWidth();
+                int h = getHeight();
+                
+                int max = java.util.Arrays.stream(dist).max().orElse(1);
+                if (max == 0) max = 1;
+                
+                String[] labels = {"< 15", "15 - 20", "20 - 25", "25 - 27", ">= 27"};
+                int barWidth = (w - 40) / 5 - 20;
+                if (barWidth < 10) barWidth = 10;
+                
+                for (int i = 0; i < 5; i++) {
+                    int barHeight = (int) (((double) dist[i] / max) * (h - 60));
+                    int x = 20 + i * (barWidth + 20);
+                    int y = h - 30 - barHeight;
+                    
+                    GradientPaint gp = new GradientPaint(x, y, new Color(52, 152, 219), x, h - 30, new Color(41, 128, 185));
+                    g2.setPaint(gp);
+                    g2.fillRoundRect(x, y, barWidth, Math.max(barHeight, 5), 8, 8);
+                    
+                    g2.setColor(new Color(100, 100, 100));
+                    g2.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+                    int stringWidth = g2.getFontMetrics().stringWidth(labels[i]);
+                    g2.drawString(labels[i], x + (barWidth - stringWidth) / 2, h - 10);
+                    
+                    String val = String.valueOf(dist[i]);
+                    int valWidth = g2.getFontMetrics().stringWidth(val);
+                    g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                    g2.setColor(ModernTheme.TEXT_DARK);
+                    g2.drawString(val, x + (barWidth - valWidth) / 2, y - 5);
+                }
+            }
+        };
+        chart.setOpaque(false);
+        panel.add(chart, BorderLayout.CENTER);
         return panel;
     }
 
-    private JPanel createRecentTablePanel(List<NguyenVongXetTuyen> recentResults) {
+    private JPanel createPieChartPanel(List<java.util.Map.Entry<String, Integer>> topMajors) {
         JPanel panel = new JPanel(new BorderLayout(8, 8));
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(220, 228, 240)),
-                BorderFactory.createEmptyBorder(12, 12, 12, 12)
+                BorderFactory.createEmptyBorder(15, 15, 15, 15)
         ));
 
-        JLabel title = new JLabel("Hoạt động gần đây");
+        JLabel title = new JLabel("Top ngành được đăng ký nhiều nhất");
         title.setFont(new Font("Segoe UI", Font.BOLD, 15));
         title.setForeground(ModernTheme.TEXT_DARK);
+        panel.add(title, BorderLayout.NORTH);
 
-        JPanel chips = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        chips.setOpaque(false);
-        chips.add(createChip("Tất cả (34)", new Color(55, 65, 81)));
-        chips.add(createChip("Cần tư vấn (26)", new Color(16, 185, 129)));
-        chips.add(createChip("Đã hẹn test (6)", new Color(34, 197, 94)));
-        chips.add(createChip("Ưu tiên (1)", new Color(236, 72, 153)));
-
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        actions.setOpaque(false);
-        actions.add(new JButton("Lọc"));
-        actions.add(new JButton("Tìm"));
-        actions.add(new JButton("Export"));
-        actions.add(new JButton("Import"));
-        actions.add(new JButton("Thêm"));
-
-        JPanel topMeta = new JPanel(new BorderLayout(0, 8));
-        topMeta.setOpaque(false);
-        topMeta.add(chips, BorderLayout.NORTH);
-        topMeta.add(actions, BorderLayout.SOUTH);
-
-        String[] cols = {"CCCD", "Mã ngành", "Phương thức", "Điểm XT", "Kết quả"};
-        DefaultTableModel model = new DefaultTableModel(cols, 0) {
+        JPanel chart = new JPanel() {
             @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                int w = getWidth();
+                int h = getHeight();
+                
+                int total = topMajors.stream().mapToInt(java.util.Map.Entry::getValue).sum();
+                if (total == 0) return;
+                
+                int d = Math.min((int)(w * 0.45), h - 40);
+                int x = 20;
+                int y = (h - d) / 2;
+                
+                Color[] colors = {new Color(231, 76, 60), new Color(241, 196, 15), new Color(46, 204, 113), new Color(52, 152, 219), new Color(155, 89, 182)};
+                
+                int startAngle = 90;
+                int legendX = x + d + 30;
+                int legendY = Math.max(20, (h - (topMajors.size() * 35)) / 2 + 10);
+                
+                for (int i = 0; i < topMajors.size(); i++) {
+                    java.util.Map.Entry<String, Integer> entry = topMajors.get(i);
+                    int angle = (int) Math.round(((double) entry.getValue() / total) * 360);
+                    if (i == topMajors.size() - 1) {
+                        angle = 360 - (startAngle - 90); 
+                    }
+                    
+                    g2.setColor(colors[i % colors.length]);
+                    g2.fillArc(x, y, d, d, startAngle, angle);
+                    
+                    g2.fillRoundRect(legendX, legendY - 10, 12, 12, 4, 4);
+                    g2.setColor(new Color(80, 80, 80));
+                    g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                    String lbl = entry.getKey();
+                    if (lbl.length() > 22) lbl = lbl.substring(0, 19) + "...";
+                    g2.drawString(lbl, legendX + 20, legendY);
+                    
+                    g2.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+                    String valText = entry.getValue() + " NV (" + String.format(Locale.US, "%.1f", ((double)entry.getValue() / total) * 100) + "%)";
+                    g2.drawString(valText, legendX + 20, legendY + 16);
+                    
+                    legendY += 35;
+                    startAngle += angle;
+                }
+                
+                // Draw Donut Hole
+                g2.setColor(Color.WHITE);
+                int innerD = (int)(d * 0.6);
+                g2.fillOval(x + (d - innerD)/2, y + (d - innerD)/2, innerD, innerD);
             }
         };
-
-        for (NguyenVongXetTuyen nv : recentResults) {
-            model.addRow(new Object[]{
-                safe(nv.getNvCccd()),
-                safe(nv.getNvMaNganh()),
-                safe(nv.getTtPhuongThuc()),
-                formatScore(nv),
-                displayResult(nv.getNvKetQua())
-            });
-        }
-
-        JTable table = new JTable(model);
-        ModernTheme.styleTable(table);
-
-        JPanel top = new JPanel(new BorderLayout(0, 8));
-        top.setOpaque(false);
-        top.add(title, BorderLayout.NORTH);
-        top.add(topMeta, BorderLayout.CENTER);
-
-        panel.add(top, BorderLayout.NORTH);
-        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        chart.setOpaque(false);
+        panel.add(chart, BorderLayout.CENTER);
         return panel;
     }
 
@@ -212,12 +247,29 @@ public class DashboardGUI extends JPanel {
         long dat = 0;
         long rot = 0;
 
+        java.util.Map<String, Integer> majorCount = new java.util.HashMap<>();
+        int[] dist = new int[5];
+
         for (NguyenVongXetTuyen nv : allResults) {
             String result = normalizeText(nv.getNvKetQua());
             if (isExactFailedResult(result)) {
                 rot++;
             } else if (isExactPassedResult(result)) {
                 dat++;
+            }
+            
+            if (nv.getDiemXetTuyen() != null) {
+                double score = nv.getDiemXetTuyen().doubleValue();
+                if (score < 15) dist[0]++;
+                else if (score < 20) dist[1]++;
+                else if (score < 25) dist[2]++;
+                else if (score < 27) dist[3]++;
+                else dist[4]++;
+            }
+
+            String mName = nv.getNvTenMaNganh();
+            if (mName != null && !mName.isBlank()) {
+                majorCount.put(mName, majorCount.getOrDefault(mName, 0) + 1);
             }
         }
 
@@ -229,8 +281,12 @@ public class DashboardGUI extends JPanel {
                 formatPercent(stats.passRate),
                 formatPercent(evaluated == 0 ? 0d : (double) rot / (double) evaluated));
 
-        allResults.sort(Comparator.comparingInt(NguyenVongXetTuyen::getIdNv).reversed());
-        stats.latestResults = allResults.stream().limit(4).toList();
+        stats.scoreDistribution = dist;
+        stats.topMajors = majorCount.entrySet().stream()
+                .sorted((e1, e2) -> e2.getValue().compareTo(e1.getValue()))
+                .limit(5)
+                .toList();
+
         return stats;
     }
 
@@ -294,7 +350,8 @@ public class DashboardGUI extends JPanel {
         long rotCount;
         double passRate;
         String rateHint;
-        List<NguyenVongXetTuyen> latestResults = List.of();
+        int[] scoreDistribution = new int[5];
+        List<java.util.Map.Entry<String, Integer>> topMajors = new ArrayList<>();
     }
 
     private JLabel createChip(String text, Color bg) {

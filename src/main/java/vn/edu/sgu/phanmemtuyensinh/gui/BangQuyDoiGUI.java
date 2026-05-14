@@ -76,7 +76,7 @@ public class BangQuyDoiGUI extends JPanel {
         pnlLoc.setOpaque(false);
 
         JLabel lblPhuongThuc = new JLabel("Phương thức:");
-        cboLocPhuongThuc = new JComboBox<>(new String[]{"Tất cả", "V-SAT", "DGNL", "THPT"});
+        cboLocPhuongThuc = new JComboBox<>(new String[]{"Tất cả", "V-SAT", "ĐGNL", "THPT"});
         cboLocPhuongThuc.setPreferredSize(new Dimension(110, 30));
         cboLocPhuongThuc.setMaximumSize(new Dimension(120, 30));
 
@@ -287,7 +287,7 @@ public class BangQuyDoiGUI extends JPanel {
 
     // ===== DIALOG FORM =====
     private BangQuyDoi showFormDialog(BangQuyDoi source) {
-        JComboBox<String> cboPhuongThuc = new JComboBox<>(new String[]{"V-SAT", "DGNL", "THPT"});
+        JComboBox<String> cboPhuongThuc = new JComboBox<>(new String[]{"V-SAT", "ĐGNL", "THPT"});
         JTextField txtToHop = createField();
         JTextField txtMon = createField();
         JTextField txtPhanVi = createField();

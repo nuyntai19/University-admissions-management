@@ -11,6 +11,7 @@ import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
@@ -25,6 +26,8 @@ import javax.swing.table.DefaultTableModel;
 
 import vn.edu.sgu.phanmemtuyensinh.bus.NguyenVongXetTuyenBUS;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.NguyenVongXetTuyen;
+import vn.edu.sgu.phanmemtuyensinh.bus.ThiSinhBUS;
+import vn.edu.sgu.phanmemtuyensinh.dal.entity.ThiSinh;
 
 public class NguyenVongXetTuyenGUI extends JPanel {
 
@@ -32,6 +35,7 @@ public class NguyenVongXetTuyenGUI extends JPanel {
     private NguyenVongXetTuyenDialog dialog;
 
     private JTextField txtSearch;
+    private JComboBox<String> cboLocPhuongThuc;
     private JButton btnThem, btnSua, btnXoa, btnLamMoi, btnXetTuyen, btnImport, btnBaoCao;
 
     private JTable table;
@@ -42,6 +46,7 @@ public class NguyenVongXetTuyenGUI extends JPanel {
     private int totalRecords = 0;
     private JLabel lblPageInfo;
     private List<NguyenVongXetTuyen> currentDataList;
+    private java.util.Map<String, ThiSinh> thiSinhMap;
 
     public NguyenVongXetTuyenGUI() {
         setLayout(new BorderLayout(10, 10));
@@ -83,13 +88,22 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         pnlLeft.add(btnLamMoi);
 
         JPanel pnlRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 2));
+        
+        cboLocPhuongThuc = new JComboBox<>(new String[]{"Tất cả", "THPT", "V-SAT", "ĐGNL", "Tuyển thẳng"});
+        cboLocPhuongThuc.setPreferredSize(new Dimension(110, 30));
+        
         txtSearch = new JTextField(15);
         JButton btnSearch = btn("Tìm", new Color(0, 123, 255));
-        pnlRight.add(new JLabel("Tìm (CCCD / Ngành):"));
+        
+        pnlRight.add(new JLabel("Phương thức:"));
+        pnlRight.add(cboLocPhuongThuc);
+        pnlRight.add(new JLabel(" Tìm (CCCD/Ngành):"));
         pnlRight.add(txtSearch);
         pnlRight.add(btnSearch);
+        
         btnSearch.addActionListener(e -> search());
         txtSearch.addActionListener(e -> search());
+        cboLocPhuongThuc.addActionListener(e -> search());
 
         row1.add(pnlLeft,  BorderLayout.WEST);
         row1.add(pnlRight, BorderLayout.EAST);
@@ -129,7 +143,7 @@ public class NguyenVongXetTuyenGUI extends JPanel {
     private JPanel createTablePanel() {
         JPanel panel = new JPanel(new BorderLayout());
         String[] columns = {
-                "ID", "CCCD", "Nguyện Vọng", "Phương Thức",
+                "ID", "CCCD", "Họ", "Tên", "Nguyện Vọng", "Phương Thức",
                 "Mã Ngành", "Tên Ngành", "Tổ Hợp Môn",
                 "Điểm THXT", "Điểm UTQD", "Điểm Cộng",
                 "Điểm Xét Tuyển", "Kết Quả"
@@ -137,13 +151,25 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         tableModel = new DefaultTableModel(columns, 0) {
             public boolean isCellEditable(int row, int col) { return false; }
         };
-        table = new JTable(tableModel);
+        table = new JTable(tableModel) {
+            @Override
+            public boolean getScrollableTracksViewportWidth() {
+                if (getParent() instanceof javax.swing.JViewport) {
+                    return getPreferredSize().width < getParent().getWidth();
+                }
+                return super.getScrollableTracksViewportWidth();
+            }
+        };
         table.setRowHeight(28);
-        table.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
-        int[] widths = {50, 130, 100, 120, 110, 260, 100, 100, 100, 100, 120, 100};
-        for (int i = 0; i < widths.length; i++)
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+        int[] widths = {50, 110, 150, 100, 90, 110, 90, 240, 90, 90, 90, 90, 110, 90};
+        for (int i = 0; i < widths.length; i++) {
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
-        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+            table.getColumnModel().getColumn(i).setMinWidth(widths[i]);
+        }
+        
+        JScrollPane scrollPane = new JScrollPane(table, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        panel.add(scrollPane, BorderLayout.CENTER);
 
         JPanel pnlPage = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 5));
         JButton btnFirst = new JButton("<<");
@@ -171,17 +197,28 @@ public class NguyenVongXetTuyenGUI extends JPanel {
     }
 
     private void loadDuLieu() {
-        currentDataList = bus.getAll();
-        totalRecords = currentDataList.size();
-        currentPage = 1;
-        updateTable();
+        ThiSinhBUS tsBus = new ThiSinhBUS();
+        List<ThiSinh> allTs = tsBus.getAll();
+        thiSinhMap = new java.util.HashMap<>();
+        if (allTs != null) {
+            for (ThiSinh ts : allTs) {
+                thiSinhMap.put(ts.getCccd(), ts);
+            }
+        }
+        
+        search();
     }
 
     private void search() {
         String kw = txtSearch.getText().trim().toLowerCase();
+        String phuongThuc = (String) (cboLocPhuongThuc != null ? cboLocPhuongThuc.getSelectedItem() : "Tất cả");
+        
         List<NguyenVongXetTuyen> all = bus.getAll();
         currentDataList = new java.util.ArrayList<>();
         for (NguyenVongXetTuyen nv : all) {
+            boolean matchPt = "Tất cả".equals(phuongThuc) || (nv.getTtPhuongThuc() != null && nv.getTtPhuongThuc().equalsIgnoreCase(phuongThuc));
+            if (!matchPt) continue;
+            
             boolean m1 = nv.getNvCccd()       != null && nv.getNvCccd().toLowerCase().contains(kw);
             boolean m2 = nv.getNvMaNganh()    != null && nv.getNvMaNganh().toLowerCase().contains(kw);
             boolean m3 = nv.getNvTenMaNganh() != null && nv.getNvTenMaNganh().toLowerCase().contains(kw);
@@ -205,8 +242,15 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         int end   = Math.min(start + pageSize, totalRecords);
         for (int i = start; i < end; i++) {
             NguyenVongXetTuyen nv = currentDataList.get(i);
+            String ho = "";
+            String ten = "";
+            if (thiSinhMap != null && thiSinhMap.containsKey(nv.getNvCccd())) {
+                ThiSinh ts = thiSinhMap.get(nv.getNvCccd());
+                ho = ts.getHo() == null ? "" : ts.getHo();
+                ten = ts.getTen() == null ? "" : ts.getTen();
+            }
             tableModel.addRow(new Object[]{
-                    nv.getIdNv(), nv.getNvCccd(), nv.getNvTt(),
+                    nv.getIdNv(), nv.getNvCccd(), ho, ten, nv.getNvTt(),
                     nv.getTtPhuongThuc(), nv.getNvMaNganh(), nv.getNvTenMaNganh(),
                     nv.getTtThm(),
                     nv.getDiemThxt(), nv.getDiemUtqd(), nv.getDiemCong(),
@@ -359,7 +403,57 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         pnlSummary.add(createReportChip("Tổng nhóm ngành/phương thức: " + tongHop.size(), new Color(30, 136, 229)));
 
         JTabbedPane tabs = new JTabbedPane();
-        tabs.addTab("Chi tiết trúng tuyển", new JScrollPane(createChiTietTable(chiTiet)));
+        
+        // --- START NEW LOGIC FOR FILTER & EXPORT ---
+        JPanel pnlChiTiet = new JPanel(new BorderLayout());
+        JPanel pnlFilter = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        
+        java.util.Set<String> nganhSet = new java.util.TreeSet<>();
+        for (Object[] row : chiTiet) {
+            String maNganh = row[0] != null ? row[0].toString() : "";
+            String tenNganh = row[1] != null ? row[1].toString() : "";
+            nganhSet.add(maNganh + " - " + tenNganh);
+        }
+        
+        javax.swing.JComboBox<String> cboNganh = new javax.swing.JComboBox<>();
+        cboNganh.addItem("Tất cả");
+        for (String nganh : nganhSet) {
+            cboNganh.addItem(nganh);
+        }
+        
+        JButton btnExportExcel = new JButton("Xuất Excel");
+        btnExportExcel.setBackground(new Color(33, 115, 70));
+        btnExportExcel.setForeground(Color.WHITE);
+        btnExportExcel.setFocusPainted(false);
+        
+        pnlFilter.add(new JLabel("Lọc theo Ngành:"));
+        pnlFilter.add(cboNganh);
+        pnlFilter.add(btnExportExcel);
+        
+        JTable tblChiTiet = createChiTietTable(chiTiet);
+        javax.swing.table.TableRowSorter<DefaultTableModel> sorter = new javax.swing.table.TableRowSorter<>((DefaultTableModel) tblChiTiet.getModel());
+        tblChiTiet.setRowSorter(sorter);
+        
+        cboNganh.addItemListener(e -> {
+            if (e.getStateChange() == java.awt.event.ItemEvent.SELECTED) {
+                String selected = e.getItem().toString();
+                if ("Tất cả".equals(selected)) {
+                    sorter.setRowFilter(null);
+                } else {
+                    String maNganh = selected.split(" - ")[0];
+                    sorter.setRowFilter(javax.swing.RowFilter.regexFilter("^" + java.util.regex.Pattern.quote(maNganh) + "$", 0));
+                }
+            }
+        });
+        
+        btnExportExcel.addActionListener(e -> exportTableToExcel(tblChiTiet, "ChiTietTrungTuyen"));
+        
+        pnlChiTiet.add(pnlFilter, BorderLayout.NORTH);
+        pnlChiTiet.add(new JScrollPane(tblChiTiet), BorderLayout.CENTER);
+        
+        tabs.addTab("Chi tiết trúng tuyển", pnlChiTiet);
+        // --- END NEW LOGIC ---
+
         tabs.addTab("Tổng hợp theo ngành/phương thức", new JScrollPane(createTongHopTable(tongHop)));
 
         JPanel header = new JPanel(new BorderLayout(0, 8));
@@ -427,5 +521,51 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         chip.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
         chip.setFont(new Font("Segoe UI", Font.BOLD, 12));
         return chip;
+    }
+
+    private void exportTableToExcel(JTable table, String defaultFileName) {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Chọn nơi lưu file Excel");
+        fileChooser.setSelectedFile(new java.io.File(defaultFileName + ".xlsx"));
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Excel files", "xlsx"));
+
+        int userSelection = fileChooser.showSaveDialog(this);
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            java.io.File fileToSave = fileChooser.getSelectedFile();
+            if (!fileToSave.getName().toLowerCase().endsWith(".xlsx")) {
+                fileToSave = new java.io.File(fileToSave.getParentFile(), fileToSave.getName() + ".xlsx");
+            }
+
+            try (org.apache.poi.ss.usermodel.Workbook workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
+                 java.io.FileOutputStream out = new java.io.FileOutputStream(fileToSave)) {
+                
+                org.apache.poi.ss.usermodel.Sheet sheet = workbook.createSheet("Data");
+                
+                org.apache.poi.ss.usermodel.Row headerRow = sheet.createRow(0);
+                for (int i = 0; i < table.getColumnCount(); i++) {
+                    headerRow.createCell(i).setCellValue(table.getColumnName(i));
+                }
+                
+                for (int i = 0; i < table.getRowCount(); i++) {
+                    org.apache.poi.ss.usermodel.Row row = sheet.createRow(i + 1);
+                    for (int j = 0; j < table.getColumnCount(); j++) {
+                        Object val = table.getValueAt(i, j);
+                        if (val != null) {
+                            if (val instanceof Number) {
+                                row.createCell(j).setCellValue(((Number) val).doubleValue());
+                            } else {
+                                row.createCell(j).setCellValue(val.toString());
+                            }
+                        }
+                    }
+                }
+                
+                workbook.write(out);
+                JOptionPane.showMessageDialog(this, "Xuất Excel thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Lỗi khi xuất Excel: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 }

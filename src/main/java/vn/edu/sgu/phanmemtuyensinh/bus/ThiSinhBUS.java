@@ -610,6 +610,7 @@ public class ThiSinhBUS {
         ts.setMaDanToc(maDanToc);
         ts.setNoiSinh(noiSinh);
         ts.setUpdatedAt(updatedAt);
+        ts.setPassword(deriveStudentPassword(ts));
         return ts;
     }
 
@@ -700,6 +701,7 @@ public class ThiSinhBUS {
         ts.setMaDanToc(maDanToc);
         ts.setNoiSinh(noiSinh);
         ts.setUpdatedAt(updatedAt);
+        ts.setPassword(deriveStudentPassword(ts));
         return ts;
     }
 

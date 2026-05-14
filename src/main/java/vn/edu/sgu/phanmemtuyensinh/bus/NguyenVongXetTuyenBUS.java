@@ -172,8 +172,13 @@ public class NguyenVongXetTuyenBUS {
                             new String[]{"tenmaxettuyen", "tennganh", "tenmanganh"}));
                     nv.setNvTuyenThang(getCell(row, formatter, headerMap,
                             new String[]{"nguyenvongtuyenthangdieu8", "nguyenvongtuyenthang", "tuyenthang"}));
-                    nv.setTtPhuongThuc(getCell(row, formatter, headerMap,
-                            new String[]{"phuongthuc", "ptxt", "pt"}));
+                    
+                    String phuongThuc = getCell(row, formatter, headerMap,
+                            new String[]{"phuongthuc", "ptxt", "pt"});
+                    if ("x".equalsIgnoreCase(nv.getNvTuyenThang())) {
+                        phuongThuc = "Tuyển thẳng";
+                    }
+                    nv.setTtPhuongThuc(phuongThuc);
 
                     if (nv.getNvMaNganh().isEmpty()) continue;
                     nv.setNvKeys(generateNvKey(nv));
@@ -212,7 +217,7 @@ public class NguyenVongXetTuyenBUS {
     public int runXetTuyenAll() {
         List<NguyenVongXetTuyen> list = dao.getAll();
         if (list == null || list.isEmpty()) return 0;
-        return runXetTuyenForList(list);
+        return runXetTuyenForList(list, true);
     }
 
     /**
@@ -221,7 +226,7 @@ public class NguyenVongXetTuyenBUS {
     public int runXetTuyenForCccd(String cccd) {
         List<NguyenVongXetTuyen> filtered = dao.getByCccd(cccd);
         if (filtered == null || filtered.isEmpty()) return -1;
-        return runXetTuyenForList(filtered);
+        return runXetTuyenForList(filtered, false);
     }
 
     /**
@@ -232,7 +237,7 @@ public class NguyenVongXetTuyenBUS {
         if (nv == null) return 0;
         List<NguyenVongXetTuyen> list = new ArrayList<>();
         list.add(nv);
-        return runXetTuyenForList(list);
+        return runXetTuyenForList(list, false);
     }
 
     /**
@@ -242,7 +247,7 @@ public class NguyenVongXetTuyenBUS {
         if (maNganh == null || maNganh.isBlank()) return 0;
         List<NguyenVongXetTuyen> list = dao.getByMaNganh(maNganh.trim());
         if (list == null || list.isEmpty()) return 0;
-        return runXetTuyenForList(list);
+        return runXetTuyenForList(list, true);
     }
 
     public List<Object[]> getTrungTuyenChiTiet() {
@@ -257,7 +262,7 @@ public class NguyenVongXetTuyenBUS {
      * HÀM LÕI: Tính và lưu điểm xét tuyển cho danh sách nguyện vọng.
      * Thực hiện đúng các bước trong file 'cac cong thuc tinh.txt'
      */
-    private int runXetTuyenForList(List<NguyenVongXetTuyen> list) {
+    private int runXetTuyenForList(List<NguyenVongXetTuyen> list, boolean recalculateCutoffs) {
         Map<String, BigDecimal> nguongMap = loadNguongDauVao();
         
         // Pre-load dữ liệu mốc quy đổi, điểm thi, và ngành-tổ hợp
@@ -399,10 +404,6 @@ public class NguyenVongXetTuyenBUS {
                 BigDecimal dxt = thgxt.add(diemCong).add(dut);
                 if (dxt.compareTo(new BigDecimal("30")) > 0) dxt = new BigDecimal("30");
 
-                // 8. KẾT QUẢ
-                BigDecimal nguong = nguongMap.get(normalizeMaNganh(maNganh));
-                nv.setNvKetQua(nguong != null ? (dxt.compareTo(nguong) >= 0 ? "Đạt" : "Trượt") : "Chưa có ngưỡng");
-
                 nv.setDiemThxt(thxtScale30);
                 nv.setDiemCong(diemCong);
                 nv.setDiemUtqd(dut);
@@ -411,6 +412,85 @@ public class NguyenVongXetTuyenBUS {
                 updateBatch.add(nv);
             } catch (Exception e) { e.printStackTrace(); }
         }
+
+        // --- TÍNH ĐIỂM TRÚNG TUYỂN VÀ XÉT ĐẠT/TRƯỢT ---
+        List<Nganh> allNganh = nganhDAO.getAll();
+        Map<String, Nganh> nganhMap = new HashMap<>();
+        for (Nganh n : allNganh) nganhMap.put(n.getMaNganh(), n);
+
+        if (recalculateCutoffs) {
+            Map<String, List<NguyenVongXetTuyen>> nvByNganh = new HashMap<>();
+            for (NguyenVongXetTuyen nv : updateBatch) {
+                String maNganh = normalizeMaNganh(nv.getNvMaNganh());
+                nvByNganh.computeIfAbsent(maNganh, k -> new ArrayList<>()).add(nv);
+            }
+
+            for (Map.Entry<String, List<NguyenVongXetTuyen>> entry : nvByNganh.entrySet()) {
+                String maNganh = entry.getKey();
+                List<NguyenVongXetTuyen> nvs = entry.getValue();
+                Nganh nganh = nganhMap.get(maNganh);
+                
+                BigDecimal diemSan = (nganh != null && nganh.getDiemSan() != null) ? nganh.getDiemSan() : BigDecimal.ZERO;
+                int chiTieu = (nganh != null) ? nganh.getChiTieu() : 0;
+
+                List<NguyenVongXetTuyen> passedSan = new ArrayList<>();
+                for (NguyenVongXetTuyen nv : nvs) {
+                    if ("Tuyển thẳng".equalsIgnoreCase(nv.getTtPhuongThuc())) {
+                        nv.setNvKetQua("Trúng tuyển");
+                        chiTieu--; // Giảm chỉ tiêu
+                    } else if (nv.getDiemXetTuyen() != null && nv.getDiemXetTuyen().compareTo(diemSan) >= 0) {
+                        passedSan.add(nv);
+                    } else {
+                        nv.setNvKetQua("Rớt");
+                    }
+                }
+                if (chiTieu < 0) chiTieu = 0;
+
+                passedSan.sort((a, b) -> b.getDiemXetTuyen().compareTo(a.getDiemXetTuyen()));
+
+                BigDecimal diemTrungTuyen = diemSan;
+                if (chiTieu > 0 && passedSan.size() > chiTieu) {
+                    diemTrungTuyen = passedSan.get(chiTieu - 1).getDiemXetTuyen();
+                } else if (!passedSan.isEmpty()) {
+                    // Cập nhật lại logic nếu ít hơn chỉ tiêu thì điểm chuẩn có thể lấy điểm của thí sinh thấp nhất hoặc giữ điểm sàn
+                    diemTrungTuyen = passedSan.get(passedSan.size() - 1).getDiemXetTuyen();
+                    if (diemTrungTuyen.compareTo(diemSan) < 0) diemTrungTuyen = diemSan;
+                }
+
+                if (nganh != null) {
+                    nganh.setDiemTrungTuyen(diemTrungTuyen);
+                    nganhDAO.update(nganh);
+                }
+
+                for (NguyenVongXetTuyen nv : passedSan) {
+                    if (nv.getDiemXetTuyen().compareTo(diemTrungTuyen) >= 0) {
+                        nv.setNvKetQua("Trúng tuyển");
+                    } else {
+                        nv.setNvKetQua("Rớt");
+                    }
+                }
+            }
+        } else {
+            for (NguyenVongXetTuyen nv : updateBatch) {
+                Nganh nganh = nganhMap.get(normalizeMaNganh(nv.getNvMaNganh()));
+                BigDecimal diemCutoff = null;
+                if (nganh != null) {
+                    diemCutoff = nganh.getDiemTrungTuyen();
+                    if (diemCutoff == null) diemCutoff = nganh.getDiemSan();
+                }
+                
+                if ("Tuyển thẳng".equalsIgnoreCase(nv.getTtPhuongThuc())) {
+                    nv.setNvKetQua("Trúng tuyển");
+                } else if (diemCutoff == null) {
+                    nv.setNvKetQua("Chưa có ngưỡng");
+                } else if (nv.getDiemXetTuyen() != null && nv.getDiemXetTuyen().compareTo(diemCutoff) >= 0) {
+                    nv.setNvKetQua("Trúng tuyển");
+                } else {
+                    nv.setNvKetQua("Rớt");
+                }
+            }
+        }
+
         return dao.updateList(updateBatch) ? updateBatch.size() : 0;
     }
 

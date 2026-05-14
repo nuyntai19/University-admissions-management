@@ -88,7 +88,7 @@ public class NguyenVongXetTuyenDialog extends JDialog {
         txtThuTu.setEditable(false);
         txtThuTu.setBackground(READONLY_BG);
         styleField(txtThuTu);
-        cbPhuongThuc = new JComboBox<>(new String[]{"THPT", "ĐGNL", "V-SAT"});
+        cbPhuongThuc = new JComboBox<>(new String[]{"THPT", "ĐGNL", "V-SAT", "Tuyển thẳng"});
         styleCbPt(cbPhuongThuc);
         gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.3;
         card1.add(label("CCCD / Số báo danh:"), gbc);
@@ -321,7 +321,7 @@ public class NguyenVongXetTuyenDialog extends JDialog {
 
         // 2. Kiểm tra điểm thi tồn tại cho phương thức đã chọn
         String pt = getPhuongThuc();
-        if (diemDao.getByCcqdAndPhuongThuc(cccd, pt) == null) {
+        if (!"Tuyển thẳng".equalsIgnoreCase(pt) && diemDao.getByCcqdAndPhuongThuc(cccd, pt) == null) {
             JOptionPane.showMessageDialog(this, "Thí sinh này chưa có dữ liệu điểm thi cho phương thức " + pt + "!", "Lỗi dữ liệu", JOptionPane.ERROR_MESSAGE);
             return false;
         }
