@@ -33,6 +33,7 @@ public class DashboardGUI extends JPanel {
 
     private final ThiSinhBUS thiSinhBUS = new ThiSinhBUS();
     private final NguyenVongXetTuyenBUS nguyenVongBUS = new NguyenVongXetTuyenBUS();
+    private JPanel pnlMain;
 
     public DashboardGUI() {
         setLayout(new BorderLayout(14, 14));
@@ -47,33 +48,39 @@ public class DashboardGUI extends JPanel {
         lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         lblSub.setForeground(new Color(103, 116, 143));
 
+        // Header with refresh button
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
         header.add(lblTitle, BorderLayout.NORTH);
         header.add(lblSub, BorderLayout.SOUTH);
-        add(header, BorderLayout.NORTH);
 
+        JButton btnRefresh = new JButton("Làm mới");
+        btnRefresh.setBackground(new Color(108, 117, 125));
+        btnRefresh.setForeground(Color.WHITE);
+        btnRefresh.setFocusPainted(false);
+
+        JPanel top = new JPanel(new BorderLayout());
+        top.setOpaque(false);
+        top.add(header, BorderLayout.CENTER);
+        top.add(btnRefresh, BorderLayout.EAST);
+        add(top, BorderLayout.NORTH);
+
+        // Main panel (kept as field so we can rebuild on refresh)
         JPanel pnlMain = new JPanel(new BorderLayout(14, 14));
         pnlMain.setOpaque(false);
+        this.pnlMain = pnlMain;
 
-    DashboardStats stats = loadDashboardStats();
-
-        JPanel statRow = new JPanel(new GridLayout(1, 4, 12, 12));
-        statRow.setOpaque(false);
-    statRow.add(createStatCard("Thí sinh", formatCount(stats.totalThiSinh), new Color(52, 152, 219), "Tổng số thí sinh trong hệ thống"));
-    statRow.add(createStatCard("Nguyện vọng", formatCount(stats.totalNguyenVong), new Color(46, 204, 113), "Tổng số nguyện vọng xét tuyển"));
-    statRow.add(createStatCard("Trúng tuyển", formatCount(stats.datCount), new Color(155, 89, 182), "Số nguyện vọng đạt / trúng tuyển"));
-    statRow.add(createStatCard("Tỷ lệ đậu/rớt", formatPercent(stats.passRate), new Color(26, 188, 156), stats.rateHint));
-
-        JPanel centerRow = new JPanel(new GridLayout(1, 2, 12, 12));
-        centerRow.setOpaque(false);
-        centerRow.add(createBarChartPanel(stats.scoreDistribution));
-        centerRow.add(createPieChartPanel(stats.topMajors));
-
-        pnlMain.add(statRow, BorderLayout.NORTH);
-        pnlMain.add(centerRow, BorderLayout.CENTER);
+        DashboardStats stats = loadDashboardStats();
+        buildMain(stats);
 
         add(pnlMain, BorderLayout.CENTER);
+
+        btnRefresh.addActionListener(e -> {
+            DashboardStats newStats = loadDashboardStats();
+            buildMain(newStats);
+            revalidate();
+            repaint();
+        });
 
         JLabel lblFooter = new JLabel("Hệ thống quản lý tuyển sinh - Phiên bản 1.0", JLabel.CENTER);
         lblFooter.setFont(new Font("Segoe UI", Font.ITALIC, 12));
@@ -232,6 +239,29 @@ public class DashboardGUI extends JPanel {
         chart.setOpaque(false);
         panel.add(chart, BorderLayout.CENTER);
         return panel;
+    }
+
+    /**
+     * Rebuilds the main dashboard panels using the provided stats.
+     */
+    private void buildMain(DashboardStats stats) {
+        if (this.pnlMain == null) return;
+        this.pnlMain.removeAll();
+
+        JPanel statRow = new JPanel(new GridLayout(1, 4, 12, 12));
+        statRow.setOpaque(false);
+        statRow.add(createStatCard("Thí sinh", formatCount(stats.totalThiSinh), new Color(52, 152, 219), "Tổng số thí sinh trong hệ thống"));
+        statRow.add(createStatCard("Nguyện vọng", formatCount(stats.totalNguyenVong), new Color(46, 204, 113), "Tổng số nguyện vọng xét tuyển"));
+        statRow.add(createStatCard("Trúng tuyển", formatCount(stats.datCount), new Color(155, 89, 182), "Số nguyện vọng đạt / trúng tuyển"));
+        statRow.add(createStatCard("Tỷ lệ đậu/rớt", formatPercent(stats.passRate), new Color(26, 188, 156), stats.rateHint));
+
+        JPanel centerRow = new JPanel(new GridLayout(1, 2, 12, 12));
+        centerRow.setOpaque(false);
+        centerRow.add(createBarChartPanel(stats.scoreDistribution));
+        centerRow.add(createPieChartPanel(stats.topMajors));
+
+        this.pnlMain.add(statRow, BorderLayout.NORTH);
+        this.pnlMain.add(centerRow, BorderLayout.CENTER);
     }
 
     private DashboardStats loadDashboardStats() {

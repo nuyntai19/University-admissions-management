@@ -1080,10 +1080,7 @@ public class ThiSinhGUI extends JPanel {
             JOptionPane.showMessageDialog(this, "CCCD không được để trống!");
             return false;
         }
-        if (!CCCD_PATTERN.matcher(ts.getCccd()).matches()) {
-            JOptionPane.showMessageDialog(this, "CCCD chỉ được phép gồm đúng 12 chữ số!");
-            return false;
-        }
+        // Allow any non-empty CCCD string (e.g., TS_0001)
         if (ts.getSoBaoDanh().isBlank()) {
             JOptionPane.showMessageDialog(this, "Số báo danh không được để trống!");
             return false;

@@ -1291,7 +1291,8 @@ public class ThiSinhBUS {
     }
 
     private boolean isAcceptedCandidateCode(String cccdOrCode) {
-        return CCCD_PATTERN.matcher(cccdOrCode).matches();
+        // Accept any non-empty candidate code (allow values like "TS_0001").
+        return !safe(cccdOrCode).isEmpty();
     }
 
     private String trimMax(String value, int maxLength) {

@@ -86,9 +86,9 @@ public class NguoiDungGUI extends JPanel {
 
         add(pnlTop, BorderLayout.NORTH);
 
-        // Table Panel
+        // Table Panel (password column removed from model/UI for privacy)
         String[] columns = {
-            "ID", "Tài Khoản", "Mật Khẩu", "Họ Tên", "Email", "Điện Thoại",
+            "ID", "Tài Khoản", "Họ Tên", "Email", "Điện Thoại",
             "Phân Quyền", "Trạng Thái", "Ngày Tạo", "Ngày Sửa"
         };
         tableModel = new DefaultTableModel(columns, 0) {
@@ -157,18 +157,17 @@ public class NguoiDungGUI extends JPanel {
         int endIndex = Math.min(startIndex + PAGE_SIZE, filtered.size());
         if (startIndex < endIndex) {
             for (NguoiDung nd : filtered.subList(startIndex, endIndex)) {
-                tableModel.addRow(new Object[]{
-                        nd.getIdNguoiDung(),
-                        nd.getTaiKhoan(),
-                        nd.getMatKhau(),
-                        nd.getHoTen(),
-                        nd.getEmail(),
-                        nd.getDienThoai(),
-                        nd.getPhanQuyen(),
-                        nd.getTrangThaiHoatDong() == 1 ? "Hoạt động" : "Khóa",
-                        nd.getNgayTao(),
-                        nd.getNgaySua()
-                });
+            tableModel.addRow(new Object[]{
+                nd.getIdNguoiDung(),
+                nd.getTaiKhoan(),
+                nd.getHoTen(),
+                nd.getEmail(),
+                nd.getDienThoai(),
+                nd.getPhanQuyen(),
+                nd.getTrangThaiHoatDong() == 1 ? "Hoạt động" : "Khóa",
+                nd.getNgayTao(),
+                nd.getNgaySua()
+            });
             }
         }
 
@@ -320,7 +319,6 @@ public class NguoiDungGUI extends JPanel {
 
         return containsMatch(String.valueOf(nd.getIdNguoiDung()), normalizedKeyword)
             || containsMatch(nd.getTaiKhoan(), normalizedKeyword)
-            || containsMatch(nd.getMatKhau(), normalizedKeyword)
             || containsMatch(nd.getHoTen(), normalizedKeyword)
             || containsMatch(nd.getEmail(), normalizedKeyword)
             || containsMatch(nd.getDienThoai(), normalizedKeyword)
@@ -518,13 +516,12 @@ public class NguoiDungGUI extends JPanel {
         TableColumnModel columns = table.getColumnModel();
         columns.getColumn(0).setPreferredWidth(60);
         columns.getColumn(1).setPreferredWidth(120);
-        columns.getColumn(2).setPreferredWidth(120);
+        columns.getColumn(2).setPreferredWidth(170);
         columns.getColumn(3).setPreferredWidth(170);
-        columns.getColumn(4).setPreferredWidth(170);
-        columns.getColumn(5).setPreferredWidth(120);
-        columns.getColumn(6).setPreferredWidth(100);
-        columns.getColumn(7).setPreferredWidth(90);
+        columns.getColumn(4).setPreferredWidth(120);
+        columns.getColumn(5).setPreferredWidth(100);
+        columns.getColumn(6).setPreferredWidth(90);
+        columns.getColumn(7).setPreferredWidth(160);
         columns.getColumn(8).setPreferredWidth(160);
-        columns.getColumn(9).setPreferredWidth(160);
     }
 }

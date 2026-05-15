@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -33,6 +34,10 @@ import javax.swing.DefaultListModel;
 import javax.swing.JList;
 import javax.swing.JPopupMenu;
 import javax.swing.ListSelectionModel;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
 
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.FillPatternType;
@@ -606,6 +611,12 @@ public class DiemThiXetTuyenGUI extends JPanel {
         JTextField txtNk10 = new JTextField();
         JTextField txtDiemXetTotNghiep = new JTextField();
 
+        applyNumericFilters(
+            txtTo, txtLi, txtHo, txtSi, txtSu, txtDi, txtVa, txtGdcd, txtN1Thi, txtN1Cc, txtCncn,
+            txtCnnn, txtTi, txtKtpl, txtNl1, txtNk1, txtNk2, txtNk3, txtNk4, txtNk5, txtNk6,
+            txtNk7, txtNk8, txtNk9, txtNk10, txtDiemXetTotNghiep
+        );
+
         if (source != null) {
             String cccdVal = nullToEmpty(source.getCccd());
             String sbdVal = nullToEmpty(source.getSoBaoDanh());
@@ -797,6 +808,12 @@ public class DiemThiXetTuyenGUI extends JPanel {
             // Set phuong thuc based on current mode if adding new
             if (!isUpdate) d.setPhuongThuc(currentMode);
 
+            String maxError = validateMaxScores(txtTo, txtVa, txtN1Thi, txtLi, txtHo, txtSi, txtSu, txtDi, txtNl1);
+            if (maxError != null) {
+                JOptionPane.showMessageDialog(formDialog, maxError);
+                return;
+            }
+
             try {
                 if ("DGNL".equals(currentMode)) {
                     d.setNl1(parseDecimal(txtNl1.getText().trim()));
@@ -872,7 +889,96 @@ public class DiemThiXetTuyenGUI extends JPanel {
         if (value == null || value.isBlank()) {
             return null;
         }
-        return new BigDecimal(value);
+        return new BigDecimal(value.replace(',', '.'));
+    }
+
+    private String validateMaxScores(
+            JTextField txtTo,
+            JTextField txtVa,
+            JTextField txtN1Thi,
+            JTextField txtLi,
+            JTextField txtHo,
+            JTextField txtSi,
+            JTextField txtSu,
+            JTextField txtDi,
+            JTextField txtNl1
+    ) {
+        if ("DGNL".equals(currentMode)) {
+            return validateMaxField(txtNl1, new BigDecimal("1200"), "\u0110GNL");
+        }
+
+        if ("V-SAT".equals(currentMode)) {
+            BigDecimal max = new BigDecimal("150");
+            String error;
+            error = validateMaxField(txtTo, max, "To\u00e1n (V-SAT)");
+            if (error != null) return error;
+            error = validateMaxField(txtVa, max, "Ng\u1eef v\u0103n (V-SAT)");
+            if (error != null) return error;
+            error = validateMaxField(txtN1Thi, max, "Ti\u1ebfng Anh (V-SAT)");
+            if (error != null) return error;
+            error = validateMaxField(txtLi, max, "V\u1eadt l\u00fd (V-SAT)");
+            if (error != null) return error;
+            error = validateMaxField(txtHo, max, "H\u00f3a h\u1ecdc (V-SAT)");
+            if (error != null) return error;
+            error = validateMaxField(txtSi, max, "Sinh h\u1ecdc (V-SAT)");
+            if (error != null) return error;
+            error = validateMaxField(txtSu, max, "L\u1ecbch s\u1eed (V-SAT)");
+            if (error != null) return error;
+            error = validateMaxField(txtDi, max, "\u0110\u1ecba l\u00fd (V-SAT)");
+            if (error != null) return error;
+        }
+
+        return null;
+    }
+
+    private String validateMaxField(JTextField field, BigDecimal max, String label) {
+        String value = field.getText().trim();
+        if (value.isEmpty()) {
+            return null;
+        }
+
+        BigDecimal parsed;
+        try {
+            parsed = parseDecimal(value);
+        } catch (NumberFormatException ex) {
+            return "\u0110i\u1ec3m " + label + " ph\u1ea3i l\u00e0 s\u1ed1 h\u1ee3p l\u1ec7!";
+        }
+
+        if (parsed != null && parsed.compareTo(max) > 0) {
+            return "\u0110i\u1ec3m " + label + " t\u1ed1i \u0111a l\u00e0 " + max.stripTrailingZeros().toPlainString() + ".";
+        }
+        return null;
+    }
+
+    private void applyNumericFilters(JTextField... fields) {
+        NumericDocumentFilter filter = new NumericDocumentFilter();
+        for (JTextField field : fields) {
+            if (field.getDocument() instanceof AbstractDocument) {
+                ((AbstractDocument) field.getDocument()).setDocumentFilter(filter);
+            }
+        }
+    }
+
+    private static class NumericDocumentFilter extends DocumentFilter {
+        private static final Pattern VALID_NUMBER = Pattern.compile("^[0-9]*([\\.,][0-9]*)?$");
+
+        @Override
+        public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr)
+                throws BadLocationException {
+            replace(fb, offset, 0, string, attr);
+        }
+
+        @Override
+        public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs)
+                throws BadLocationException {
+            String current = fb.getDocument().getText(0, fb.getDocument().getLength());
+            String next = new StringBuilder(current)
+                    .replace(offset, offset + length, text == null ? "" : text)
+                    .toString();
+            if (next.isEmpty() || VALID_NUMBER.matcher(next).matches()) {
+                super.replace(fb, offset, length, text, attrs);
+            }
+        }
     }
     private String nullToEmpty(String value) {
         return value == null ? "" : value;
