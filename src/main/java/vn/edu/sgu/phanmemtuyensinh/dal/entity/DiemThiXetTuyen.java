@@ -99,6 +99,31 @@ public class DiemThiXetTuyen {
     @Column(name = "diem_xet_tot_nghiep")
     private BigDecimal diemXetTotNghiep;
 
+    @Column(name = "vsat_to")
+    private BigDecimal vsatTo;
+
+    @Column(name = "vsat_va")
+    private BigDecimal vsatVa;
+
+    @Column(name = "vsat_anh")
+    private BigDecimal vsatAnh;
+
+    @Column(name = "vsat_li")
+    private BigDecimal vsatLi;
+
+    @Column(name = "vsat_ho")
+    private BigDecimal vsatHo;
+
+    @Column(name = "vsat_si")
+    private BigDecimal vsatSi;
+
+    @Column(name = "vsat_su")
+    private BigDecimal vsatSu;
+
+    @Column(name = "vsat_di")
+    private BigDecimal vsatDi;
+
+
     public DiemThiXetTuyen() {
     }
 
@@ -191,4 +216,28 @@ public class DiemThiXetTuyen {
 
     public BigDecimal getNk2() { return nk2; }
     public void setNk2(BigDecimal nk2) { this.nk2 = nk2; }
+
+    public BigDecimal getVsatTo() { return vsatTo; }
+    public void setVsatTo(BigDecimal vsatTo) { this.vsatTo = vsatTo; }
+
+    public BigDecimal getVsatVa() { return vsatVa; }
+    public void setVsatVa(BigDecimal vsatVa) { this.vsatVa = vsatVa; }
+
+    public BigDecimal getVsatAnh() { return vsatAnh; }
+    public void setVsatAnh(BigDecimal vsatAnh) { this.vsatAnh = vsatAnh; }
+
+    public BigDecimal getVsatLi() { return vsatLi; }
+    public void setVsatLi(BigDecimal vsatLi) { this.vsatLi = vsatLi; }
+
+    public BigDecimal getVsatHo() { return vsatHo; }
+    public void setVsatHo(BigDecimal vsatHo) { this.vsatHo = vsatHo; }
+
+    public BigDecimal getVsatSi() { return vsatSi; }
+    public void setVsatSi(BigDecimal vsatSi) { this.vsatSi = vsatSi; }
+
+    public BigDecimal getVsatSu() { return vsatSu; }
+    public void setVsatSu(BigDecimal vsatSu) { this.vsatSu = vsatSu; }
+
+    public BigDecimal getVsatDi() { return vsatDi; }
+    public void setVsatDi(BigDecimal vsatDi) { this.vsatDi = vsatDi; }
 }

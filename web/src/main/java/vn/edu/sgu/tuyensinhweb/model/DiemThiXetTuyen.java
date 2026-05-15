@@ -46,6 +46,15 @@ public class DiemThiXetTuyen {
     @Column(name = "NK8") private BigDecimal nk8;
     @Column(name = "NK9") private BigDecimal nk9;
     @Column(name = "NK10") private BigDecimal nk10;
+    @Column(name = "vsat_to") private BigDecimal vsatTo;
+    @Column(name = "vsat_va") private BigDecimal vsatVa;
+    @Column(name = "vsat_anh") private BigDecimal vsatAnh;
+    @Column(name = "vsat_li") private BigDecimal vsatLi;
+    @Column(name = "vsat_ho") private BigDecimal vsatHo;
+    @Column(name = "vsat_si") private BigDecimal vsatSi;
+    @Column(name = "vsat_su") private BigDecimal vsatSu;
+    @Column(name = "vsat_di") private BigDecimal vsatDi;
+
     @Column(name = "diem_xet_tot_nghiep") private BigDecimal diemXetTotNghiep;
 
     public DiemThiXetTuyen() {}
@@ -109,6 +118,24 @@ public class DiemThiXetTuyen {
     public void setNk9(BigDecimal v) { this.nk9 = v; }
     public BigDecimal getNk10() { return nk10; }
     public void setNk10(BigDecimal v) { this.nk10 = v; }
+    
+    public BigDecimal getVsatTo() { return vsatTo; }
+    public void setVsatTo(BigDecimal v) { this.vsatTo = v; }
+    public BigDecimal getVsatVa() { return vsatVa; }
+    public void setVsatVa(BigDecimal v) { this.vsatVa = v; }
+    public BigDecimal getVsatAnh() { return vsatAnh; }
+    public void setVsatAnh(BigDecimal v) { this.vsatAnh = v; }
+    public BigDecimal getVsatLi() { return vsatLi; }
+    public void setVsatLi(BigDecimal v) { this.vsatLi = v; }
+    public BigDecimal getVsatHo() { return vsatHo; }
+    public void setVsatHo(BigDecimal v) { this.vsatHo = v; }
+    public BigDecimal getVsatSi() { return vsatSi; }
+    public void setVsatSi(BigDecimal v) { this.vsatSi = v; }
+    public BigDecimal getVsatSu() { return vsatSu; }
+    public void setVsatSu(BigDecimal v) { this.vsatSu = v; }
+    public BigDecimal getVsatDi() { return vsatDi; }
+    public void setVsatDi(BigDecimal v) { this.vsatDi = v; }
+
     public BigDecimal getDiemXetTotNghiep() { return diemXetTotNghiep; }
     public void setDiemXetTotNghiep(BigDecimal v) { this.diemXetTotNghiep = v; }
 }

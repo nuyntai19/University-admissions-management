@@ -394,9 +394,7 @@ public class DiemThiXetTuyenBUS {
                         DiemThiXetTuyen d = new DiemThiXetTuyen();
                         d.setCccd(cccd);
                         d.setSoBaoDanh(safe(getCellStr(headerMap, currentRowData, "sobaodanh", "sbd", "mathisinh")));
-                        // Chương trình học (năm) không phải phương thức thi - luôn mặc định THPT
                         String pt = safe(getCellStr(headerMap, currentRowData, "dphuongthuc", "phuongthuc", "ptxt"));
-                        d.setPhuongThuc(pt.isEmpty() ? "THPT" : pt.toUpperCase());
 
                         d.setTo(parseDecimal(getCellStr(headerMap, currentRowData, "to", "toan")));
                         d.setVa(parseDecimal(getCellStr(headerMap, currentRowData, "va", "van", "nguvan")));
@@ -424,6 +422,8 @@ public class DiemThiXetTuyenBUS {
                         d.setNk9(parseDecimal(getCellStr(headerMap, currentRowData, "nk9")));
                         d.setNk10(parseDecimal(getCellStr(headerMap, currentRowData, "nk10")));
                         d.setDiemXetTotNghiep(parseDecimal(getCellStr(headerMap, currentRowData, "diemxettotnghiep", "diemxettn")));
+
+                        autoDetectPhuongThuc(d, pt);
 
                         result.add(new ImportRecord(rowNum + 1, d));
                     }
@@ -498,8 +498,6 @@ public class DiemThiXetTuyenBUS {
         d.setCccd(readHeaderCell(row, headerMap, formatter, "cccd", "cancuoc", "cmnd", "maso"));
         d.setSoBaoDanh(readHeaderCell(row, headerMap, formatter, "sobaodanh", "sbd", "mathisinh"));
         String pt = readHeaderCell(row, headerMap, formatter, "dphuongthuc", "phuongthuc", "ptxt", "chuongtrinhhoc");
-        // Nếu file không có cột phương thức (như Ds thi sinh.xlsx) thì mặc định THPT
-        d.setPhuongThuc(isBlank(pt) ? "THPT" : pt);
 
         if (isBlank(safe(d.getCccd()))) {
             d.setCccd(readCell(row, 1, formatter));
@@ -563,6 +561,8 @@ public class DiemThiXetTuyenBUS {
             d.setDiemXetTotNghiep(parseDecimal(readCell(row, 32, formatter)));
         }
 
+        autoDetectPhuongThuc(d, pt);
+
         return d;
     }
 
@@ -597,6 +597,8 @@ public class DiemThiXetTuyenBUS {
         d.setNk10(parseDecimal(getPart(parts, 31)));
         d.setDiemXetTotNghiep(parseDecimal(getPart(parts, 32)));
 
+        autoDetectPhuongThuc(d, "");
+
         return d;
     }
 
@@ -627,13 +629,39 @@ public class DiemThiXetTuyenBUS {
 
         diem.setCccd(trimMax(cccd, 20));
         diem.setSoBaoDanh(trimMax(soBaoDanh, 45));
+        diem.setCccd(trimMax(cccd, 20));
+        diem.setSoBaoDanh(trimMax(soBaoDanh, 45));
         diem.setPhuongThuc(trimMax(phuongThuc.toUpperCase(), 10));
         lastError = "";
         return true;
     }
 
-
-
+    private void autoDetectPhuongThuc(DiemThiXetTuyen d, String ptStr) {
+        if (!isBlank(ptStr)) {
+            d.setPhuongThuc(ptStr.toUpperCase());
+            return;
+        }
+        boolean isVsat = false;
+        BigDecimal ten = new BigDecimal("10.0");
+        BigDecimal[] scores = {
+            d.getTo(), d.getVa(), d.getLi(), d.getHo(), d.getSi(), d.getSu(), d.getDi(),
+            d.getN1Thi(), d.getN1Cc(), d.getCncn(), d.getCnnn(), d.getTi(), d.getGdcd(),
+            d.getKtpl(), d.getNl1(), d.getNk1(), d.getNk2(), d.getNk3(), d.getNk4(),
+            d.getNk5(), d.getNk6(), d.getNk7(), d.getNk8(), d.getNk9(), d.getNk10()
+        };
+        for (BigDecimal score : scores) {
+            if (score != null && score.compareTo(ten) > 0) {
+                isVsat = true;
+                break;
+            }
+        }
+        
+        if (isVsat) {
+            d.setPhuongThuc("V-SAT");
+        } else {
+            d.setPhuongThuc("THPT");
+        }
+    }
 
     private boolean isNullOrZero(BigDecimal value) {
         return value == null || value.compareTo(java.math.BigDecimal.ZERO) == 0;

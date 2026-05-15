@@ -75,6 +75,10 @@ public class ThiSinhBUS {
         return dao.getByCccd(cccd);
     }
 
+    public ThiSinh getBySoBaoDanh(String sbd) {
+        return dao.getBySoBaoDanh(sbd);
+    }
+
     public ThiSinh getById(int idThiSinh) {
         return dao.getById(idThiSinh);
     }

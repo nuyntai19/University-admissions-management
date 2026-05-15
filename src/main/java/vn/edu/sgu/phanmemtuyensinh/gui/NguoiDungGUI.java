@@ -110,22 +110,28 @@ public class NguoiDungGUI extends JPanel {
         txtTimKiem.addActionListener(e -> timKiem());
         table.getSelectionModel().addListSelectionListener(e -> chonDong());
 
-        JPanel pnlPaging = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        JPanel pnlPaging = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         pnlPaging.setOpaque(false);
-        btnTrangTruoc = new JButton("Trang trước");
-        btnTrangSau = new JButton("Trang sau");
+        JButton btnDauTrang = new JButton("<<");
+        btnTrangTruoc = new JButton("Trang tr\u01b0\u1edbc");
         lblThongTinTrang = new JLabel("Trang 1/1");
+        btnTrangSau = new JButton("Trang sau");
+        JButton btnCuoiTrang = new JButton(">>");
+
+        pnlPaging.add(btnDauTrang);
         pnlPaging.add(btnTrangTruoc);
         pnlPaging.add(lblThongTinTrang);
         pnlPaging.add(btnTrangSau);
+        pnlPaging.add(btnCuoiTrang);
 
+        btnDauTrang.addActionListener(e -> { currentPage = 1; loadDuLieu(); });
+        btnCuoiTrang.addActionListener(e -> { currentPage = getTotalPages(); loadDuLieu(); });
         btnTrangTruoc.addActionListener(e -> {
             if (currentPage > 1) {
                 currentPage--;
                 loadDuLieu();
             }
         });
-
         btnTrangSau.addActionListener(e -> {
             if (currentPage < getTotalPages()) {
                 currentPage++;

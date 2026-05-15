@@ -57,6 +57,10 @@ public class NguyenVongXetTuyenBUS {
         return dao.countByMaNganh();
     }
 
+    public Map<String, Long> countByMaNganhAndPhuongThuc() {
+        return dao.countByMaNganhAndPhuongThuc();
+    }
+
     public int getNextThuTu(String cccd) {
         List<NguyenVongXetTuyen> list = dao.getByCccd(cccd);
         if (list == null || list.isEmpty()) return 1;
@@ -178,6 +182,9 @@ public class NguyenVongXetTuyenBUS {
                     if ("x".equalsIgnoreCase(nv.getNvTuyenThang())) {
                         phuongThuc = "Tuyển thẳng";
                     }
+                    if (phuongThuc.isEmpty()) {
+                        phuongThuc = "THPT"; // Mặc định là THPT nếu file thiếu cột này
+                    }
                     nv.setTtPhuongThuc(phuongThuc);
 
                     if (nv.getNvMaNganh().isEmpty()) continue;
@@ -258,6 +265,14 @@ public class NguyenVongXetTuyenBUS {
         return dao.getThongKeTrungTuyenTheoNganhPhuongThuc();
     }
 
+    public java.util.Map<String, Long> getTotalCountsByStatus() {
+        return dao.getTotalCountsByStatus();
+    }
+
+    public List<Object[]> getReportDashboard() {
+        return dao.getReportDashboard();
+    }
+
     /**
      * HÀM LÕI: Tính và lưu điểm xét tuyển cho danh sách nguyện vọng.
      * Thực hiện đúng các bước trong file 'cac cong thuc tinh.txt'
@@ -302,9 +317,9 @@ public class NguyenVongXetTuyenBUS {
         List<vn.edu.sgu.phanmemtuyensinh.dal.entity.BangQuyDoi> allBqd = bqdBus.getAll();
         Map<String, List<vn.edu.sgu.phanmemtuyensinh.dal.entity.BangQuyDoi>> bqdMap = new HashMap<>();
         for (vn.edu.sgu.phanmemtuyensinh.dal.entity.BangQuyDoi b : allBqd) {
-            String pt = b.getDPhuongThuc().trim().toUpperCase(Locale.ROOT);
-            String th = b.getDToHop() == null ? "" : b.getDToHop().trim().toUpperCase(Locale.ROOT);
-            String mon = b.getDMon() == null ? "" : b.getDMon().trim().toUpperCase(Locale.ROOT);
+            String pt = normKey(b.getDPhuongThuc());
+            String th = normKey(b.getDToHop());
+            String mon = normKey(b.getDMon());
             String key = pt + (th.isEmpty() ? "" : "_" + th) + (mon.isEmpty() ? "" : "_" + mon);
             bqdMap.computeIfAbsent(key, k -> new ArrayList<>()).add(b);
         }
@@ -317,30 +332,91 @@ public class NguyenVongXetTuyenBUS {
             try {
                 String cccd = nv.getNvCccd();
                 String phuongThuc = normalizePhuongThuc(nv.getTtPhuongThuc());
-                if (phuongThuc.isEmpty()) phuongThuc = "THPT";
                 String maNganh = normalizeMaNganh(nv.getNvMaNganh());
                 String toHopChosen = nv.getTtThm();
-                
-                // 1. Tìm điểm thi tương ứng với phương thức của nguyện vọng
-                DiemThiXetTuyen diemRecord = diemMap.get(cccd + "_" + phuongThuc);
-                if (diemRecord == null) {
-                    // Nếu không có điểm theo phương thức cụ thể, thử lấy điểm chung (cho THPT)
-                    diemRecord = diemMap.get(cccd + "_THPT");
-                    if (diemRecord == null) diemRecord = diemMap.get(cccd + "_");
-                }
 
-                // 2. Lấy thông tin điểm cộng (Chứng chỉ, giải...)
+                // 1. Lấy thông tin chứng chỉ/giải thưởng trước để dùng cho tính toán thử
                 List<DiemCongXetTuyen> dcRecords = dCongMap.getOrDefault(normalizeCccdKey(cccd), java.util.Collections.emptyList());
                 int mucCC = getBestMucChungChi(dcRecords);
                 
-                // Xác định mức điểm ưu tiên gốc (MĐUT) từ thông tin thí sinh
+                // 2. TỰ ĐỘNG XÁC ĐỊNH PHƯƠNG THỨC TỐI ƯU (Nếu trống)
+                if (phuongThuc.isEmpty()) {
+                    BigDecimal maxScore = BigDecimal.valueOf(-1);
+                    String bestMethodName = "THPT";
+                    
+                    for (Map.Entry<String, DiemThiXetTuyen> entry : diemMap.entrySet()) {
+                        if (entry.getKey().startsWith(cccd + "_")) {
+                            DiemThiXetTuyen tempDiem = entry.getValue();
+                            String methodKey = normalizePhuongThuc(tempDiem.getPhuongThuc());
+                            
+                            ThiSinh ts = thiSinhMap.get(cccd);
+                            if (ts == null) continue;
+                            
+                            List<NganhToHop> nthListForAuto = nganhToHopMap.get(maNganh);
+                            if (nthListForAuto != null) {
+                                // QUAN TRỌNG: Dữ liệu điểm thi có thể bị gộp (THPT, DGNL, VSAT chung 1 row có d_phuongthuc='DGNL')
+                                // Nên ta sẽ thử tính toán cả 3 phương thức phổ biến trên bản ghi này để tìm cái cao nhất
+                                java.util.Set<String> methodsToTest = new java.util.HashSet<>(java.util.Arrays.asList("THPT", "DGNL", "V-SAT"));
+                                String originalMethod = normalizePhuongThuc(tempDiem.getPhuongThuc());
+                                if (!originalMethod.isEmpty()) methodsToTest.add(originalMethod);
+
+                                for (String mTest : methodsToTest) {
+                                    for (NganhToHop nth : nthListForAuto) {
+                                        if (toHopChosen != null && !toHopChosen.isEmpty() && !toHopChosen.equalsIgnoreCase(nth.getMaToHop())) continue;
+                                        
+                                        BigDecimal score = calculateDthxt(mTest, tempDiem, nth, mucCC, bqdMap);
+                                        if (score.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                                        // Tính điểm xét tuyển đầy đủ (có quy đổi ưu tiên) để so sánh
+                                        BigDecimal utqd = calculateUtqd(score, ts, mTest);
+                                        BigDecimal finalTotal = score.add(utqd).add(nv.getDiemCong() != null ? nv.getDiemCong() : BigDecimal.ZERO);
+
+                                        if (finalTotal.compareTo(maxScore) > 0) {
+                                            maxScore = finalTotal;
+                                            bestMethodName = mTest;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (maxScore.compareTo(BigDecimal.ZERO) >= 0) {
+                        if ("DGNL".equalsIgnoreCase(bestMethodName)) bestMethodName = "ĐGNL";
+                        if ("VSAT".equalsIgnoreCase(bestMethodName)) bestMethodName = "V-SAT";
+                        
+                        phuongThuc = normalizePhuongThuc(bestMethodName);
+                        nv.setTtPhuongThuc(bestMethodName);
+                    } else {
+                        phuongThuc = "THPT";
+                        nv.setTtPhuongThuc("THPT");
+                    }
+                }
+
+                // 3. Lấy thông tin điểm thi chính thức theo phương thức đã chọn/chốt
+                DiemThiXetTuyen diemRecord = diemMap.get(cccd + "_" + phuongThuc);
+                if (diemRecord == null) {
+                    // Fallback 1: Tìm bản ghi THPT (nơi người dùng hay nhập chung điểm)
+                    diemRecord = diemMap.get(cccd + "_THPT");
+                    if (diemRecord == null) {
+                        // Fallback 2: Tìm bất kỳ bản ghi nào có CCCD này
+                        for (Map.Entry<String, DiemThiXetTuyen> entry : diemMap.entrySet()) {
+                            if (entry.getKey().startsWith(cccd + "_")) {
+                                diemRecord = entry.getValue();
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // 4. Xác định mức điểm ưu tiên gốc (MĐUT) từ thông tin thí sinh
                 ThiSinh ts = thiSinhMap.get(cccd);
                 BigDecimal mDut = calculateBasePriority(ts);
 
                 BigDecimal thxtScale30 = BigDecimal.ZERO;
                 String bestToHop = toHopChosen;
 
-                // 3. TÍNH ĐIỂM TỔ HỢP XÉT TUYỂN (ĐTHXT)
+                // 4. TÍNH ĐIỂM TỔ HỢP XÉT TUYỂN (ĐTHXT)
                 if (diemRecord != null) {
                     List<NganhToHop> possibleNth = nganhToHopMap.get(maNganh);
                     if (possibleNth != null) {
@@ -499,13 +575,19 @@ public class NguyenVongXetTuyenBUS {
      */
     private BigDecimal calculateDthxt(String pt, DiemThiXetTuyen d, NganhToHop nth, int mucCC, Map<String, List<vn.edu.sgu.phanmemtuyensinh.dal.entity.BangQuyDoi>> bqdCache) {
         if (pt.contains("V-SAT") || pt.contains("VSAT")) {
-            BigDecimal d1 = quyDoiMonVsat(nth.getThMon1(), getDiemMon(d, nth.getThMon1()), bqdCache);
-            BigDecimal d2 = quyDoiMonVsat(nth.getThMon2(), getDiemMon(d, nth.getThMon2()), bqdCache);
-            BigDecimal d3 = quyDoiMonVsat(nth.getThMon3(), getDiemMon(d, nth.getThMon3()), bqdCache);
+            BigDecimal d1 = quyDoiMonVsat(nth.getThMon1(), getDiemMonVsat(d, nth.getThMon1()), bqdCache);
+            BigDecimal d2 = quyDoiMonVsat(nth.getThMon2(), getDiemMonVsat(d, nth.getThMon2()), bqdCache);
+            BigDecimal d3 = quyDoiMonVsat(nth.getThMon3(), getDiemMonVsat(d, nth.getThMon3()), bqdCache);
             
             int w1 = (nth.getHsMon1() != null) ? nth.getHsMon1() : 1;
             int w2 = (nth.getHsMon2() != null) ? nth.getHsMon2() : 1;
             int w3 = (nth.getHsMon3() != null) ? nth.getHsMon3() : 1;
+            
+            // Đặc cách cho khối ngành Sư phạm (714): Toán hệ số 2
+            if (nth.getMaNganh() != null && nth.getMaNganh().startsWith("714")) {
+                if ("TO".equalsIgnoreCase(nth.getThMon1()) && w1 == 1) w1 = 2;
+            }
+            
             BigDecimal W = new BigDecimal(w1 + w2 + w3);
             
             BigDecimal sumWeighted = d1.multiply(new BigDecimal(w1)).add(d2.multiply(new BigDecimal(w2))).add(d3.multiply(new BigDecimal(w3)));
@@ -544,20 +626,36 @@ public class NguyenVongXetTuyenBUS {
 
     private BigDecimal getDiemMon(DiemThiXetTuyen d, String monCode) {
         if (d == null || monCode == null) return BigDecimal.ZERO;
-        String m = monCode.toUpperCase();
-        if (m.equals("TO")) return d.getTo() != null ? d.getTo() : BigDecimal.ZERO;
-        if (m.equals("LI")) return d.getLi() != null ? d.getLi() : BigDecimal.ZERO;
-        if (m.equals("HO")) return d.getHo() != null ? d.getHo() : BigDecimal.ZERO;
-        if (m.equals("SI")) return d.getSi() != null ? d.getSi() : BigDecimal.ZERO;
-        if (m.equals("SU")) return d.getSu() != null ? d.getSu() : BigDecimal.ZERO;
-        if (m.equals("DI")) return d.getDi() != null ? d.getDi() : BigDecimal.ZERO;
-        if (m.equals("VA")) return d.getVa() != null ? d.getVa() : BigDecimal.ZERO;
+        String m = monCode.trim().toUpperCase();
+        if (m.equals("TO") || m.equals("TOAN")) return d.getTo() != null ? d.getTo() : BigDecimal.ZERO;
+        if (m.equals("LI") || m.equals("LY"))   return d.getLi() != null ? d.getLi() : BigDecimal.ZERO;
+        if (m.equals("HO") || m.equals("HOA"))  return d.getHo() != null ? d.getHo() : BigDecimal.ZERO;
+        if (m.equals("SI") || m.equals("SINH")) return d.getSi() != null ? d.getSi() : BigDecimal.ZERO;
+        if (m.equals("SU") || m.equals("SU"))   return d.getSu() != null ? d.getSu() : BigDecimal.ZERO;
+        if (m.equals("DI") || m.equals("DIA"))  return d.getDi() != null ? d.getDi() : BigDecimal.ZERO;
+        if (m.equals("VA") || m.equals("VAN"))  return d.getVa() != null ? d.getVa() : BigDecimal.ZERO;
         if (m.equals("GDCD")) return d.getGdcd() != null ? d.getGdcd() : BigDecimal.ZERO;
-        if (m.equals("N1")) return d.getN1Thi() != null ? d.getN1Thi() : BigDecimal.ZERO;
-        if (m.equals("TI")) return d.getTi() != null ? d.getTi() : BigDecimal.ZERO;
+        if (m.equals("N1") || m.equals("ANH") || m.equals("TA")) return d.getN1Thi() != null ? d.getN1Thi() : BigDecimal.ZERO;
+        if (m.equals("TI") || m.equals("TIN"))  return d.getTi() != null ? d.getTi() : BigDecimal.ZERO;
         if (m.equals("KTPL")) return d.getKtpl() != null ? d.getKtpl() : BigDecimal.ZERO;
-        if (m.equals("NL1")) return d.getNl1() != null ? d.getNl1() : BigDecimal.ZERO;
+        if (m.equals("NL1") || m.equals("DGNL")) return d.getNl1() != null ? d.getNl1() : BigDecimal.ZERO;
         return BigDecimal.ZERO;
+    }
+
+    private BigDecimal getDiemMonVsat(DiemThiXetTuyen d, String monCode) {
+        if (d == null || monCode == null) return BigDecimal.ZERO;
+        String m = monCode.toUpperCase();
+        if (m.equals("TO")) return d.getVsatTo() != null ? d.getVsatTo() : BigDecimal.ZERO;
+        if (m.equals("VA")) return d.getVsatVa() != null ? d.getVsatVa() : BigDecimal.ZERO;
+        if (m.equals("N1")) return d.getVsatAnh() != null ? d.getVsatAnh() : BigDecimal.ZERO;
+        if (m.equals("LI")) return d.getVsatLi() != null ? d.getVsatLi() : BigDecimal.ZERO;
+        if (m.equals("HO")) return d.getVsatHo() != null ? d.getVsatHo() : BigDecimal.ZERO;
+        if (m.equals("SI")) return d.getVsatSi() != null ? d.getVsatSi() : BigDecimal.ZERO;
+        if (m.equals("SU")) return d.getVsatSu() != null ? d.getVsatSu() : BigDecimal.ZERO;
+        if (m.equals("DI")) return d.getVsatDi() != null ? d.getVsatDi() : BigDecimal.ZERO;
+        
+        // Fallback sang điểm thường nếu không có điểm VSAT riêng biệt
+        return getDiemMon(d, monCode);
     }
 
     private boolean isToHopHasEnglish(String maToHop, Map<String, ToHopMon> thmMap) {
@@ -695,8 +793,8 @@ public class NguyenVongXetTuyenBUS {
         return list.get(0);
     }
 
-    private String normalizePhuongThuc(String phuongThuc) {
-        return phuongThuc == null ? "" : phuongThuc.trim().toUpperCase(Locale.ROOT);
+    public String normalizePhuongThuc(String phuongThuc) {
+        return normKey(phuongThuc);
     }
     
     private String getCell(Row row, DataFormatter f, Map<String, Integer> map, String[] keys) {
@@ -788,30 +886,46 @@ public class NguyenVongXetTuyenBUS {
         if (ts == null) return BigDecimal.ZERO;
         BigDecimal res = BigDecimal.ZERO;
         
-        // 1. Điểm ưu tiên Khu vực (KV1: 0.75, KV2-NT: 0.5, KV2: 0.25, KV3: 0)
+        // 1. Điểm ưu tiên Khu vực
         String kv = (ts.getKhuVuc() != null) ? ts.getKhuVuc().trim().toUpperCase() : "";
-        if (kv.equals("KV1") || kv.equals("1")) {
-            res = res.add(new BigDecimal("0.75"));
-        } else if (kv.equals("KV2-NT") || kv.equals("KV2NT") || kv.equals("2NT")) {
-            res = res.add(new BigDecimal("0.5"));
-        } else if (kv.equals("KV2") || kv.equals("2")) {
-            res = res.add(new BigDecimal("0.25"));
-        }
+        if (kv.equals("KV1") || kv.equals("1")) res = res.add(new BigDecimal("0.75"));
+        else if (kv.equals("KV2-NT") || kv.equals("KV2NT") || kv.equals("2NT")) res = res.add(new BigDecimal("0.5"));
+        else if (kv.equals("KV2") || kv.equals("2")) res = res.add(new BigDecimal("0.25"));
         
-        // 2. Điểm ưu tiên Đối tượng (Nhóm UT1: 2.0, Nhóm UT2: 1.0)
+        // 2. Điểm ưu tiên Đối tượng
         String dt = (ts.getDoiTuong() != null) ? ts.getDoiTuong().trim() : "";
-        // Nhóm ưu tiên 1: 01, 02, 03, 04
         if (dt.equals("01") || dt.equals("1") || dt.equals("02") || dt.equals("2") 
             || dt.equals("03") || dt.equals("3") || dt.equals("04") || dt.equals("4")) {
             res = res.add(new BigDecimal("2.0"));
-        } 
-        // Nhóm ưu tiên 2: 05, 06, 07
-        else if (dt.equals("05") || dt.equals("5") || dt.equals("06") || dt.equals("6") 
+        } else if (dt.equals("05") || dt.equals("5") || dt.equals("06") || dt.equals("6") 
                  || dt.equals("06A") || dt.equals("07") || dt.equals("7") || dt.equals("07A")) {
             res = res.add(new BigDecimal("1.0"));
         }
-        
         return res;
     }
 
+    /**
+     * Tính Điểm ưu tiên quy đổi (UTQD) theo công thức:
+     * Nếu Tổng điểm >= 22.5: UTQD = [(30 - Tổng điểm)/7.5] * Mức điểm ưu tiên gốc
+     */
+    private BigDecimal calculateUtqd(BigDecimal score, ThiSinh ts, String phuongThuc) {
+        if (score == null || ts == null) return BigDecimal.ZERO;
+        BigDecimal base = calculateBasePriority(ts);
+        if (base.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
+
+        // Chỉ áp dụng quy đổi cho phương thức THPT hoặc tương đương thang 30
+        if (score.compareTo(new BigDecimal("22.5")) <= 0) return base;
+
+        BigDecimal diff = new BigDecimal("30").subtract(score);
+        BigDecimal factor = diff.divide(new BigDecimal("7.5"), 4, RoundingMode.HALF_UP);
+        return base.multiply(factor).setScale(4, RoundingMode.HALF_UP);
+    }
+
+    private String normKey(String s) {
+        if (s == null) return "";
+        String normalized = java.text.Normalizer.normalize(s.trim().toUpperCase(Locale.ROOT), java.text.Normalizer.Form.NFD);
+        return normalized.replaceAll("\\p{InCombiningDiacriticalMarks}+", "")
+                         .replace("Đ", "D")
+                         .replace("-", "");
+    }
 }

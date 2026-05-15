@@ -83,7 +83,7 @@ public class NganhGUI extends JPanel {
 
         String[] columns = {
                 "ID", "Mã Ngành", "Tên Ngành", "Tổ Hợp Gốc", "Chỉ Tiêu", "Điểm Sàn", "Điểm Trúng Tuyển",
-                "SL Nguyện Vọng", "N_TuyểnThẳng", "N_DGNL", "N_THPT", "N_VSAT", "SL_XTT", "SL_DGNL", "SL_VSAT", "SL_THPT"
+                "SL Nguyện Vọng Tổng", "T.Thẳng", "ĐGNL", "THPT", "V-SAT"
         };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
@@ -91,6 +91,21 @@ public class NganhGUI extends JPanel {
         };
         table = new JTable(tableModel);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+
+        TableColumnModel cm = table.getColumnModel();
+        ColumnGroup gNguyenVong = new ColumnGroup("Số lượng nguyện vọng");
+        gNguyenVong.add(cm.getColumn(8));
+        gNguyenVong.add(cm.getColumn(9));
+        gNguyenVong.add(cm.getColumn(10));
+        gNguyenVong.add(cm.getColumn(11));
+
+        GroupableTableHeader header = new GroupableTableHeader(cm);
+        header.addColumnGroup(gNguyenVong);
+        table.setTableHeader(header);
+        // Tăng hẳn lên 100px để chia đều 50px mỗi dòng cho cực kỳ thoáng
+        header.setPreferredSize(new Dimension(table.getPreferredSize().width, 100));
+        table.setRowHeight(40);
+
         configureColumnWidths();
 
         JScrollPane scrollPane = new JScrollPane(table);
@@ -114,9 +129,17 @@ public class NganhGUI extends JPanel {
                 ? bus.getAll()
                 : bus.searchByKeyword(currentKeyword);
         Map<String, Long> soNguyenVongByMaNganh = bus.countNguyenVongByMaNganh();
+        Map<String, Long> soNvByPhuongThuc = bus.countNguyenVongByPhuongThuc();
 
         for (Nganh n : list) {
-            long soNguyenVong = soNguyenVongByMaNganh.getOrDefault(n.getMaNganh(), 0L);
+            String ma = n.getMaNganh();
+            long total  = soNguyenVongByMaNganh.getOrDefault(ma, 0L);
+            long tt     = soNvByPhuongThuc.getOrDefault(ma + "|TUY\u1ec4N TH\u1eb8NG", 0L);   // "Tuy\u1ec3n th\u1eb3ng" -> toUpperCase
+            long dgnl   = soNvByPhuongThuc.getOrDefault(ma + "|\u0110GNL", 0L)
+                        + soNvByPhuongThuc.getOrDefault(ma + "|DGNL", 0L);
+            long thpt   = soNvByPhuongThuc.getOrDefault(ma + "|THPT", 0L);
+            long vsat   = soNvByPhuongThuc.getOrDefault(ma + "|V-SAT", 0L)
+                        + soNvByPhuongThuc.getOrDefault(ma + "|VSAT", 0L);
             tableModel.addRow(new Object[]{
                     n.getIdNganh(),
                     n.getMaNganh(),
@@ -125,15 +148,11 @@ public class NganhGUI extends JPanel {
                     n.getChiTieu(),
                     n.getDiemSan(),
                     n.getDiemTrungTuyen(),
-                    soNguyenVong,
-                    n.getTuyenThang(),
-                    n.getDgnl(),
-                    n.getThpt(),
-                    n.getVsat(),
-                    n.getSlXtt(),
-                    n.getSlDgnl(),
-                    n.getSlVsat(),
-                    n.getSlThpt()
+                    total,
+                    tt,
+                    dgnl,
+                    thpt,
+                    vsat
             });
         }
     }
@@ -412,21 +431,17 @@ public class NganhGUI extends JPanel {
 
     private void configureColumnWidths() {
         TableColumnModel columns = table.getColumnModel();
-        columns.getColumn(0).setPreferredWidth(70);
+        columns.getColumn(0).setPreferredWidth(80);
         columns.getColumn(1).setPreferredWidth(120);
-        columns.getColumn(2).setPreferredWidth(260);
-        columns.getColumn(3).setPreferredWidth(100);
-        columns.getColumn(4).setPreferredWidth(90);
-        columns.getColumn(5).setPreferredWidth(100);
-        columns.getColumn(6).setPreferredWidth(130);
-        columns.getColumn(7).setPreferredWidth(120);
-        columns.getColumn(8).setPreferredWidth(110);
-        columns.getColumn(9).setPreferredWidth(90);
-        columns.getColumn(10).setPreferredWidth(90);
-        columns.getColumn(11).setPreferredWidth(90);
-        columns.getColumn(12).setPreferredWidth(90);
-        columns.getColumn(13).setPreferredWidth(90);
-        columns.getColumn(14).setPreferredWidth(90);
-        columns.getColumn(15).setPreferredWidth(110);
+        columns.getColumn(2).setPreferredWidth(350);
+        columns.getColumn(3).setPreferredWidth(120);
+        columns.getColumn(4).setPreferredWidth(100);
+        columns.getColumn(5).setPreferredWidth(120);
+        columns.getColumn(6).setPreferredWidth(150);
+        columns.getColumn(7).setPreferredWidth(180);
+        columns.getColumn(8).setPreferredWidth(120);
+        columns.getColumn(9).setPreferredWidth(120);
+        columns.getColumn(10).setPreferredWidth(120);
+        columns.getColumn(11).setPreferredWidth(120);
     }
 }

@@ -78,8 +78,16 @@ public class TinhDiemController {
 
         // Kết quả
         String ketQua = "Chưa có ngưỡng";
-        if (nganh.getDiemSan() != null) {
-            ketQua = dxt.compareTo(nganh.getDiemSan()) >= 0 ? "Đạt" : "Không đạt";
+        BigDecimal nguong = nganh.getDiemTrungTuyen();
+        boolean isDiemSanFallback = false;
+        
+        if (nguong == null) {
+            nguong = nganh.getDiemSan();
+            isDiemSanFallback = true;
+        }
+
+        if (nguong != null) {
+            ketQua = dxt.compareTo(nguong) >= 0 ? "Đạt" : "Không đạt";
         }
 
         model.addAttribute("nganhList", nganhRepo.findAllByOrderByMaNganhAsc());
@@ -94,7 +102,8 @@ public class TinhDiemController {
         model.addAttribute("mDut", mDut);
         model.addAttribute("dut", dut);
         model.addAttribute("dxt", dxt);
-        model.addAttribute("nguong", nganh.getDiemSan());
+        model.addAttribute("nguong", nguong);
+        model.addAttribute("isDiemSanFallback", isDiemSanFallback && nguong != null);
         model.addAttribute("ketQua", ketQua);
         model.addAttribute("hasResult", true);
 
@@ -189,9 +198,13 @@ public class TinhDiemController {
             tr.setDiemXetTuyen(dxt);
 
             // Ngưỡng
-            tr.setNguongDauVao(nganh.getDiemSan());
-            if (nganh.getDiemSan() != null) {
-                tr.setKetQua(dxt.compareTo(nganh.getDiemSan()) >= 0 ? "Đạt" : "Không đạt");
+            BigDecimal nguong = nganh.getDiemTrungTuyen();
+            if (nguong == null) {
+                nguong = nganh.getDiemSan();
+            }
+            tr.setNguongDauVao(nguong);
+            if (nguong != null) {
+                tr.setKetQua(dxt.compareTo(nguong) >= 0 ? "Đạt" : "Không đạt");
             } else {
                 tr.setKetQua("Chưa có ngưỡng");
             }
@@ -202,6 +215,8 @@ public class TinhDiemController {
 
         if (bestIdx >= 0) results.get(bestIdx).setBest(true);
 
+        boolean isDiemSanFallback = nganh.getDiemTrungTuyen() == null && nganh.getDiemSan() != null;
+        
         model.addAttribute("nganhList", nganhRepo.findAllByOrderByMaNganhAsc());
         model.addAttribute("monMap", TinhDiemService.getMonNameMap());
         model.addAttribute("nganh", nganh);
@@ -213,6 +228,7 @@ public class TinhDiemController {
         model.addAttribute("results", results);
         model.addAttribute("toHopGoc", toHopGoc);
         model.addAttribute("hasResult", true);
+        model.addAttribute("isDiemSanFallback", isDiemSanFallback);
 
         return "tinhdiem-vsat";
     }
@@ -336,9 +352,13 @@ public class TinhDiemController {
             tr.setDiemXetTuyen(dxt);
 
             // Ngưỡng
-            tr.setNguongDauVao(nganh.getDiemSan());
-            if (nganh.getDiemSan() != null) {
-                tr.setKetQua(dxt.compareTo(nganh.getDiemSan()) >= 0 ? "Đạt" : "Không đạt");
+            BigDecimal nguong = nganh.getDiemTrungTuyen();
+            if (nguong == null) {
+                nguong = nganh.getDiemSan();
+            }
+            tr.setNguongDauVao(nguong);
+            if (nguong != null) {
+                tr.setKetQua(dxt.compareTo(nguong) >= 0 ? "Đạt" : "Không đạt");
             } else {
                 tr.setKetQua("Chưa có ngưỡng");
             }
@@ -349,6 +369,8 @@ public class TinhDiemController {
 
         if (bestIdx >= 0) results.get(bestIdx).setBest(true);
 
+        boolean isDiemSanFallback = nganh.getDiemTrungTuyen() == null && nganh.getDiemSan() != null;
+        
         model.addAttribute("nganhList", nganhRepo.findAllByOrderByMaNganhAsc());
         model.addAttribute("monMap", TinhDiemService.getMonNameMap());
         model.addAttribute("nganh", nganh);
@@ -360,6 +382,7 @@ public class TinhDiemController {
         model.addAttribute("results", results);
         model.addAttribute("toHopGoc", toHopGoc);
         model.addAttribute("hasResult", true);
+        model.addAttribute("isDiemSanFallback", isDiemSanFallback);
 
         return "tinhdiem-thpt";
     }

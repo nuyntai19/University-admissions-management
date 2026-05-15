@@ -74,8 +74,12 @@
             </div>
             <p class="card-subtitle">
                 Tổ hợp gốc quy đổi theo ngành: <span class="badge badge-info" th:text="${toHopGoc}"></span>,
-                ngưỡng đầu vào:
+                <span th:text="${isDiemSanFallback ? 'Ngưỡng đầu vào (Điểm sàn):' : 'Điểm trúng tuyển (Điểm chuẩn):'}"></span>
                 <span class="badge badge-warning" th:text="${nguong != null ? nguong : 'Chưa có'}"></span>
+                <br>
+                <span th:if="${isDiemSanFallback}" style="color: #e74c3c; font-size: 13px; font-weight: 600; margin-top: 5px; display: inline-block;">
+                    ⚠ Cảnh báo: Chưa có điểm chuẩn chính thức, hệ thống đang dùng tạm điểm sàn để tính kết quả đạt/không đạt.
+                </span>
             </p>
             <p><a th:href="@{/tinhdiem/dgnl}">← Quay lại</a></p>
 

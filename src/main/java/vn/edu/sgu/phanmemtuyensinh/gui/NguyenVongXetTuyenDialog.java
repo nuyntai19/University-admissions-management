@@ -88,7 +88,7 @@ public class NguyenVongXetTuyenDialog extends JDialog {
         txtThuTu.setEditable(false);
         txtThuTu.setBackground(READONLY_BG);
         styleField(txtThuTu);
-        cbPhuongThuc = new JComboBox<>(new String[]{"THPT", "ĐGNL", "V-SAT", "Tuyển thẳng"});
+        cbPhuongThuc = new JComboBox<>(new String[]{"Tự động chọn", "THPT", "ĐGNL", "V-SAT", "Tuyển thẳng"});
         styleCbPt(cbPhuongThuc);
         gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.3;
         card1.add(label("CCCD / Số báo danh:"), gbc);
@@ -278,8 +278,15 @@ public class NguyenVongXetTuyenDialog extends JDialog {
         cbCccd.setText(nv.getNvCccd());
         cbCccd.setEnabled(false);
         txtThuTu.setText(String.valueOf(nv.getNvTt()));
-        String pm = nv.getTtPhuongThuc() != null ? nv.getTtPhuongThuc() : "THPT";
-        cbPhuongThuc.setSelectedItem(pm);
+        String pm = nv.getTtPhuongThuc();
+        if (pm == null || pm.isEmpty()) {
+            cbPhuongThuc.setSelectedItem("Tự động chọn");
+        } else {
+            // Chuẩn hóa tên phương thức để khớp với item trong ComboBox
+            if ("DGNL".equalsIgnoreCase(pm)) pm = "ĐGNL";
+            if ("VSAT".equalsIgnoreCase(pm)) pm = "V-SAT";
+            cbPhuongThuc.setSelectedItem(pm);
+        }
         String nganhTxt = nv.getNvMaNganh() != null ? nv.getNvMaNganh() : "";
         if (nv.getNvTenMaNganh() != null) nganhTxt += " - " + nv.getNvTenMaNganh();
         if (nv.getTtThm() != null && !nv.getTtThm().isEmpty()) nganhTxt += " - " + nv.getTtThm();
@@ -321,9 +328,18 @@ public class NguyenVongXetTuyenDialog extends JDialog {
 
         // 2. Kiểm tra điểm thi tồn tại cho phương thức đã chọn
         String pt = getPhuongThuc();
-        if (!"Tuyển thẳng".equalsIgnoreCase(pt) && diemDao.getByCcqdAndPhuongThuc(cccd, pt) == null) {
-            JOptionPane.showMessageDialog(this, "Thí sinh này chưa có dữ liệu điểm thi cho phương thức " + pt + "!", "Lỗi dữ liệu", JOptionPane.ERROR_MESSAGE);
-            return false;
+        if (!pt.isEmpty() && !"Tuyển thẳng".equalsIgnoreCase(pt)) {
+            // Tìm bản ghi khớp chính xác phương thức
+            if (diemDao.getByCcqdAndPhuongThuc(cccd, pt) == null) {
+                // Nếu không thấy bản ghi khớp phương thức, kiểm tra xem có bản ghi nào khác của thí sinh này không
+                // (Hỗ trợ trường hợp người dùng nhập chung tất cả điểm vào 1 bản ghi THPT hoặc ngược lại)
+                List<vn.edu.sgu.phanmemtuyensinh.dal.entity.DiemThiXetTuyen> allDiems = diemDao.getListByCccd(cccd);
+                if (allDiems == null || allDiems.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Thí sinh này chưa có bất kỳ dữ liệu điểm thi nào!", "Lỗi dữ liệu", JOptionPane.ERROR_MESSAGE);
+                    return false;
+                }
+                // Nếu có bản ghi khác, ta cho phép lưu và hệ thống tính toán sẽ tự tìm điểm trong các bản ghi đó
+            }
         }
 
         String nganhRaw = cbNganh.getText().trim();
@@ -373,6 +389,7 @@ public class NguyenVongXetTuyenDialog extends JDialog {
     }
 
     public String getPhuongThuc() {
-        return cbPhuongThuc.getSelectedItem().toString();
+        String pt = cbPhuongThuc.getSelectedItem().toString();
+        return "Tự động chọn".equals(pt) ? "" : pt;
     }
 }

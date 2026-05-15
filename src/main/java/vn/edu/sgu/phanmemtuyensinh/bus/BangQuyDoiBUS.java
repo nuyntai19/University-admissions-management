@@ -129,6 +129,17 @@ public class BangQuyDoiBUS {
     }
 
     /**
+     * Chuẩn hóa key tra cứu (loại bỏ dấu tiếng Việt)
+     */
+    private String normKey(String s) {
+        if (s == null) return "";
+        String normalized = java.text.Normalizer.normalize(s.trim().toUpperCase(Locale.ROOT), java.text.Normalizer.Form.NFD);
+        return normalized.replaceAll("\\p{InCombiningDiacriticalMarks}+", "")
+                         .replace("Đ", "D")
+                         .replace("-", "");
+    }
+
+    /**
      * Phiên bản tối ưu: Sử dụng Map cache để tra cứu cực nhanh.
      * @param cache Map được nhóm theo key: PHUONGTHUC_TOHOP_MON
      */
@@ -137,16 +148,33 @@ public class BangQuyDoiBUS {
         if (x == null) return null;
         
         String pt = norm(phuongThuc);
-        String th = emptyToNull(norm(toHop));
-        String m = emptyToNull(norm(mon));
+        String th = norm(toHop);
+        String m = norm(mon);
+
+        String ptKey = normKey(phuongThuc);
+        String thKey = normKey(toHop);
+        String mKey = normKey(mon);
 
         BangQuyDoi interval = null;
+        List<BangQuyDoi> subList = null;
         if (cache != null) {
-            // Build key để tra cứu nhanh trong Map
-            String key = pt + (th != null ? "_" + th : "") + (m != null ? "_" + m : "");
-            List<BangQuyDoi> subList = cache.get(key);
+            // 1. Tìm theo key cụ thể (VD: DGNL_A01)
+            String key = ptKey + (thKey.isEmpty() ? "" : "_" + thKey) + (mKey.isEmpty() ? "" : "_" + mKey);
+            subList = cache.get(key);
             
-            if (subList != null) {
+            // 2. Đặc biệt cho V-SAT: N1 có thể được lưu là N1_THI trong bảng quy đổi
+            if ((subList == null || subList.isEmpty()) && ptKey.contains("VSAT") && mKey.equals("N1")) {
+                String altKey = ptKey + (thKey.isEmpty() ? "" : "_" + thKey) + "_N1_THI";
+                subList = cache.get(altKey);
+            }
+            
+            // 3. Nếu không thấy, thử tìm theo key chung (VD: DGNL_CHUNG)
+            if ((subList == null || subList.isEmpty()) && ptKey.contains("DGNL")) {
+                String fallbackKey = ptKey + "_CHUNG" + (mKey.isEmpty() ? "" : "_" + mKey);
+                subList = cache.get(fallbackKey);
+            }
+
+            if (subList != null && !subList.isEmpty()) {
                 for (BangQuyDoi bqd : subList) {
                     if (x.compareTo(bqd.getDDiemA()) >= 0 && x.compareTo(bqd.getDDiemB()) <= 0) {
                         interval = bqd;
@@ -154,10 +182,20 @@ public class BangQuyDoiBUS {
                     }
                 }
             }
+            
+            // 3. Xử lý trường hợp điểm nằm ngoài các khoảng (biên)
+            if (interval == null && subList != null && !subList.isEmpty()) {
+                subList.sort((o1, o2) -> o1.getDDiemA().compareTo(o2.getDDiemA()));
+                if (x.compareTo(subList.get(0).getDDiemA()) < 0) {
+                    interval = subList.get(0);
+                } else if (x.compareTo(subList.get(subList.size() - 1).getDDiemB()) > 0) {
+                    interval = subList.get(subList.size() - 1);
+                }
+            }
         } else {
-            // Fallback DB
-            interval = dao.findIntervalExclusiveLower(pt, th, m, x);
-            if (interval == null) interval = dao.findIntervalInclusive(pt, th, m, x);
+            // Fallback DB - sử dụng giá trị norm thông thường (có thể còn dấu) để khớp DB
+            interval = dao.findIntervalExclusiveLower(pt, emptyToNull(th), emptyToNull(m), x);
+            if (interval == null) interval = dao.findIntervalInclusive(pt, emptyToNull(th), emptyToNull(m), x);
         }
 
         if (interval == null) {
@@ -170,6 +208,10 @@ public class BangQuyDoiBUS {
         BigDecimal c = interval.getDDiemC();
         BigDecimal d = interval.getDDiemD();
         
+        // Nếu x nằm ngoài khoảng [a, b], trả về giá trị biên tương ứng
+        if (x.compareTo(a) <= 0) return c;
+        if (x.compareTo(b) >= 0) return d;
+
         if (a == null || b == null || c == null || d == null || b.compareTo(a) == 0) return d;
 
         MathContext mc = MathContext.DECIMAL64;
@@ -341,19 +383,19 @@ public class BangQuyDoiBUS {
             {"DI","80%",  "79",    "84.5",  "7.25", "7.75"},
             {"DI","90%",  "71",    "79",    "6.5",  "7.25"},
             {"DI",">90%", "31",    "71",    "3.0",  "6.5"},
-            // --- Tiếng Anh (N1_THI) ---
-            {"N1_THI","3%",   "131",   "150",   "7.75", "9.75"},
-            {"N1_THI","5%",   "127.5", "131",   "7.5",  "7.75"},
-            {"N1_THI","10%",  "120.5", "127.5", "7.0",  "7.5"},
-            {"N1_THI","20%",  "112",   "120.5", "6.5",  "7.0"},
-            {"N1_THI","30%",  "105",   "112",   "6.0",  "6.5"},
-            {"N1_THI","40%",  "98.5",  "105",   "5.75", "6.0"},
-            {"N1_THI","50%",  "92",    "98.5",  "5.5",  "5.75"},
-            {"N1_THI","60%",  "85.5",  "92",    "5.25", "5.5"},
-            {"N1_THI","70%",  "78.5",  "85.5",  "5.0",  "5.25"},
-            {"N1_THI","80%",  "70.5",  "78.5",  "4.5",  "5.0"},
-            {"N1_THI","90%",  "60",    "70.5",  "4.0",  "4.5"},
-            {"N1_THI",">90%", "20.5",  "60",    "1.25", "4.0"},
+            // --- Tiếng Anh (N1) ---
+            {"N1","3%",   "131",   "150",   "7.75", "9.75"},
+            {"N1","5%",   "127.5", "131",   "7.5",  "7.75"},
+            {"N1","10%",  "120.5", "127.5", "7.0",  "7.5"},
+            {"N1","20%",  "112",   "120.5", "6.5",  "7.0"},
+            {"N1","30%",  "105",   "112",   "6.0",  "6.5"},
+            {"N1","40%",  "98.5",  "105",   "5.75", "6.0"},
+            {"N1","50%",  "92",    "98.5",  "5.5",  "5.75"},
+            {"N1","60%",  "85.5",  "92",    "5.25", "5.5"},
+            {"N1","70%",  "78.5",  "85.5",  "5.0",  "5.25"},
+            {"N1","80%",  "70.5",  "78.5",  "4.5",  "5.0"},
+            {"N1","90%",  "60",    "70.5",  "4.0",  "4.5"},
+            {"N1",">90%", "20.5",  "60",    "1.25", "4.0"},
             // --- Ngữ văn (VA) ---
             {"VA","3%",   "129.5", "146",   "9.25", "9.75"},
             {"VA","5%",   "127.5", "129.5", "9.0",  "9.25"},

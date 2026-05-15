@@ -2,10 +2,12 @@ package vn.edu.sgu.phanmemtuyensinh.gui;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Frame;
+import java.awt.GridLayout;
 import java.util.List;
 
 import javax.swing.BorderFactory;
@@ -171,11 +173,11 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         JScrollPane scrollPane = new JScrollPane(table, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         panel.add(scrollPane, BorderLayout.CENTER);
 
-        JPanel pnlPage = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 5));
+        JPanel pnlPage = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 5));
         JButton btnFirst = new JButton("<<");
-        JButton btnPrev  = new JButton("< Trước");
-        lblPageInfo      = new JLabel("Trang 1 / 1 (0 dòng)");
-        JButton btnNext  = new JButton("Sau >");
+        JButton btnPrev  = new JButton("Trang tr\u01b0\u1edbc");
+        lblPageInfo      = new JLabel("Trang 1 / 1 (0 d\u00f2ng)");
+        JButton btnNext  = new JButton("Trang sau");
         JButton btnLast  = new JButton(">>");
 
         btnFirst.addActionListener(e -> { currentPage = 1; updateTable(); });
@@ -216,7 +218,9 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         List<NguyenVongXetTuyen> all = bus.getAll();
         currentDataList = new java.util.ArrayList<>();
         for (NguyenVongXetTuyen nv : all) {
-            boolean matchPt = "Tất cả".equals(phuongThuc) || (nv.getTtPhuongThuc() != null && nv.getTtPhuongThuc().equalsIgnoreCase(phuongThuc));
+            String nvPt = bus.normalizePhuongThuc(nv.getTtPhuongThuc());
+            String filterPt = bus.normalizePhuongThuc(phuongThuc);
+            boolean matchPt = "Tất cả".equals(phuongThuc) || nvPt.equals(filterPt);
             if (!matchPt) continue;
             
             boolean m1 = nv.getNvCccd()       != null && nv.getNvCccd().toLowerCase().contains(kw);
@@ -387,83 +391,177 @@ public class NguyenVongXetTuyenGUI extends JPanel {
     }
 
     private void moBaoCaoTrungTuyen() {
+        java.util.Map<String, Long> totalCounts = bus.getTotalCountsByStatus();
         List<Object[]> chiTiet = bus.getTrungTuyenChiTiet();
-        List<Object[]> tongHop = bus.getThongKeTrungTuyenTheoNganhPhuongThuc();
+        List<Object[]> dashboardData = bus.getReportDashboard();
 
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Báo cáo trúng tuyển", true);
-        dialog.setSize(1180, 720);
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Kết quả xét tuyển", true);
+        dialog.setSize(1280, 800);
         dialog.setLocationRelativeTo(this);
-        dialog.setLayout(new BorderLayout(10, 10));
+        dialog.setLayout(new BorderLayout(0, 0));
+        dialog.getContentPane().setBackground(new Color(245, 247, 251));
 
-        JLabel lblTitle = new JLabel("BÁO CÁO TRÚNG TUYỂN THEO NGÀNH / PHƯƠNG THỨC", JLabel.CENTER);
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        // 1. Dashboard Header
+        JPanel pnlDashboard = new JPanel(new GridLayout(1, 2, 20, 0));
+        pnlDashboard.setBackground(new Color(245, 247, 251));
+        pnlDashboard.setBorder(BorderFactory.createEmptyBorder(20, 25, 20, 25));
 
-        JPanel pnlSummary = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
-        pnlSummary.add(createReportChip("Tổng bản ghi trúng tuyển: " + chiTiet.size(), new Color(46, 125, 50)));
-        pnlSummary.add(createReportChip("Tổng nhóm ngành/phương thức: " + tongHop.size(), new Color(30, 136, 229)));
+        long countTruongTuyen = totalCounts.getOrDefault("Tr\u00fang tuy\u1ec3n", 0L);
+        long totalNV = totalCounts.getOrDefault("T\u1ed5ng", 0L);
 
+        pnlDashboard.add(createStatCard("TR\u00daNG TUY\u1ec2N", countTruongTuyen, new Color(25, 135, 84)));      // Green
+        pnlDashboard.add(createStatCard("T\u1ed4NG NGUY\u1ec2N V\u1eccNG", totalNV, new Color(253, 126, 20)));        // Orange
+
+        // 2. Tabs
         JTabbedPane tabs = new JTabbedPane();
-        
-        // --- START NEW LOGIC FOR FILTER & EXPORT ---
-        JPanel pnlChiTiet = new JPanel(new BorderLayout());
-        JPanel pnlFilter = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        tabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        tabs.setBorder(BorderFactory.createEmptyBorder(0, 20, 20, 20));
+
+        // Tab 1: Danh sách chi tiết
+        JPanel pnlChiTiet = new JPanel(new BorderLayout(0, 10));
+        pnlChiTiet.setBackground(Color.WHITE);
+        pnlChiTiet.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+        JPanel pnlFilter = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
+        pnlFilter.setOpaque(false);
         
         java.util.Set<String> nganhSet = new java.util.TreeSet<>();
         for (Object[] row : chiTiet) {
-            String maNganh = row[0] != null ? row[0].toString() : "";
-            String tenNganh = row[1] != null ? row[1].toString() : "";
-            nganhSet.add(maNganh + " - " + tenNganh);
+            nganhSet.add(row[0] + " - " + row[1]);
         }
         
-        javax.swing.JComboBox<String> cboNganh = new javax.swing.JComboBox<>();
-        cboNganh.addItem("Tất cả");
-        for (String nganh : nganhSet) {
-            cboNganh.addItem(nganh);
-        }
-        
-        JButton btnExportExcel = new JButton("Xuất Excel");
-        btnExportExcel.setBackground(new Color(33, 115, 70));
-        btnExportExcel.setForeground(Color.WHITE);
-        btnExportExcel.setFocusPainted(false);
-        
-        pnlFilter.add(new JLabel("Lọc theo Ngành:"));
+        JComboBox<String> cboNganh = new JComboBox<>();
+        cboNganh.addItem("--- Tất cả ngành ---");
+        for (String nganh : nganhSet) cboNganh.addItem(nganh);
+        cboNganh.setPreferredSize(new Dimension(300, 32));
+
+        JButton btnExport = new JButton("Xuất Excel");
+        btnExport.setBackground(new Color(33, 115, 70));
+        btnExport.setForeground(Color.WHITE);
+        btnExport.setFocusPainted(false);
+        btnExport.setPreferredSize(new Dimension(120, 32));
+
+        pnlFilter.add(new JLabel("Tìm kiếm ngành:"));
         pnlFilter.add(cboNganh);
-        pnlFilter.add(btnExportExcel);
-        
+        pnlFilter.add(btnExport);
+
         JTable tblChiTiet = createChiTietTable(chiTiet);
+        tblChiTiet.setRowHeight(32);
         javax.swing.table.TableRowSorter<DefaultTableModel> sorter = new javax.swing.table.TableRowSorter<>((DefaultTableModel) tblChiTiet.getModel());
         tblChiTiet.setRowSorter(sorter);
         
         cboNganh.addItemListener(e -> {
             if (e.getStateChange() == java.awt.event.ItemEvent.SELECTED) {
-                String selected = e.getItem().toString();
-                if ("Tất cả".equals(selected)) {
-                    sorter.setRowFilter(null);
-                } else {
-                    String maNganh = selected.split(" - ")[0];
-                    sorter.setRowFilter(javax.swing.RowFilter.regexFilter("^" + java.util.regex.Pattern.quote(maNganh) + "$", 0));
-                }
+                String s = e.getItem().toString();
+                if (s.startsWith("---")) sorter.setRowFilter(null);
+                else sorter.setRowFilter(javax.swing.RowFilter.regexFilter("^" + java.util.regex.Pattern.quote(s.split(" - ")[0]) + "$", 0));
             }
         });
         
-        btnExportExcel.addActionListener(e -> exportTableToExcel(tblChiTiet, "ChiTietTrungTuyen"));
-        
+        btnExport.addActionListener(e -> exportTableToExcel(tblChiTiet, "DanhSachTrungTuyen"));
+
+        JScrollPane spChiTiet = new JScrollPane(tblChiTiet);
+        spChiTiet.setBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)));
         pnlChiTiet.add(pnlFilter, BorderLayout.NORTH);
-        pnlChiTiet.add(new JScrollPane(tblChiTiet), BorderLayout.CENTER);
+        pnlChiTiet.add(spChiTiet, BorderLayout.CENTER);
+
+        // Tab 2: Thống kê tổng hợp
+        JPanel pnlThongKe = new JPanel(new BorderLayout());
+        pnlThongKe.setBackground(Color.WHITE);
+        pnlThongKe.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         
-        tabs.addTab("Chi tiết trúng tuyển", pnlChiTiet);
-        // --- END NEW LOGIC ---
+        JTable tblSummary = createDashboardTable(dashboardData);
+        tblSummary.setRowHeight(35);
+        JScrollPane spSummary = new JScrollPane(tblSummary);
+        spSummary.setBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)));
+        pnlThongKe.add(spSummary, BorderLayout.CENTER);
 
-        tabs.addTab("Tổng hợp theo ngành/phương thức", new JScrollPane(createTongHopTable(tongHop)));
+        tabs.addTab("Danh sách trúng tuyển chi tiết", pnlChiTiet);
+        tabs.addTab("Thống kê trúng tuyển theo phương thức", pnlThongKe);
 
-        JPanel header = new JPanel(new BorderLayout(0, 8));
-        header.setBorder(BorderFactory.createEmptyBorder(12, 12, 0, 12));
-        header.add(lblTitle, BorderLayout.NORTH);
-        header.add(pnlSummary, BorderLayout.SOUTH);
+        // Header Title
+        JPanel pnlHeader = new JPanel(new BorderLayout());
+        pnlHeader.setBackground(new Color(245, 247, 251));
+        JLabel lblMainTitle = new JLabel("Kết quả xét tuyển", JLabel.LEFT);
+        lblMainTitle.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        lblMainTitle.setBorder(BorderFactory.createEmptyBorder(15, 25, 0, 0));
+        pnlHeader.add(lblMainTitle, BorderLayout.NORTH);
+        pnlHeader.add(pnlDashboard, BorderLayout.CENTER);
 
-        dialog.add(header, BorderLayout.NORTH);
+        dialog.add(pnlHeader, BorderLayout.NORTH);
         dialog.add(tabs, BorderLayout.CENTER);
         dialog.setVisible(true);
+    }
+
+    private JPanel createStatCard(String title, long value, Color accentColor) {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(Color.WHITE);
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(230, 230, 230), 1),
+                BorderFactory.createEmptyBorder(15, 20, 15, 20)
+        ));
+
+        // Accent line on the left
+        JPanel accent = new JPanel();
+        accent.setBackground(accentColor);
+        accent.setPreferredSize(new Dimension(5, 0));
+        card.add(accent, BorderLayout.WEST);
+
+        JPanel content = new JPanel(new BorderLayout());
+        content.setOpaque(false);
+        content.setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 0));
+
+        JLabel lblVal = new JLabel(String.format("%,d", value));
+        lblVal.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        lblVal.setForeground(accentColor);
+
+        JLabel lblTitle = new JLabel(title);
+        lblTitle.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lblTitle.setForeground(new Color(100, 100, 100));
+
+        content.add(lblVal, BorderLayout.WEST);
+        content.add(lblTitle, BorderLayout.EAST);
+
+        card.add(content, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JTable createDashboardTable(List<Object[]> data) {
+        String[] cols = {"STT", "Mã ngành", "Tên ngành", "Chỉ tiêu", "SL TT (T.Thẳng)", "SL TT (ĐGNL)", "SL TT (THPT)", "SL TT (V-SAT)", "Tổng trúng tuyển", "Điểm chuẩn"};
+        DefaultTableModel model = new DefaultTableModel(cols, 0) {
+            public boolean isCellEditable(int r, int c) { return false; }
+        };
+
+        int stt = 1;
+        for (Object[] row : data) {
+            Object[] fullRow = new Object[cols.length];
+            fullRow[0] = stt++;
+            System.arraycopy(row, 0, fullRow, 1, row.length);
+            model.addRow(fullRow);
+        }
+
+        JTable table = new JTable(model);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+        
+        // C\u1ea5u h\u00ecnh \u0111\u1ed9 r\u1ed9ng t\u01b0\u01a1ng \u0111\u1ed1i
+        int[] w = {50, 90, 300, 80, 110, 110, 110, 110, 120, 90};
+        for (int i = 0; i < w.length; i++) {
+            table.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
+        }
+        
+        // Custom rendering for some columns
+        table.getColumnModel().getColumn(8).setCellRenderer(new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+                Component comp = super.getTableCellRendererComponent(t, v, s, f, r, c);
+                setForeground(new Color(25, 135, 84));
+                setFont(getFont().deriveFont(Font.BOLD));
+                setHorizontalAlignment(JLabel.CENTER);
+                return comp;
+            }
+        });
+
+        return table;
     }
 
     private JTable createChiTietTable(List<Object[]> data) {
@@ -488,39 +586,6 @@ public class NguyenVongXetTuyenGUI extends JPanel {
             table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
         }
         return table;
-    }
-
-    private JTable createTongHopTable(List<Object[]> data) {
-        DefaultTableModel model = new DefaultTableModel(new String[]{
-                "Mã ngành", "Tên ngành", "Phương thức", "Số trúng tuyển"
-        }, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
-
-        for (Object[] row : data) {
-            model.addRow(row);
-        }
-
-        JTable table = new JTable(model);
-        table.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
-        int[] widths = {100, 260, 120, 120};
-        for (int i = 0; i < widths.length; i++) {
-            table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
-        }
-        return table;
-    }
-
-    private JLabel createReportChip(String text, Color color) {
-        JLabel chip = new JLabel(text);
-        chip.setOpaque(true);
-        chip.setBackground(color);
-        chip.setForeground(Color.WHITE);
-        chip.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
-        chip.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        return chip;
     }
 
     private void exportTableToExcel(JTable table, String defaultFileName) {

@@ -2,16 +2,19 @@ package vn.edu.sgu.phanmemtuyensinh.gui;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.math.BigDecimal;
 import java.util.List;
 
 import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
@@ -26,6 +29,10 @@ import javax.swing.JTextField;
 import javax.swing.SwingWorker;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.DefaultListModel;
+import javax.swing.JList;
+import javax.swing.JPopupMenu;
+import javax.swing.ListSelectionModel;
 
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.FillPatternType;
@@ -40,7 +47,9 @@ import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
 
 import vn.edu.sgu.phanmemtuyensinh.bus.DiemThiXetTuyenBUS;
+import vn.edu.sgu.phanmemtuyensinh.bus.ThiSinhBUS;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.DiemThiXetTuyen;
+import vn.edu.sgu.phanmemtuyensinh.dal.entity.ThiSinh;
 
 public class DiemThiXetTuyenGUI extends JPanel {
 
@@ -75,6 +84,9 @@ public class DiemThiXetTuyenGUI extends JPanel {
     private long totalItems = 0;
     private String currentKeyword = "";
     private String currentSortOrder = "ASC";
+    private String currentMode = "THPT"; // THPT, DGNL, V-SAT
+
+    private JButton btnDauTrang, btnCuoiTrang;
 
     public DiemThiXetTuyenGUI() {
         setLayout(new BorderLayout(10, 10));
@@ -88,109 +100,245 @@ public class DiemThiXetTuyenGUI extends JPanel {
     }
 
     private void buildTop() {
-        JLabel lblTitle = new JLabel("QUẢN LÝ ĐIỂM THI XÉT TUYỂN", JLabel.CENTER);
-        ModernTheme.styleModuleTitle(lblTitle);
+        JPanel pnlHeader = new JPanel(new BorderLayout(0, 10));
+        pnlHeader.setOpaque(false);
+        pnlHeader.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
 
-        JPanel pnlActions = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        pnlActions.setOpaque(false);
-        btnThem = new JButton("Thêm");
-        btnSua = new JButton("Sửa");
-        btnXoa = new JButton("Xóa");
-        btnImport = new JButton("Import");
-        btnExport = new JButton("Export");
-        btnThongKe = new JButton("Thống Kê");
-        btnLamMoi = new JButton("Làm Mới");
-        pnlActions.add(btnThem);
-        pnlActions.add(btnSua);
-        pnlActions.add(btnXoa);
-        pnlActions.add(btnLamMoi);
+        JLabel lblTitle = new JLabel("Qu\u1ea3n l\u00fd \u0110i\u1ec3m thi", JLabel.LEFT);
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        pnlHeader.add(lblTitle, BorderLayout.NORTH);
 
-        JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        pnlSearch.setOpaque(false);
-        pnlSearch.add(new JLabel("Tìm CCCD / SBD:"));
-        txtTimKiem = new JTextField(18);
-        btnTim = new JButton("Tìm");
-        pnlSearch.add(txtTimKiem);
-        pnlSearch.add(btnTim);
-        pnlSearch.add(btnThongKe);
-        pnlSearch.add(btnImport);
-        pnlSearch.add(btnExport);
+        // Mode Switcher (THPT, DGNL, V-SAT)
+        JPanel pnlModes = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        pnlModes.setOpaque(false);
+        
+        javax.swing.ButtonGroup group = new javax.swing.ButtonGroup();
+        javax.swing.JToggleButton btnModeTHPT = createModeTab("THPT");
+        javax.swing.JToggleButton btnModeDGNL = createModeTab("DGNL");
+        javax.swing.JToggleButton btnModeVSAT = createModeTab("V-SAT");
+        
+        group.add(btnModeTHPT);
+        group.add(btnModeDGNL);
+        group.add(btnModeVSAT);
+        btnModeTHPT.setSelected(true);
 
+        pnlModes.add(btnModeTHPT);
+        pnlModes.add(btnModeDGNL);
+        pnlModes.add(btnModeVSAT);
 
-        JPanel pnlActionSearchSort = new JPanel(new BorderLayout(8, 8));
-        pnlActionSearchSort.setOpaque(false);
-        pnlActionSearchSort.add(pnlActions, BorderLayout.WEST);
-        pnlActionSearchSort.add(pnlSearch, BorderLayout.EAST);
+        ActionListener modeListener = e -> {
+            currentMode = e.getActionCommand();
+            currentPage = 1;
+            buildTable(); 
+            loadPage();
+        };
+        btnModeTHPT.addActionListener(modeListener);
+        btnModeDGNL.addActionListener(modeListener);
+        btnModeVSAT.addActionListener(modeListener);
 
-        JPanel pnlTop = new JPanel(new BorderLayout(0, 8));
-        pnlTop.setOpaque(false);
-        pnlTop.add(lblTitle, BorderLayout.NORTH);
-        pnlTop.add(pnlActionSearchSort, BorderLayout.CENTER);
+        // Build Action Buttons row
+        JPanel pnlActionButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        pnlActionButtons.setOpaque(false);
+        pnlActionButtons.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
+        btnImport = btnStyled("Import", new Color(0, 105, 92));
+        btnImport.setPreferredSize(new Dimension(100, 40));
+        btnThem = btnStyled("Th\u00eam", new Color(46, 125, 50));
+        btnThem.setPreferredSize(new Dimension(100, 40));
+        btnSua = btnStyled("S\u1eeda", new Color(255, 152, 0));
+        btnSua.setPreferredSize(new Dimension(100, 40));
+        btnXoa = btnStyled("X\u00f3a", new Color(211, 47, 47));
+        btnXoa.setPreferredSize(new Dimension(100, 40));
+        btnLamMoi = btnStyled("L\u00e0m m\u1edbi", new Color(108, 117, 125));
+        btnLamMoi.setPreferredSize(new Dimension(120, 40));
+        pnlActionButtons.add(btnImport);
+        pnlActionButtons.add(btnThem);
+        pnlActionButtons.add(btnSua);
+        pnlActionButtons.add(btnXoa);
+        pnlActionButtons.add(btnLamMoi);
+
+        // Build Search row
+        JPanel pnlSearchRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        pnlSearchRow.setOpaque(false);
+        pnlSearchRow.setBorder(BorderFactory.createEmptyBorder(10, 0, 5, 0));
+        JLabel lblSearch = new JLabel("T\u00ecm CCCD/SBD:");
+        lblSearch.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        txtTimKiem = new JTextField(25);
+        txtTimKiem.setPreferredSize(new Dimension(350, 40));
+        btnTim = btnStyled("T\u00ecm", new Color(13, 110, 253));
+        btnTim.setPreferredSize(new Dimension(100, 40));
+        btnTim.addActionListener(e -> timKiem());
+        pnlSearchRow.add(lblSearch);
+        pnlSearchRow.add(txtTimKiem);
+        pnlSearchRow.add(btnTim);
+
+        // Combine Row 1 and Row 2 into a single top row
+        JPanel pnlTopRow = new JPanel(new BorderLayout());
+        pnlTopRow.setOpaque(false);
+        pnlTopRow.add(pnlModes, BorderLayout.WEST);
+        pnlTopRow.add(pnlActionButtons, BorderLayout.EAST);
+
+        // Assembly
+        JPanel pnlToolbar = new JPanel();
+        pnlToolbar.setLayout(new BoxLayout(pnlToolbar, BoxLayout.Y_AXIS));
+        pnlToolbar.setOpaque(false);
+        pnlToolbar.add(pnlTopRow);
+        pnlToolbar.add(javax.swing.Box.createRigidArea(new Dimension(0, 10)));
+        pnlToolbar.add(pnlSearchRow);
+
+        add(pnlToolbar, BorderLayout.NORTH);
+
+        pnlHeader.add(pnlToolbar, BorderLayout.CENTER);
+        add(pnlHeader, BorderLayout.NORTH);
 
         btnThem.addActionListener(e -> themDiem());
         btnSua.addActionListener(e -> suaDiem());
         btnXoa.addActionListener(e -> xoaDiem());
         btnImport.addActionListener(e -> importDiem());
-        btnExport.addActionListener(e -> exportDiem());
-        btnThongKe.addActionListener(e -> thongKeDiem());
-        btnTim.addActionListener(e -> timKiem());
         btnLamMoi.addActionListener(e -> lamMoi());
-
-        add(pnlTop, BorderLayout.NORTH);
+        txtTimKiem.addActionListener(e -> timKiem());
     }
 
+    private javax.swing.JToggleButton createModeTab(String text) {
+        javax.swing.JToggleButton btn = new javax.swing.JToggleButton(text);
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        btn.setPreferredSize(new Dimension(120, 45));
+        btn.setFocusPainted(false);
+        btn.setBackground(Color.WHITE);
+        btn.setBorder(BorderFactory.createMatteBorder(0, 0, 3, 0, new Color(230, 230, 230)));
+        btn.setContentAreaFilled(false);
+        btn.setOpaque(true);
+        
+        btn.addChangeListener(e -> {
+            if (btn.isSelected()) {
+                btn.setBorder(BorderFactory.createMatteBorder(0, 0, 3, 0, new Color(13, 110, 253)));
+                btn.setForeground(new Color(13, 110, 253));
+                btn.setBackground(new Color(240, 247, 255));
+            } else {
+                btn.setBorder(BorderFactory.createMatteBorder(0, 0, 3, 0, new Color(230, 230, 230)));
+                btn.setForeground(Color.BLACK);
+                btn.setBackground(Color.WHITE);
+            }
+        });
+        return btn;
+    }
+
+    private JButton btnStyled(String text, Color color) {
+        JButton b = new JButton(text);
+        b.setBackground(color);
+        b.setForeground(Color.WHITE);
+        b.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        b.setFocusPainted(false);
+        b.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
+        return b;
+    }
+
+
     private void buildTable() {
-        String[] columns = {
-                "ID", "CCCD", "Số Báo Danh", "Phương Thức",
-                "TO", "LI", "HO", "SI", "SU", "DI", "VA", "GDCD",
-                "N1_THI", "N1_CC", "CNCN", "CNNN", "TI", "KTPL", "NL1", 
-                "NK1", "NK2", "NK3", "NK4", "NK5", "NK6", "NK7", "NK8", "NK9", "NK10",
-                "Điểm xét TN"
-        };
+        String[] columns;
+        if ("DGNL".equals(currentMode)) {
+            columns = new String[]{"STT", "ID", "CCCD", "S\u1ed1 B\u00e1o Danh", "\u0110i\u1ec3m \u0110GNL"};
+        } else if ("V-SAT".equals(currentMode)) {
+            columns = new String[]{"STT", "ID", "CCCD", "S\u1ed1 B\u00e1o Danh", "To\u00e1n", "V\u0103n", "Ti\u1ebfng Anh", "V\u1eadt l\u00fd", "H\u00f3a h\u1ecdc", "Sinh h\u1ecdc", "L\u1ecbch s\u1eed", "\u0110\u1ecba l\u00fd"};
+        } else {
+            // THPT
+            columns = new String[]{
+                "STT", "ID", "CCCD", "S\u1ed1 B\u00e1o Danh", "To\u00e1n", "V\u0103n", "L\u00fd", "H\u00f3a", "Sinh", "S\u1eed", "\u0110\u1ecba", "GDCD", "N.Ng\u1eef", "KTPL", "\u0110i\u1ec3m x\u00e9t TN"
+            };
+        }
+
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
+            public boolean isCellEditable(int row, int column) { return false; }
         };
 
-        table = new JTable(tableModel);
-        table.getSelectionModel().addListSelectionListener(e -> chonDong());
-        
-        // Đặt độ rộng cột mặc định
-        table.getColumnModel().getColumn(0).setPreferredWidth(50);  // ID - gọn lại
-        table.getColumnModel().getColumn(1).setPreferredWidth(120); // CCCD
-        table.getColumnModel().getColumn(2).setPreferredWidth(100); // Số Báo Danh
-        table.getColumnModel().getColumn(3).setPreferredWidth(90);  // Phương Thức
-        
-        // Các cột điểm - đặt width nhỏ và không cho phép resize
-        for (int i = 4; i < columns.length; i++) {
-            table.getColumnModel().getColumn(i).setPreferredWidth(55);
-            table.getColumnModel().getColumn(i).setResizable(false);
+        if (table == null) {
+            table = new JTable(tableModel);
+            table.getSelectionModel().addListSelectionListener(e -> chonDong());
+            table.setRowHeight(35);
+            table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            
+            // Blue header style
+            table.getTableHeader().setBackground(new Color(13, 110, 253));
+            table.getTableHeader().setForeground(Color.WHITE);
+            table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+            table.getTableHeader().setPreferredSize(new Dimension(0, 40));
+            
+            JScrollPane scrollPane = new JScrollPane(table);
+            scrollPane.setBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)));
+            add(scrollPane, BorderLayout.CENTER);
+        } else {
+            table.setModel(tableModel);
         }
         
-        // Cột cuối "Điểm xét TN" rộng hơn để hiển thị đầy đủ
-        table.getColumnModel().getColumn(columns.length - 1).setPreferredWidth(110);
-        table.getColumnModel().getColumn(columns.length - 1).setResizable(true);
+        configureTableColumns();
+    }
+
+    private void configureTableColumns() {
+        table.getColumnModel().getColumn(0).setPreferredWidth(50); // STT
+        table.getColumnModel().getColumn(1).setMinWidth(0);        // ID
+        table.getColumnModel().getColumn(1).setMaxWidth(0);
+        table.getColumnModel().getColumn(2).setPreferredWidth(140); // CCCD
+        table.getColumnModel().getColumn(3).setPreferredWidth(110); // SBD
         
-        // Tắt tính năng auto-resize để giữ width cố định
-        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
-        
-        JScrollPane scrollPane = new JScrollPane(table, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
-        add(scrollPane, BorderLayout.CENTER);
+        for (int i = 4; i < table.getColumnCount(); i++) {
+            // Increase width for the last column in THPT mode
+            if ("THPT".equals(currentMode) && i == 14) {
+                table.getColumnModel().getColumn(i).setPreferredWidth(130);
+            } else {
+                table.getColumnModel().getColumn(i).setPreferredWidth(85);
+            }
+            table.getColumnModel().getColumn(i).setCellRenderer(new javax.swing.table.DefaultTableCellRenderer() {
+                { setHorizontalAlignment(JLabel.CENTER); }
+                @Override
+                public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+                    Component comp = super.getTableCellRendererComponent(t, v, s, f, r, c);
+                    if (v == null || v.toString().isEmpty() || v.toString().equals("---")) {
+                        setText("---");
+                        setForeground(new Color(180, 180, 180));
+                    } else {
+                        setForeground(Color.BLACK);
+                    }
+                    return comp;
+                }
+            });
+        }
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
     }
 
     private void buildBottom() {
-        JPanel pnlPaging = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        JPanel pnlPaging = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
         pnlPaging.setOpaque(false);
 
-        btnTrangTruoc = new JButton("Trang trước");
-        btnTrangSau = new JButton("Trang sau");
-        lblThongTinTrang = new JLabel("Trang 1/1");
+        btnDauTrang = btnStyled("<<", new Color(13, 110, 253));
+        btnDauTrang.setPreferredSize(new Dimension(80, 35));
+        
+        btnCuoiTrang = btnStyled(">>", new Color(13, 110, 253));
+        btnCuoiTrang.setPreferredSize(new Dimension(80, 35));
 
+        btnTrangTruoc = btnStyled("Trang tr\u01b0\u1edbc", new Color(13, 110, 253));
+        btnTrangTruoc.setPreferredSize(new Dimension(160, 35));
+        
+        btnTrangSau = btnStyled("Trang sau", new Color(13, 110, 253));
+        btnTrangSau.setPreferredSize(new Dimension(160, 35));
+
+        lblThongTinTrang = new JLabel("Trang 1/1");
+        lblThongTinTrang.setFont(new Font("Segoe UI", Font.BOLD, 13));
+
+        pnlPaging.add(btnDauTrang);
         pnlPaging.add(btnTrangTruoc);
         pnlPaging.add(lblThongTinTrang);
         pnlPaging.add(btnTrangSau);
+        pnlPaging.add(btnCuoiTrang);
+
+        btnDauTrang.addActionListener(e -> {
+            currentPage = 1;
+            loadPage();
+        });
+
+        btnCuoiTrang.addActionListener(e -> {
+            currentPage = getTotalPages();
+            loadPage();
+        });
 
         btnTrangTruoc.addActionListener(e -> {
             if (currentPage > 1) {
@@ -221,39 +369,22 @@ public class DiemThiXetTuyenGUI extends JPanel {
             list = bus.searchByKeyword(currentKeyword, currentPage, PAGE_SIZE);
         }
 
+        int stt = (currentPage - 1) * PAGE_SIZE + 1;
         for (DiemThiXetTuyen d : list) {
-            tableModel.addRow(new Object[]{
-                    d.getIdDiemThi(),
-                    d.getCccd(),
-                    d.getSoBaoDanh(),
-                    d.getPhuongThuc(),
-                    d.getTo(),
-                    d.getLi(),
-                    d.getHo(),
-                    d.getSi(),
-                    d.getSu(),
-                    d.getDi(),
-                    d.getVa(),
-                    d.getGdcd(),
-                    d.getN1Thi(),
-                    d.getN1Cc(),
-                    d.getCncn(),
-                    d.getCnnn(),
-                    d.getTi(),
-                    d.getKtpl(),
-                    d.getNl1(),
-                    d.getNk1(),
-                    d.getNk2(),
-                    d.getNk3(),
-                    d.getNk4(),
-                    d.getNk5(),
-                    d.getNk6(),
-                    d.getNk7(),
-                    d.getNk8(),
-                    d.getNk9(),
-                    d.getNk10(),
-                    d.getDiemXetTotNghiep()
-            });
+            if ("DGNL".equals(currentMode)) {
+                tableModel.addRow(new Object[]{ stt++, d.getIdDiemThi(), d.getCccd(), d.getSoBaoDanh(), d.getNl1() });
+            } else if ("V-SAT".equals(currentMode)) {
+                tableModel.addRow(new Object[]{ 
+                    stt++, d.getIdDiemThi(), d.getCccd(), d.getSoBaoDanh(),
+                    d.getVsatTo(), d.getVsatVa(), d.getVsatAnh(), d.getVsatLi(), d.getVsatHo(), d.getVsatSi(), d.getVsatSu(), d.getVsatDi()
+                });
+            } else {
+                tableModel.addRow(new Object[]{
+                    stt++, d.getIdDiemThi(), d.getCccd(), d.getSoBaoDanh(),
+                    d.getTo(), d.getVa(), d.getLi(), d.getHo(), d.getSi(), d.getSu(), d.getDi(),
+                    d.getGdcd(), d.getN1Thi(), d.getKtpl(), d.getDiemXetTotNghiep()
+                });
+            }
         }
 
         if (currentPage > getTotalPages()) {
@@ -302,7 +433,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
             currentId = -1;
             return;
         }
-        currentId = Integer.parseInt(String.valueOf(tableModel.getValueAt(row, 0)));
+        currentId = Integer.parseInt(String.valueOf(tableModel.getValueAt(row, 1))); // Column 1 is ID
     }
 
     private void themDiem() {
@@ -445,9 +576,9 @@ public class DiemThiXetTuyenGUI extends JPanel {
     }
 
     private void hienThiFormDiem(DiemThiXetTuyen source, boolean isUpdate, int targetId) {
-        JTextField txtCccd = new JTextField();
-        JComboBox<String> cbPhuongThuc = new JComboBox<>(new String[]{"", "THPT", "V-SAT", "DGNL"});
-        JTextField txtSoBaoDanh = new JTextField();
+        JTextField txtCccdOrSbd = new JTextField();
+        final String[] selectedData = new String[2]; // [0]: cccd, [1]: soBaoDanh
+        
         JTextField txtTo = new JTextField();
         JTextField txtLi = new JTextField();
         JTextField txtHo = new JTextField();
@@ -476,10 +607,12 @@ public class DiemThiXetTuyenGUI extends JPanel {
         JTextField txtDiemXetTotNghiep = new JTextField();
 
         if (source != null) {
-            txtCccd.setText(nullToEmpty(source.getCccd()));
-            txtCccd.setEditable(false); // Không cho sửa CCCD
-            cbPhuongThuc.setSelectedItem(nullToEmpty(source.getPhuongThuc()));
-            txtSoBaoDanh.setText(nullToEmpty(source.getSoBaoDanh()));
+            String cccdVal = nullToEmpty(source.getCccd());
+            String sbdVal = nullToEmpty(source.getSoBaoDanh());
+            txtCccdOrSbd.setText(cccdVal + (sbdVal.isEmpty() ? "" : " / " + sbdVal));
+            txtCccdOrSbd.setEditable(false); 
+            selectedData[0] = cccdVal;
+            selectedData[1] = sbdVal;
             txtTo.setText(source.getTo() == null ? "" : source.getTo().toPlainString());
             txtLi.setText(source.getLi() == null ? "" : source.getLi().toPlainString());
             txtHo.setText(source.getHo() == null ? "" : source.getHo().toPlainString());
@@ -489,6 +622,18 @@ public class DiemThiXetTuyenGUI extends JPanel {
             txtVa.setText(source.getVa() == null ? "" : source.getVa().toPlainString());
             txtGdcd.setText(source.getGdcd() == null ? "" : source.getGdcd().toPlainString());
             txtN1Thi.setText(source.getN1Thi() == null ? "" : source.getN1Thi().toPlainString());
+
+            // Load V-SAT specific values if in V-SAT mode or just load them anyway
+            if ("V-SAT".equals(currentMode)) {
+                txtTo.setText(source.getVsatTo() == null ? "" : source.getVsatTo().toPlainString());
+                txtVa.setText(source.getVsatVa() == null ? "" : source.getVsatVa().toPlainString());
+                txtN1Thi.setText(source.getVsatAnh() == null ? "" : source.getVsatAnh().toPlainString());
+                txtLi.setText(source.getVsatLi() == null ? "" : source.getVsatLi().toPlainString());
+                txtHo.setText(source.getVsatHo() == null ? "" : source.getVsatHo().toPlainString());
+                txtSi.setText(source.getVsatSi() == null ? "" : source.getVsatSi().toPlainString());
+                txtSu.setText(source.getVsatSu() == null ? "" : source.getVsatSu().toPlainString());
+                txtDi.setText(source.getVsatDi() == null ? "" : source.getVsatDi().toPlainString());
+            }
             txtN1Cc.setText(source.getN1Cc() == null ? "" : source.getN1Cc().toPlainString());
             txtCncn.setText(source.getCncn() == null ? "" : source.getCncn().toPlainString());
             txtCnnn.setText(source.getCnnn() == null ? "" : source.getCnnn().toPlainString());
@@ -508,111 +653,115 @@ public class DiemThiXetTuyenGUI extends JPanel {
             txtDiemXetTotNghiep.setText(source.getDiemXetTotNghiep() == null ? "" : source.getDiemXetTotNghiep().toPlainString());
         }
 
-        JPanel panel = new JPanel(new BorderLayout(0, 10));
-        panel.setBackground(new Color(245, 249, 255));
-        panel.setPreferredSize(new Dimension(750, 750));
+        JPanel panel = new JPanel(new BorderLayout(0, 0));
+        panel.setBackground(Color.WHITE);
 
         JPanel pnlHeader = new JPanel(new BorderLayout());
-        pnlHeader.setBackground(source == null ? new Color(30, 136, 229) : new Color(243, 156, 18));
-        pnlHeader.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
-        JLabel lblHeader = new JLabel(source == null ? "THÊM ĐIỂM THI" : "CẬP NHẬT ĐIỂM THI");
+        pnlHeader.setBackground(source == null ? new Color(13, 110, 253) : new Color(255, 152, 0));
+        pnlHeader.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+        JLabel lblHeader = new JLabel(source == null ? "TH\u00caM \u0110I\u1ec2M THI" : "C\u1eacP NH\u1eacT \u0110I\u1ec2M THI");
         lblHeader.setForeground(Color.WHITE);
-        lblHeader.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        lblHeader.setFont(new Font("Segoe UI", Font.BOLD, 18));
         pnlHeader.add(lblHeader, BorderLayout.WEST);
 
-        JPanel pnlCard = new JPanel(new BorderLayout());
-        pnlCard.setBackground(Color.WHITE);
-        pnlCard.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(213, 223, 240)),
-                BorderFactory.createEmptyBorder(12, 12, 12, 12)));
+        JPanel pnlBody = new JPanel(new BorderLayout(0, 20));
+        pnlBody.setOpaque(false);
+        pnlBody.setBorder(BorderFactory.createEmptyBorder(20, 25, 20, 25));
 
-        JPanel form = new JPanel(new GridLayout(0, 2, 10, 10));
-        form.setOpaque(false);
-        
-        // Các field cơ bản
-        form.add(new JLabel("CCCD:"));
-        form.add(txtCccd);
-        form.add(new JLabel("Số báo danh:"));
-        form.add(txtSoBaoDanh);
-        form.add(new JLabel("Phương thức: *"));
-        form.add(cbPhuongThuc);
-        
-        // Các field điểm THPT
-        form.add(new JLabel("Điểm TO (0-10 cho THPT, 0-150 cho V-SAT):"));
-        form.add(txtTo);
-        form.add(new JLabel("Điểm LI (0-10 cho THPT, 0-150 cho V-SAT):"));
-        form.add(txtLi);
-        form.add(new JLabel("Điểm HO (0-10 cho THPT, 0-150 cho V-SAT):"));
-        form.add(txtHo);
-        
-        // Các field V-SAT riêng
-        form.add(new JLabel("Điểm SI (0-150 cho V-SAT):"));
-        form.add(txtSi);
-        form.add(new JLabel("Điểm SU (0-150 cho V-SAT):"));
-        form.add(txtSu);
-        form.add(new JLabel("Điểm DI (0-150 cho V-SAT):"));
-        form.add(txtDi);
-        form.add(new JLabel("Điểm VA (0-150 cho V-SAT):"));
-        form.add(txtVa);
-        form.add(new JLabel("Điểm GDCD (0-150 cho V-SAT):"));
-        form.add(txtGdcd);
-        
-        // Các field DGNL
-        form.add(new JLabel("Điểm NL1 (0-1200 cho DGNL):"));
-        form.add(txtNl1);
-        
-        // Các field chung
-        form.add(new JLabel("Điểm N1_THI:"));
-        form.add(txtN1Thi);
-        form.add(new JLabel("Điểm N1_CC:"));
-        form.add(txtN1Cc);
-        form.add(new JLabel("Điểm CNCN:"));
-        form.add(txtCncn);
-        form.add(new JLabel("Điểm CNNN:"));
-        form.add(txtCnnn);
-        form.add(new JLabel("Điểm TI:"));
-        form.add(txtTi);
-        form.add(new JLabel("Điểm KTPL:"));
-        form.add(txtKtpl);
-        form.add(new JLabel("Điểm NK1:"));
-        form.add(txtNk1);
-        form.add(new JLabel("Điểm NK2:"));
-        form.add(txtNk2);
-        form.add(new JLabel("Điểm NK3:"));
-        form.add(txtNk3);
-        form.add(new JLabel("Điểm NK4:"));
-        form.add(txtNk4);
-        form.add(new JLabel("Điểm NK5:"));
-        form.add(txtNk5);
-        form.add(new JLabel("Điểm NK6:"));
-        form.add(txtNk6);
-        form.add(new JLabel("Điểm NK7:"));
-        form.add(txtNk7);
-        form.add(new JLabel("Điểm NK8:"));
-        form.add(txtNk8);
-        form.add(new JLabel("Điểm NK9:"));
-        form.add(txtNk9);
-        form.add(new JLabel("Điểm NK10:"));
-        form.add(txtNk10);
-        form.add(new JLabel("Điểm xét TN:"));
-        form.add(txtDiemXetTotNghiep);
+        // Info Section
+        JPanel pnlInfo = new JPanel(new BorderLayout());
+        pnlInfo.setOpaque(false);
+        pnlInfo.add(createFieldGroup("CCCD/S\u1ed1 b\u00e1o danh (*)", txtCccdOrSbd), BorderLayout.CENTER);
 
-        JScrollPane formScroll = new JScrollPane(form);
-        formScroll.setBorder(null);
-        formScroll.getVerticalScrollBar().setUnitIncrement(18);
-        pnlCard.add(formScroll, BorderLayout.CENTER);
+        if (!isUpdate) {
+            setupAutoComplete(txtCccdOrSbd, selectedData);
+        }
 
-        JPanel pnlFooter = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        // Scores Section
+        JPanel pnlScores = new JPanel(new GridLayout(0, 2, 20, 15));
+        pnlScores.setOpaque(false);
+        String title = "B\u1ea2NG \u0110I\u1ec2M CH\u00cdNH (" + currentMode + ")";
+        pnlScores.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(230, 230, 230)),
+            title, 0, 0, new Font("Segoe UI", Font.BOLD, 13), new Color(41, 128, 185)
+        ));
+        ((javax.swing.border.TitledBorder)pnlScores.getBorder()).setTitlePosition(javax.swing.border.TitledBorder.TOP);
+
+        if ("DGNL".equals(currentMode)) {
+            pnlScores.setLayout(new FlowLayout(FlowLayout.LEFT, 15, 10));
+            pnlScores.add(new JLabel("\u0110i\u1ec3m \u0110GNL:"));
+            txtNl1.setPreferredSize(new Dimension(200, 35));
+            pnlScores.add(txtNl1);
+        } else if ("V-SAT".equals(currentMode)) {
+            pnlScores.add(new JLabel("To\u00e1n:")); pnlScores.add(txtTo);
+            pnlScores.add(new JLabel("Ng\u1eef v\u0103n:")); pnlScores.add(txtVa);
+            pnlScores.add(new JLabel("Ti\u1ebfng Anh:")); pnlScores.add(txtN1Thi);
+            pnlScores.add(new JLabel("V\u1eadt l\u00fd:")); pnlScores.add(txtLi);
+            pnlScores.add(new JLabel("H\u00f3a h\u1ecdc:")); pnlScores.add(txtHo);
+            pnlScores.add(new JLabel("Sinh h\u1ecdc:")); pnlScores.add(txtSi);
+            pnlScores.add(new JLabel("L\u1ecbch s\u1eed:")); pnlScores.add(txtSu);
+            pnlScores.add(new JLabel("\u0110\u1ecba l\u00fd:")); pnlScores.add(txtDi);
+        } else {
+            pnlScores.add(new JLabel("To\u00e1n:")); pnlScores.add(txtTo);
+            pnlScores.add(new JLabel("Ng\u1eef v\u0103n:")); pnlScores.add(txtVa);
+            pnlScores.add(new JLabel("V\u1eadt l\u00fd:")); pnlScores.add(txtLi);
+            pnlScores.add(new JLabel("H\u00f3a h\u1ecdc:")); pnlScores.add(txtHo);
+            pnlScores.add(new JLabel("Sinh h\u1ecdc:")); pnlScores.add(txtSi);
+            pnlScores.add(new JLabel("L\u1ecbch s\u1eed:")); pnlScores.add(txtSu);
+            pnlScores.add(new JLabel("\u0110\u1ecba l\u00fd:")); pnlScores.add(txtDi);
+            pnlScores.add(new JLabel("GDCD:")); pnlScores.add(txtGdcd);
+            pnlScores.add(new JLabel("Ngo\u1ea1i ng\u1eef:")); pnlScores.add(txtN1Thi);
+            pnlScores.add(new JLabel("KTPL:")); pnlScores.add(txtKtpl);
+            pnlScores.add(new JLabel("\u0110i\u1ec3m x\u00e9t TN:")); pnlScores.add(txtDiemXetTotNghiep);
+        }
+
+        // Talent Scores Section (Always show)
+        JPanel pnlTalent = new JPanel(new GridLayout(0, 4, 15, 10));
+        pnlTalent.setOpaque(false);
+        pnlTalent.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(230, 230, 230)),
+            "\u0110I\u1ec2M N\u0102NG KHI\u1ebeU", 0, 0, new Font("Segoe UI", Font.BOLD, 13), new Color(46, 125, 50)
+        ));
+        pnlTalent.add(new JLabel("NK 1:")); pnlTalent.add(txtNk1);
+        pnlTalent.add(new JLabel("NK 2:")); pnlTalent.add(txtNk2);
+        pnlTalent.add(new JLabel("NK 3:")); pnlTalent.add(txtNk3);
+        pnlTalent.add(new JLabel("NK 4:")); pnlTalent.add(txtNk4);
+        pnlTalent.add(new JLabel("NK 5:")); pnlTalent.add(txtNk5);
+        pnlTalent.add(new JLabel("NK 6:")); pnlTalent.add(txtNk6);
+        pnlTalent.add(new JLabel("NK 7:")); pnlTalent.add(txtNk7);
+        pnlTalent.add(new JLabel("NK 8:")); pnlTalent.add(txtNk8);
+        pnlTalent.add(new JLabel("NK 9:")); pnlTalent.add(txtNk9);
+        pnlTalent.add(new JLabel("NK 10:")); pnlTalent.add(txtNk10);
+
+        pnlBody.add(pnlInfo, BorderLayout.NORTH);
+        
+        JPanel pnlScoresWrapper = new JPanel();
+        pnlScoresWrapper.setLayout(new BoxLayout(pnlScoresWrapper, BoxLayout.Y_AXIS));
+        pnlScoresWrapper.setOpaque(false);
+        pnlScoresWrapper.add(pnlScores);
+        
+        if (!"DGNL".equals(currentMode) && !"V-SAT".equals(currentMode)) {
+            pnlScoresWrapper.add(javax.swing.Box.createVerticalStrut(15));
+            pnlScoresWrapper.add(pnlTalent);
+        }
+        
+        JScrollPane scroll = new JScrollPane(pnlScoresWrapper);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        pnlBody.add(scroll, BorderLayout.CENTER);
+
+        panel.add(pnlHeader, BorderLayout.NORTH);
+        panel.add(pnlBody, BorderLayout.CENTER);
+
+        JPanel pnlFooter = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 10));
         pnlFooter.setOpaque(false);
+        pnlFooter.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 15));
         JButton btnHuy = new JButton("Đóng");
         JButton btnLuu = new JButton(isUpdate ? "Lưu cập nhật" : "Lưu thêm");
         pnlFooter.add(btnHuy);
         pnlFooter.add(btnLuu);
-        pnlCard.add(pnlFooter, BorderLayout.SOUTH);
-
-        panel.add(pnlHeader, BorderLayout.NORTH);
-        panel.add(pnlCard, BorderLayout.CENTER);
-        ModernTheme.styleDialogContent(panel);
+        panel.add(pnlFooter, BorderLayout.SOUTH);
 
         JDialog formDialog = new JDialog((java.awt.Frame) null,
                 isUpdate ? "Sửa điểm thi" : "Thêm điểm thi", true);
@@ -624,36 +773,57 @@ public class DiemThiXetTuyenGUI extends JPanel {
 
         btnHuy.addActionListener(e -> formDialog.dispose());
         btnLuu.addActionListener(e -> {
-            if (cbPhuongThuc.getSelectedItem() == null || cbPhuongThuc.getSelectedItem().toString().isEmpty()) {
-                JOptionPane.showMessageDialog(formDialog, "Vui lòng chọn phương thức thi!");
-                return;
-            }
-
             DiemThiXetTuyen d = source == null ? new DiemThiXetTuyen() : source;
             if (isUpdate) {
                 d.setIdDiemThi(targetId);
             }
 
-            d.setCccd(txtCccd.getText().trim());
-            d.setSoBaoDanh(txtSoBaoDanh.getText().trim());
-            d.setPhuongThuc(cbPhuongThuc.getSelectedItem().toString().trim());
+            String inputVal = txtCccdOrSbd.getText().trim();
+            if (!isUpdate && selectedData[0] == null && !inputVal.isEmpty()) {
+                ThiSinhBUS tsBus = new ThiSinhBUS();
+                ThiSinh ts = tsBus.getByCccd(inputVal);
+                if (ts == null) ts = tsBus.getBySoBaoDanh(inputVal);
+                
+                if (ts != null) {
+                    selectedData[0] = ts.getCccd();
+                    selectedData[1] = ts.getSoBaoDanh();
+                } else {
+                    selectedData[0] = inputVal;
+                }
+            }
+
+            d.setCccd(selectedData[0]);
+            d.setSoBaoDanh(selectedData[1]);
+            // Set phuong thuc based on current mode if adding new
+            if (!isUpdate) d.setPhuongThuc(currentMode);
 
             try {
-                d.setTo(parseDecimal(txtTo.getText().trim()));
-                d.setLi(parseDecimal(txtLi.getText().trim()));
-                d.setHo(parseDecimal(txtHo.getText().trim()));
-                d.setSi(parseDecimal(txtSi.getText().trim()));
-                d.setSu(parseDecimal(txtSu.getText().trim()));
-                d.setDi(parseDecimal(txtDi.getText().trim()));
-                d.setVa(parseDecimal(txtVa.getText().trim()));
-                d.setGdcd(parseDecimal(txtGdcd.getText().trim()));
-                d.setN1Thi(parseDecimal(txtN1Thi.getText().trim()));
-                d.setN1Cc(parseDecimal(txtN1Cc.getText().trim()));
-                d.setCncn(parseDecimal(txtCncn.getText().trim()));
-                d.setCnnn(parseDecimal(txtCnnn.getText().trim()));
-                d.setTi(parseDecimal(txtTi.getText().trim()));
-                d.setKtpl(parseDecimal(txtKtpl.getText().trim()));
-                d.setNl1(parseDecimal(txtNl1.getText().trim()));
+                if ("DGNL".equals(currentMode)) {
+                    d.setNl1(parseDecimal(txtNl1.getText().trim()));
+                } else if ("V-SAT".equals(currentMode)) {
+                    d.setVsatTo(parseDecimal(txtTo.getText().trim()));
+                    d.setVsatVa(parseDecimal(txtVa.getText().trim()));
+                    d.setVsatAnh(parseDecimal(txtN1Thi.getText().trim()));
+                    d.setVsatLi(parseDecimal(txtLi.getText().trim()));
+                    d.setVsatHo(parseDecimal(txtHo.getText().trim()));
+                    d.setVsatSi(parseDecimal(txtSi.getText().trim()));
+                    d.setVsatSu(parseDecimal(txtSu.getText().trim()));
+                    d.setVsatDi(parseDecimal(txtDi.getText().trim()));
+                } else {
+                    d.setTo(parseDecimal(txtTo.getText().trim()));
+                    d.setVa(parseDecimal(txtVa.getText().trim()));
+                    d.setLi(parseDecimal(txtLi.getText().trim()));
+                    d.setHo(parseDecimal(txtHo.getText().trim()));
+                    d.setSi(parseDecimal(txtSi.getText().trim()));
+                    d.setSu(parseDecimal(txtSu.getText().trim()));
+                    d.setDi(parseDecimal(txtDi.getText().trim()));
+                    d.setGdcd(parseDecimal(txtGdcd.getText().trim()));
+                    d.setN1Thi(parseDecimal(txtN1Thi.getText().trim()));
+                    d.setKtpl(parseDecimal(txtKtpl.getText().trim()));
+                    d.setDiemXetTotNghiep(parseDecimal(txtDiemXetTotNghiep.getText().trim()));
+                }
+
+                // Luôn cập nhật điểm năng khiếu nếu có nhập
                 d.setNk1(parseDecimal(txtNk1.getText().trim()));
                 d.setNk2(parseDecimal(txtNk2.getText().trim()));
                 d.setNk3(parseDecimal(txtNk3.getText().trim()));
@@ -664,9 +834,9 @@ public class DiemThiXetTuyenGUI extends JPanel {
                 d.setNk8(parseDecimal(txtNk8.getText().trim()));
                 d.setNk9(parseDecimal(txtNk9.getText().trim()));
                 d.setNk10(parseDecimal(txtNk10.getText().trim()));
-                d.setDiemXetTotNghiep(parseDecimal(txtDiemXetTotNghiep.getText().trim()));
+
             } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(formDialog, "Điểm phải là số hợp lệ!");
+                JOptionPane.showMessageDialog(formDialog, " \u0110i\u1ec3m ph\u1ea3i l\u00e0 s\u1ed1 h\u1ee3p l\u1ec7!");
                 return;
             }
 
@@ -687,13 +857,23 @@ public class DiemThiXetTuyenGUI extends JPanel {
         formDialog.setVisible(true);
     }
 
+    private JPanel createFieldGroup(String label, JTextField field) {
+        JPanel p = new JPanel(new BorderLayout(0, 5));
+        p.setOpaque(false);
+        JLabel l = new JLabel(label);
+        l.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        p.add(l, BorderLayout.NORTH);
+        field.setPreferredSize(new Dimension(0, 35));
+        p.add(field, BorderLayout.CENTER);
+        return p;
+    }
+
     private BigDecimal parseDecimal(String value) {
         if (value == null || value.isBlank()) {
             return null;
         }
         return new BigDecimal(value);
     }
-
     private String nullToEmpty(String value) {
         return value == null ? "" : value;
     }
@@ -1004,6 +1184,97 @@ public class DiemThiXetTuyenGUI extends JPanel {
         dialog.setSize(740, 580);
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
+    }
+    private void setupAutoComplete(JTextField textField, String[] selectedData) {
+        JPopupMenu popup = new JPopupMenu();
+        JList<String> list = new JList<>();
+        list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        
+        JScrollPane scroll = new JScrollPane(list);
+        scroll.setBorder(null);
+        scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        popup.add(scroll);
+
+        ThiSinhBUS tsBus = new ThiSinhBUS();
+
+        textField.addKeyListener(new java.awt.event.KeyAdapter() {
+            @Override
+            public void keyReleased(java.awt.event.KeyEvent e) {
+                if (e.getKeyCode() == java.awt.event.KeyEvent.VK_ESCAPE) {
+                    popup.setVisible(false);
+                    return;
+                }
+                if (e.getKeyCode() == java.awt.event.KeyEvent.VK_DOWN) {
+                    if (popup.isVisible()) {
+                        list.requestFocus();
+                        if (list.getModel().getSize() > 0) list.setSelectedIndex(0);
+                    }
+                    return;
+                }
+                
+                String text = textField.getText().trim();
+                if (text.length() < 1) {
+                    popup.setVisible(false);
+                    return;
+                }
+
+                List<ThiSinh> results = tsBus.searchByKeyword(text, 1, 10);
+                if (results.isEmpty()) {
+                    popup.setVisible(false);
+                    return;
+                }
+
+                DefaultListModel<String> model = new DefaultListModel<>();
+                for (ThiSinh ts : results) {
+                    String sbd = ts.getSoBaoDanh() == null ? "" : ts.getSoBaoDanh();
+                    model.addElement(ts.getCccd() + " - " + ts.getHo() + " " + ts.getTen() + (sbd.isEmpty() ? "" : " (" + sbd + ")"));
+                }
+                list.setModel(model);
+                
+                scroll.setPreferredSize(new Dimension(textField.getWidth(), Math.min(250, results.size() * 32 + 5)));
+                popup.pack();
+                if (!popup.isVisible()) {
+                    popup.show(textField, 0, textField.getHeight());
+                }
+                textField.requestFocus();
+            }
+        });
+
+        ActionListener selectAction = ev -> {
+            String selected = list.getSelectedValue();
+            if (selected != null) {
+                String cccd = selected.split(" - ")[0];
+                ThiSinh ts = tsBus.getByCccd(cccd);
+                if (ts != null) {
+                    selectedData[0] = ts.getCccd();
+                    selectedData[1] = ts.getSoBaoDanh();
+                    textField.setText(ts.getCccd() + (ts.getSoBaoDanh() == null || ts.getSoBaoDanh().isEmpty() ? "" : " / " + ts.getSoBaoDanh()));
+                }
+                popup.setVisible(false);
+            }
+        };
+
+        list.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 1) {
+                    selectAction.actionPerformed(null);
+                }
+            }
+        });
+        
+        list.addKeyListener(new java.awt.event.KeyAdapter() {
+            @Override
+            public void keyPressed(java.awt.event.KeyEvent e) {
+                if (e.getKeyCode() == java.awt.event.KeyEvent.VK_ENTER) {
+                    selectAction.actionPerformed(null);
+                } else if (e.getKeyCode() == java.awt.event.KeyEvent.VK_ESCAPE) {
+                    popup.setVisible(false);
+                    textField.requestFocus();
+                }
+            }
+        });
     }
 }
 

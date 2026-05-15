@@ -169,55 +169,71 @@
                 <h2>Điểm thi chi tiết</h2>
             </div>
             
-            <div th:each="d : ${diemList}" style="margin-bottom: 25px;">
-                <div style="font-size: 14px; font-weight: 600; color: #566573; margin-bottom: 10px;">
-                    <i class="fas fa-chevron-right" style="font-size: 10px; color: #2e86c1;"></i>
-                    Phương thức: <span th:text="${d.phuongThuc}" style="color: #2e86c1;"></span>
+                <div th:each="d : ${diemList}" style="margin-bottom: 30px;">
+                    <div style="font-size: 15px; font-weight: 700; color: #2c3e50; margin-bottom: 15px; padding-bottom: 5px; border-bottom: 2px solid #ebf5fb;">
+                        <i class="fas fa-file-invoice" style="color: #3498db;"></i> 
+                        Dữ liệu điểm thi gốc lưu trữ
+                    </div>
+
+                    <!-- 1. Nhóm THPT / Học bạ -->
+                    <div th:if="${d.to != null or d.va != null or d.n1Thi != null}" style="margin-bottom: 20px;">
+                        <div style="font-size: 13px; font-weight: 600; color: #7f8c8d; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">1. Nhóm điểm THPT / Học bạ</div>
+                        <div class="score-grid">
+                            <div class="score-item" th:if="${d.to != null}"><div class="score-label">Toán</div><div class="score-value" th:text="${d.to}"></div></div>
+                            <div class="score-item" th:if="${d.va != null}"><div class="score-label">Văn</div><div class="score-value" th:text="${d.va}"></div></div>
+                            <div class="score-item" th:if="${d.n1Thi != null}"><div class="score-label">Ngoại ngữ</div><div class="score-value" th:text="${d.n1Thi}"></div></div>
+                            <div class="score-item" th:if="${d.li != null}"><div class="score-label">Lý</div><div class="score-value" th:text="${d.li}"></div></div>
+                            <div class="score-item" th:if="${d.ho != null}"><div class="score-label">Hóa</div><div class="score-value" th:text="${d.ho}"></div></div>
+                            <div class="score-item" th:if="${d.si != null}"><div class="score-label">Sinh</div><div class="score-value" th:text="${d.si}"></div></div>
+                            <div class="score-item" th:if="${d.su != null}"><div class="score-label">Sử</div><div class="score-value" th:text="${d.su}"></div></div>
+                            <div class="score-item" th:if="${d.di != null}"><div class="score-label">Địa</div><div class="score-value" th:text="${d.di}"></div></div>
+                            <div class="score-item" th:if="${d.gdcd != null}"><div class="score-label">GDCD</div><div class="score-value" th:text="${d.gdcd}"></div></div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Nhóm Năng khiếu -->
+                    <div th:if="${d.nk1 != null or d.nk2 != null}" style="margin-bottom: 20px;">
+                        <div style="font-size: 13px; font-weight: 600; color: #7f8c8d; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">2. Nhóm điểm Năng khiếu</div>
+                        <div class="score-grid">
+                            <div class="score-item" th:if="${d.nk1 != null}"><div class="score-label">NK 1</div><div class="score-value" th:text="${d.nk1}"></div></div>
+                            <div class="score-item" th:if="${d.nk2 != null}"><div class="score-label">NK 2</div><div class="score-value" th:text="${d.nk2}"></div></div>
+                            <div class="score-item" th:if="${d.nk3 != null}"><div class="score-label">NK 3</div><div class="score-value" th:text="${d.nk3}"></div></div>
+                            <div class="score-item" th:if="${d.nk4 != null}"><div class="score-label">NK 4</div><div class="score-value" th:text="${d.nk4}"></div></div>
+                            <div class="score-item" th:if="${d.nk5 != null}"><div class="score-label">NK 5</div><div class="score-value" th:text="${d.nk5}"></div></div>
+                            <div class="score-item" th:if="${d.nk6 != null}"><div class="score-label">NK 6</div><div class="score-value" th:text="${d.nk6}"></div></div>
+                            <div class="score-item" th:if="${d.nk7 != null}"><div class="score-label">NK 7</div><div class="score-value" th:text="${d.nk7}"></div></div>
+                            <div class="score-item" th:if="${d.nk8 != null}"><div class="score-label">NK 8</div><div class="score-value" th:text="${d.nk8}"></div></div>
+                            <div class="score-item" th:if="${d.nk9 != null}"><div class="score-label">NK 9</div><div class="score-value" th:text="${d.nk9}"></div></div>
+                            <div class="score-item" th:if="${d.nk10 != null}"><div class="score-label">NK 10</div><div class="score-value" th:text="${d.nk10}"></div></div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Nhóm ĐGNL -->
+                    <div th:if="${d.nl1 != null}" style="margin-bottom: 20px;">
+                        <div style="font-size: 13px; font-weight: 600; color: #7f8c8d; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">3. Nhóm điểm Đánh giá năng lực (ĐGNL)</div>
+                        <div class="score-grid">
+                            <div class="score-item" style="border-color: #d4e6f1; background-color: #f4faff;">
+                                <div class="score-label" style="color: #2980b9;">Điểm ĐGNL (NL1)</div>
+                                <div class="score-value" th:text="${d.nl1}" style="color: #1a5276;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Nhóm V-SAT -->
+                    <div th:if="${d.vsatTo != null or d.vsatVa != null or d.vsatAnh != null}" style="margin-bottom: 10px;">
+                        <div style="font-size: 13px; font-weight: 600; color: #7f8c8d; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">4. Nhóm điểm V-SAT</div>
+                        <div class="score-grid">
+                            <div class="score-item" th:if="${d.vsatTo != null}"><div class="score-label">V-SAT Toán</div><div class="score-value" th:text="${d.vsatTo}"></div></div>
+                            <div class="score-item" th:if="${d.vsatVa != null}"><div class="score-label">V-SAT Văn</div><div class="score-value" th:text="${d.vsatVa}"></div></div>
+                            <div class="score-item" th:if="${d.vsatAnh != null}"><div class="score-label">V-SAT Anh</div><div class="score-value" th:text="${d.vsatAnh}"></div></div>
+                            <div class="score-item" th:if="${d.vsatLi != null}"><div class="score-label">V-SAT Lý</div><div class="score-value" th:text="${d.vsatLi}"></div></div>
+                            <div class="score-item" th:if="${d.vsatHo != null}"><div class="score-label">V-SAT Hóa</div><div class="score-value" th:text="${d.vsatHo}"></div></div>
+                            <div class="score-item" th:if="${d.vsatSi != null}"><div class="score-label">V-SAT Sinh</div><div class="score-value" th:text="${d.vsatSi}"></div></div>
+                            <div class="score-item" th:if="${d.vsatSu != null}"><div class="score-label">V-SAT Sử</div><div class="score-value" th:text="${d.vsatSu}"></div></div>
+                            <div class="score-item" th:if="${d.vsatDi != null}"><div class="score-label">V-SAT Địa</div><div class="score-value" th:text="${d.vsatDi}"></div></div>
+                        </div>
+                    </div>
                 </div>
-                
-                <div class="score-grid">
-                    <div class="score-item" th:if="${d.to != null}">
-                        <div class="score-label">Toán</div>
-                        <div class="score-value" th:text="${d.to}"></div>
-                    </div>
-                    <div class="score-item" th:if="${d.va != null}">
-                        <div class="score-label">Văn</div>
-                        <div class="score-value" th:text="${d.va}"></div>
-                    </div>
-                    <div class="score-item" th:if="${d.n1Thi != null}">
-                        <div class="score-label">Ngoại ngữ</div>
-                        <div class="score-value" th:text="${d.n1Thi}"></div>
-                    </div>
-                    <div class="score-item" th:if="${d.li != null}">
-                        <div class="score-label">Lý</div>
-                        <div class="score-value" th:text="${d.li}"></div>
-                    </div>
-                    <div class="score-item" th:if="${d.ho != null}">
-                        <div class="score-label">Hóa</div>
-                        <div class="score-value" th:text="${d.ho}"></div>
-                    </div>
-                    <div class="score-item" th:if="${d.si != null}">
-                        <div class="score-label">Sinh</div>
-                        <div class="score-value" th:text="${d.si}"></div>
-                    </div>
-                    <div class="score-item" th:if="${d.su != null}">
-                        <div class="score-label">Sử</div>
-                        <div class="score-value" th:text="${d.su}"></div>
-                    </div>
-                    <div class="score-item" th:if="${d.di != null}">
-                        <div class="score-label">Địa</div>
-                        <div class="score-value" th:text="${d.di}"></div>
-                    </div>
-                    <div class="score-item" th:if="${d.gdcd != null}">
-                        <div class="score-label">GDCD</div>
-                        <div class="score-value" th:text="${d.gdcd}"></div>
-                    </div>
-                    <div class="score-item" th:if="${d.nl1 != null}">
-                        <div class="score-label">ĐGNL</div>
-                        <div class="score-value" th:text="${d.nl1}"></div>
-                    </div>
-                </div>
-            </div>
             
             <!-- Điểm cộng/Chứng chỉ -->
             <div th:if="${!#lists.isEmpty(diemCongList)}" style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #dee2e6;">
@@ -272,7 +288,7 @@
                         <td th:text="${nv.nvTt}" style="text-align: center; font-weight: 700;"></td>
                         <td th:text="${nv.nvMaNganh}"></td>
                         <td th:text="${nv.nvTenMaNganh}" style="font-weight: 600;"></td>
-                        <td th:text="${nv.ttPhuongThuc}" style="font-size: 13px;"></td>
+                        <td th:text="${nv.ttPhuongThuc == 'DGNL' ? 'ĐGNL' : (nv.ttPhuongThuc == 'VSAT' ? 'V-SAT' : nv.ttPhuongThuc)}" style="font-size: 13px;"></td>
                         <td th:text="${nv.ttThm}" style="text-align: center;"></td>
                         <td class="dxt-value" th:text="${nv.diemXetTuyen != null ? nv.diemXetTuyen : '-'}"></td>
                         <td th:text="${nv.diemCong != null ? nv.diemCong : '0.00'}" style="text-align: center; color: #7f8c8d;"></td>

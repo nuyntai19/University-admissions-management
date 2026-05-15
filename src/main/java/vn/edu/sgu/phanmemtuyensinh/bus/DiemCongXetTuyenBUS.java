@@ -48,12 +48,18 @@ public class DiemCongXetTuyenBUS {
         NguyenVongXetTuyenDAO nvDao = new NguyenVongXetTuyenDAO();
         ToHopMonDAO toHopDao = new ToHopMonDAO();
 
+        // Gom tất cả điểm cộng theo CCCD (đã normalize)
         Map<String, List<DiemCongXetTuyen>> diemCongByCccd = new HashMap<>();
         for (DiemCongXetTuyen dc : dao.getAll()) {
-            if (dc == null || dc.getTsCccd() == null || dc.getTsCccd().isBlank()) {
-                continue;
-            }
+            if (dc == null || dc.getTsCccd() == null) continue;
             diemCongByCccd.computeIfAbsent(normalizeCccdKey(dc.getTsCccd()), k -> new ArrayList<>()).add(dc);
+        }
+
+        // Gom tất cả nguyện vọng theo CCCD (đã normalize)
+        Map<String, List<NguyenVongXetTuyen>> nvByCccd = new HashMap<>();
+        for (NguyenVongXetTuyen nv : nvDao.getAll()) {
+            if (nv == null || nv.getNvCccd() == null) continue;
+            nvByCccd.computeIfAbsent(normalizeCccdKey(nv.getNvCccd()), k -> new ArrayList<>()).add(nv);
         }
 
         Map<String, ToHopMon> toHopMap = new HashMap<>();
@@ -64,65 +70,33 @@ public class DiemCongXetTuyenBUS {
         }
 
         List<DiemCongTongHopRow> rows = new ArrayList<>();
-        List<NguyenVongXetTuyen> nguyenVongList = nvDao.getAll();
-        nguyenVongList.sort(Comparator
-                .comparing((NguyenVongXetTuyen nv) -> safe(nv.getNvCccd()))
-                .thenComparingInt(NguyenVongXetTuyen::getNvTt));
 
-        for (NguyenVongXetTuyen nv : nguyenVongList) {
-            String cccd = safe(nv.getNvCccd());
-            if (!kw.isEmpty() && !cccd.toLowerCase(Locale.ROOT).contains(kw)) {
+        // Duyệt qua tất cả các CCCD có trong bảng điểm cộng
+        for (Map.Entry<String, List<DiemCongXetTuyen>> entry : diemCongByCccd.entrySet()) {
+            String cccdKey = entry.getKey();
+            List<DiemCongXetTuyen> sources = entry.getValue();
+            String displayCccd = sources.get(0).getTsCccd();
+
+            if (!kw.isEmpty() && !displayCccd.toLowerCase(Locale.ROOT).contains(kw)) {
                 continue;
             }
 
-            List<DiemCongXetTuyen> sources = diemCongByCccd.getOrDefault(normalizeCccdKey(cccd), List.of());
-            if (sources.isEmpty()) {
-                continue;
-            }
-
-            DiemCongTongHopRow row = new DiemCongTongHopRow();
-            row.idDiemCong = sources.get(0).getIdDiemCong();
-            row.cccd = cccd;
-            row.nguyenVong = nv.getNvTt();
-            row.maNganh = safe(nv.getNvMaNganh());
-            row.maToHop = safe(nv.getTtThm());
-            row.phuongThuc = safe(nv.getTtPhuongThuc());
-
-            ToHopMon toHop = toHopMap.get(row.maToHop.toUpperCase(Locale.ROOT));
-            boolean toHopCoTiengAnh = hasSubject(toHop, "N1");
-            BigDecimal diemTiengAnh = BigDecimal.ZERO;
-            BigDecimal diemGiai = BigDecimal.ZERO;
-
-            for (DiemCongXetTuyen dc : sources) {
-                if (hasCertificate(dc) && value(dc.getDiemCC()).compareTo(diemTiengAnh) > 0) {
-                    row.chungChi = safe(dc.getChungChi());
-                    row.mucDatDuoc = safe(dc.getMucDatDuoc());
-                    row.diemQuyDoiChungChi = dc.getDiemQuyDoiChungChi();
-                    row.coChungChi = Boolean.TRUE.equals(dc.getCoChungChi()) || !row.chungChi.isBlank();
-                    diemTiengAnh = value(dc.getDiemCC());
-                }
-
-                if (hasAward(dc)) {
-                    BigDecimal applied = getAppliedAwardPoint(dc, toHop);
-                    if (applied.compareTo(diemGiai) > 0) {
-                        row.capGiai = safe(dc.getCapGiai());
-                        row.doiTuongGiai = safe(dc.getDoiTuongGiai());
-                        row.maMonGiai = safe(dc.getMaMonGiai());
-                        row.loaiGiai = safe(dc.getLoaiGiai());
-                        row.diemCongMonGiai = value(dc.getDiemCongMonGiai());
-                        row.diemCongKhongMon = value(dc.getDiemCongKhongMon());
-                        diemGiai = applied;
-                    }
+            List<NguyenVongXetTuyen> nvs = nvByCccd.get(cccdKey);
+            if (nvs == null || nvs.isEmpty()) {
+                // Chưa có nguyện vọng -> Hiển thị 1 dòng "Thô"
+                DiemCongTongHopRow row = createBaseRow(sources, null, toHopMap);
+                row.cccd = displayCccd;
+                row.nguyenVong = 0;
+                rows.add(row);
+            } else {
+                // Đã có nguyện vọng -> Hiển thị theo từng nguyện vọng
+                for (NguyenVongXetTuyen nv : nvs) {
+                    DiemCongTongHopRow row = createBaseRow(sources, nv, toHopMap);
+                    row.cccd = displayCccd;
+                    row.nguyenVong = nv.getNvTt();
+                    rows.add(row);
                 }
             }
-
-            row.diemCongCc = toHopCoTiengAnh ? BigDecimal.ZERO : diemTiengAnh;
-            row.diemUuTien = value(nv.getDiemUtqd());
-            row.tongDiemCong = row.diemCongCc.add(diemGiai);
-            if (row.tongDiemCong.compareTo(new BigDecimal("3.0")) > 0) {
-                row.tongDiemCong = new BigDecimal("3.0");
-            }
-            rows.add(row);
         }
 
         rows.sort(Comparator
@@ -130,6 +104,63 @@ public class DiemCongXetTuyenBUS {
                 .thenComparing(row -> safe(row.cccd))
                 .thenComparingInt(row -> row.nguyenVong));
         return rows;
+    }
+
+    private DiemCongTongHopRow createBaseRow(List<DiemCongXetTuyen> sources, NguyenVongXetTuyen nv, Map<String, ToHopMon> toHopMap) {
+        DiemCongTongHopRow row = new DiemCongTongHopRow();
+        row.idDiemCong = sources.get(0).getIdDiemCong();
+        
+        if (nv != null) {
+            row.maNganh = safe(nv.getNvMaNganh());
+            row.maToHop = safe(nv.getTtThm());
+            row.phuongThuc = safe(nv.getTtPhuongThuc());
+            row.diemUuTien = value(nv.getDiemUtqd());
+        } else {
+            row.maNganh = "";
+            row.maToHop = "";
+            row.phuongThuc = "";
+            row.diemUuTien = BigDecimal.ZERO;
+        }
+
+        ToHopMon toHop = toHopMap.get(safe(row.maToHop).toUpperCase(Locale.ROOT));
+        boolean toHopCoTiengAnh = hasSubject(toHop, "N1");
+        BigDecimal diemTiengAnh = BigDecimal.ZERO;
+        BigDecimal diemGiai = BigDecimal.ZERO;
+
+        for (DiemCongXetTuyen dc : sources) {
+            // Ưu tiên lấy chứng chỉ
+            if (hasCertificate(dc)) {
+                BigDecimal currentDiemCC = value(dc.getDiemCC());
+                if (currentDiemCC.compareTo(diemTiengAnh) > 0 || row.chungChi == null) {
+                    row.chungChi = safe(dc.getChungChi());
+                    row.mucDatDuoc = safe(dc.getMucDatDuoc());
+                    row.diemQuyDoiChungChi = dc.getDiemQuyDoiChungChi();
+                    row.coChungChi = Boolean.TRUE.equals(dc.getCoChungChi()) || !row.chungChi.isBlank();
+                    diemTiengAnh = currentDiemCC;
+                }
+            }
+
+            // Ưu tiên lấy giải thưởng
+            if (hasAward(dc)) {
+                BigDecimal applied = getAppliedAwardPoint(dc, toHop);
+                if (applied.compareTo(diemGiai) > 0 || row.capGiai == null) {
+                    row.capGiai = safe(dc.getCapGiai());
+                    row.doiTuongGiai = safe(dc.getDoiTuongGiai());
+                    row.maMonGiai = safe(dc.getMaMonGiai());
+                    row.loaiGiai = safe(dc.getLoaiGiai());
+                    row.diemCongMonGiai = value(dc.getDiemCongMonGiai());
+                    row.diemCongKhongMon = value(dc.getDiemCongKhongMon());
+                    diemGiai = applied;
+                }
+            }
+        }
+
+        row.diemCongCc = toHopCoTiengAnh ? BigDecimal.ZERO : diemTiengAnh;
+        row.tongDiemCong = row.diemCongCc.add(diemGiai);
+        if (row.tongDiemCong.compareTo(new BigDecimal("3.0")) > 0) {
+            row.tongDiemCong = new BigDecimal("3.0");
+        }
+        return row;
     }
 
     private BigDecimal getAppliedAwardPoint(DiemCongXetTuyen dc, ToHopMon toHop) {

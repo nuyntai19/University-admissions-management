@@ -50,6 +50,10 @@ public class NganhBUS {
         return nvBus.countByMaNganh();
     }
 
+    public Map<String, Long> countNguyenVongByPhuongThuc() {
+        return nvBus.countByMaNganhAndPhuongThuc();
+    }
+
     public boolean add(Nganh nganh) {
         if (!AuthorizationContext.ensureWritePermission(msg -> lastError = msg)) {
             return false;

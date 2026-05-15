@@ -1,4 +1,4 @@
--- MySQL dump 10.13  Distrib 8.0.44, for Win64 (x86_64)
+﻿-- MySQL dump 10.13  Distrib 8.0.44, for Win64 (x86_64)
 --
 -- Host: localhost    Database: xettuyen2026
 -- ------------------------------------------------------
@@ -16,7 +16,7 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Tạo Database nếu chưa tồn tại
+-- Táº¡o Database náº¿u chÆ°a tá»“n táº¡i
 --
 CREATE DATABASE IF NOT EXISTS `xettuyen2026` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `xettuyen2026`;
@@ -114,6 +114,14 @@ CREATE TABLE `xt_diemthixettuyen` (
   `NK8` decimal(38,2) DEFAULT NULL,
   `NK9` decimal(38,2) DEFAULT NULL,
   `NK10` decimal(38,2) DEFAULT NULL,
+  `vsat_to` decimal(38,2) DEFAULT NULL,
+  `vsat_va` decimal(38,2) DEFAULT NULL,
+  `vsat_anh` decimal(38,2) DEFAULT NULL,
+  `vsat_li` decimal(38,2) DEFAULT NULL,
+  `vsat_ho` decimal(38,2) DEFAULT NULL,
+  `vsat_si` decimal(38,2) DEFAULT NULL,
+  `vsat_su` decimal(38,2) DEFAULT NULL,
+  `vsat_di` decimal(38,2) DEFAULT NULL,
   `diem_xet_tot_nghiep` decimal(38,2) DEFAULT NULL,
   PRIMARY KEY (`iddiemthi`),
   UNIQUE KEY `cccd_phuongthuc_UNIQUE` (`cccd`,`d_phuongthuc`),
@@ -300,3 +308,4 @@ CREATE TABLE `xt_tohop_monthi` (
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2026-05-04 10:27:12
+INSERT INTO xt_nguoidung (taikhoan, matkhau, hoten, phanquyen, trangthaihoatdong) VALUES ('admin', 'admin123', 'Administrator', 'admin', 1);

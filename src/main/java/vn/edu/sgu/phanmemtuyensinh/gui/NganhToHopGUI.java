@@ -122,18 +122,16 @@ public class NganhToHopGUI extends JPanel {
         add(new JScrollPane(table), BorderLayout.CENTER);
 
         // --- Pagination Panel ---
-        JPanel pnlPagination = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        btnFirst = new JButton("|<");
-        btnPrev = new JButton("<");
+        JPanel pnlPagination = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
+        btnFirst = new JButton("<<");
+        btnPrev = new JButton("Trang tr\u01b0\u1edbc");
         lblPageInfo = new JLabel("Trang 1 / 1");
-        btnNext = new JButton(">");
-        btnLast = new JButton(">|");
+        btnNext = new JButton("Trang sau");
+        btnLast = new JButton(">>");
         
         pnlPagination.add(btnFirst);
         pnlPagination.add(btnPrev);
-        pnlPagination.add(Box.createHorizontalStrut(10));
         pnlPagination.add(lblPageInfo);
-        pnlPagination.add(Box.createHorizontalStrut(10));
         pnlPagination.add(btnNext);
         pnlPagination.add(btnLast);
         

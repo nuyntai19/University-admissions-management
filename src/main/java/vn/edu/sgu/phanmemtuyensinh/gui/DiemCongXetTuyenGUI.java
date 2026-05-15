@@ -132,11 +132,11 @@ public class DiemCongXetTuyenGUI extends JPanel {
         add(scrollPane, BorderLayout.CENTER);
 
         // Pagination Panel
-        JPanel pnlPagination = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 5));
+        JPanel pnlPagination = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 5));
         JButton btnFirst = new JButton("<<");
-        JButton btnPrev = new JButton("< Trước");
-        lblPageInfo = new JLabel("Trang 1 / 1 (0 dòng)");
-        JButton btnNext = new JButton("Sau >");
+        JButton btnPrev = new JButton("Trang tr\u01b0\u1edbc");
+        lblPageInfo = new JLabel("Trang 1 / 1 (0 d\u00f2ng)");
+        JButton btnNext = new JButton("Trang sau");
         JButton btnLast = new JButton(">>");
 
         btnFirst.addActionListener(e -> { currentPage = 1; loadData(); });
@@ -295,7 +295,7 @@ public class DiemCongXetTuyenGUI extends JPanel {
             for (DiemCongTongHopRow d : list) {
                 model.addRow(new Object[]{
                     d.idDiemCong,
-                    d.cccd,
+                    safe(d.cccd),
                     d.nguyenVong,
                     safe(d.maNganh),
                     safe(d.maToHop),

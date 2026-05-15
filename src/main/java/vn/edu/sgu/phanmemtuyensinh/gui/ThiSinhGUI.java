@@ -27,6 +27,7 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.BoxLayout;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
@@ -210,24 +211,29 @@ public class ThiSinhGUI extends JPanel {
     }
 
     private void buildBottom() {
-        JPanel pnlPaging = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        JPanel pnlPaging = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         pnlPaging.setOpaque(false);
 
-        btnTrangTruoc = new JButton("Trang trước");
-        btnTrangSau = new JButton("Trang sau");
+        JButton btnDauTrang = new JButton("<<");
+        btnTrangTruoc = new JButton("Trang tr\u01b0\u1edbc");
         lblThongTinTrang = new JLabel("Trang 1/1");
+        btnTrangSau = new JButton("Trang sau");
+        JButton btnCuoiTrang = new JButton(">>");
 
+        pnlPaging.add(btnDauTrang);
         pnlPaging.add(btnTrangTruoc);
         pnlPaging.add(lblThongTinTrang);
         pnlPaging.add(btnTrangSau);
+        pnlPaging.add(btnCuoiTrang);
 
+        btnDauTrang.addActionListener(e -> { currentPage = 1; loadPage(); });
+        btnCuoiTrang.addActionListener(e -> { currentPage = getTotalPages(); loadPage(); });
         btnTrangTruoc.addActionListener(e -> {
             if (currentPage > 1) {
                 currentPage--;
                 loadPage();
             }
         });
-
         btnTrangSau.addActionListener(e -> {
             if (currentPage < getTotalPages()) {
                 currentPage++;
@@ -497,8 +503,9 @@ public class ThiSinhGUI extends JPanel {
         note.setOpaque(false);
         note.add(createInfoChip("THPT", "Điểm thi phổ thông", new Color(52, 152, 219)));
         note.add(createInfoChip("ĐGNL", "Đánh giá năng lực", new Color(46, 204, 113)));
-        note.add(createInfoChip("V-SAT", "Nếu có", new Color(231, 76, 60)));
-        panel.add(note, BorderLayout.NORTH);
+        note.add(createInfoChip("V-SAT", "Kỳ thi V-SAT", new Color(231, 76, 60)));
+        panel.add(note);
+        panel.add(Box.createVerticalStrut(10));
 
         if (diemList == null || diemList.isEmpty()) {
             JLabel empty = new JLabel("Thí sinh chưa có dữ liệu điểm thi.", JLabel.CENTER);
@@ -506,15 +513,13 @@ public class ThiSinhGUI extends JPanel {
             empty.setBackground(new Color(255, 250, 240));
             empty.setBorder(BorderFactory.createEmptyBorder(18, 12, 18, 12));
             empty.setAlignmentX(Component.LEFT_ALIGNMENT);
-            panel.add(note);
-            panel.add(Box.createVerticalStrut(10));
             panel.add(empty);
             return panel;
         }
 
         for (DiemThiXetTuyen d : diemList) {
             panel.add(createScoreCard(d));
-            panel.add(Box.createVerticalStrut(10));
+            panel.add(Box.createVerticalStrut(15));
         }
         return panel;
     }
@@ -524,13 +529,16 @@ public class ThiSinhGUI extends JPanel {
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(213, 223, 240)),
-                BorderFactory.createEmptyBorder(12, 14, 12, 14)));
+                BorderFactory.createEmptyBorder(15, 15, 15, 15)));
 
+        // Tiêu đề card (Phương thức chính của bản ghi này)
         JPanel head = new JPanel(new BorderLayout());
         head.setOpaque(false);
-        JLabel method = new JLabel("Phương thức: " + nullToEmpty(d.getPhuongThuc()));
-        method.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        method.setForeground(new Color(38, 50, 70));
+        String ptName = nullToEmpty(d.getPhuongThuc());
+        if (ptName.isEmpty()) ptName = "Chưa xác định";
+        JLabel method = new JLabel("Bản ghi điểm - Phương thức chính: " + ptName);
+        method.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        method.setForeground(new Color(32, 129, 226));
 
         JLabel total = new JLabel("Điểm xét TN: " + formatBigDecimal(d.getDiemXetTotNghiep()));
         total.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -539,58 +547,119 @@ public class ThiSinhGUI extends JPanel {
         head.add(total, BorderLayout.EAST);
         card.add(head, BorderLayout.NORTH);
 
-        JPanel grid = new JPanel(new GridLayout(0, 4, 10, 8));
-        grid.setOpaque(false);
-        addScoreCell(grid, "TO", d.getTo());
-        addScoreCell(grid, "LI", d.getLi());
-        addScoreCell(grid, "HO", d.getHo());
-        addScoreCell(grid, "SI", d.getSi());
-        addScoreCell(grid, "SU", d.getSu());
-        addScoreCell(grid, "DI", d.getDi());
-        addScoreCell(grid, "VA", d.getVa());
-        addScoreCell(grid, "GDCD", d.getGdcd());
-        addScoreCell(grid, "N1_THI", d.getN1Thi());
-        addScoreCell(grid, "N1_CC", d.getN1Cc());
-        addScoreCell(grid, "CNCN", d.getCncn());
-        addScoreCell(grid, "CNNN", d.getCnnn());
-        addScoreCell(grid, "TI", d.getTi());
-        addScoreCell(grid, "KTPL", d.getKtpl());
-        addScoreCell(grid, "NL1", d.getNl1());
-        addScoreCell(grid, "NK1", d.getNk1());
-        addScoreCell(grid, "NK2", d.getNk2());
-        addScoreCell(grid, "NK3", d.getNk3());
-        addScoreCell(grid, "NK4", d.getNk4());
-        addScoreCell(grid, "NK5", d.getNk5());
-        addScoreCell(grid, "NK6", d.getNk6());
-        addScoreCell(grid, "NK7", d.getNk7());
-        addScoreCell(grid, "NK8", d.getNk8());
-        addScoreCell(grid, "NK9", d.getNk9());
-        addScoreCell(grid, "NK10", d.getNk10());
-        card.add(grid, BorderLayout.CENTER);
+        JPanel body = new JPanel();
+        body.setLayout(new javax.swing.BoxLayout(body, javax.swing.BoxLayout.Y_AXIS));
+        body.setOpaque(false);
 
+        // Nhóm 1: Điểm THPT & Học bạ
+        body.add(createSubSectionTitle("1. Nhóm điểm THPT / Học bạ"));
+        JPanel gridThpt = new JPanel(new GridLayout(0, 5, 8, 8));
+        gridThpt.setOpaque(false);
+        addScoreCell(gridThpt, "Toán", d.getTo());
+        addScoreCell(gridThpt, "Văn", d.getVa());
+        addScoreCell(gridThpt, "Lý", d.getLi());
+        addScoreCell(gridThpt, "Hóa", d.getHo());
+        addScoreCell(gridThpt, "Sinh", d.getSi());
+        addScoreCell(gridThpt, "Sử", d.getSu());
+        addScoreCell(gridThpt, "Địa", d.getDi());
+        addScoreCell(gridThpt, "GDCD", d.getGdcd());
+        addScoreCell(gridThpt, "N.Ngữ (Thi)", d.getN1Thi());
+        addScoreCell(gridThpt, "N.Ngữ (CC)", d.getN1Cc());
+        addScoreCell(gridThpt, "Tin học", d.getTi());
+        addScoreCell(gridThpt, "KTPL", d.getKtpl());
+        addScoreCell(gridThpt, "Công nghệ CN", d.getCncn());
+        addScoreCell(gridThpt, "Công nghệ NN", d.getCnnn());
+        body.add(gridThpt);
+        body.add(Box.createVerticalStrut(10));
+
+        // Nhóm 2: Năng khiếu (NK1 - NK10)
+        body.add(createSubSectionTitle("2. Nhóm điểm Năng khiếu"));
+        JPanel gridNk = new JPanel(new GridLayout(0, 5, 8, 8));
+        gridNk.setOpaque(false);
+        addScoreCell(gridNk, "NK 1", d.getNk1());
+        addScoreCell(gridNk, "NK 2", d.getNk2());
+        addScoreCell(gridNk, "NK 3", d.getNk3());
+        addScoreCell(gridNk, "NK 4", d.getNk4());
+        addScoreCell(gridNk, "NK 5", d.getNk5());
+        addScoreCell(gridNk, "NK 6", d.getNk6());
+        addScoreCell(gridNk, "NK 7", d.getNk7());
+        addScoreCell(gridNk, "NK 8", d.getNk8());
+        addScoreCell(gridNk, "NK 9", d.getNk9());
+        addScoreCell(gridNk, "NK 10", d.getNk10());
+        body.add(gridNk);
+        body.add(Box.createVerticalStrut(10));
+
+        // Nhóm 3: Đánh giá năng lực (NL1)
+        if (d.getNl1() != null && d.getNl1().compareTo(BigDecimal.ZERO) > 0) {
+            body.add(createSubSectionTitle("3. Nhóm điểm Đánh giá năng lực (ĐGNL)"));
+            JPanel gridDgnl = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            gridDgnl.setOpaque(false);
+            addScoreCell(gridDgnl, "ĐGNL (NL1)", d.getNl1());
+            body.add(gridDgnl);
+            body.add(Box.createVerticalStrut(10));
+        }
+
+        // Nhóm 4: V-SAT
+        if (hasVsatScore(d)) {
+            body.add(createSubSectionTitle("4. Nhóm điểm V-SAT"));
+            JPanel gridVsat = new JPanel(new GridLayout(0, 4, 8, 8));
+            gridVsat.setOpaque(false);
+            addScoreCell(gridVsat, "V-SAT Toán", d.getVsatTo());
+            addScoreCell(gridVsat, "V-SAT Văn", d.getVsatVa());
+            addScoreCell(gridVsat, "V-SAT Anh", d.getVsatAnh());
+            addScoreCell(gridVsat, "V-SAT Lý", d.getVsatLi());
+            addScoreCell(gridVsat, "V-SAT Hóa", d.getVsatHo());
+            addScoreCell(gridVsat, "V-SAT Sử", d.getVsatSu());
+            addScoreCell(gridVsat, "V-SAT Địa", d.getVsatDi());
+            addScoreCell(gridVsat, "V-SAT Sinh", d.getVsatSi());
+            body.add(gridVsat);
+        }
+
+        card.add(body, BorderLayout.CENTER);
         return card;
+    }
+
+    private JLabel createSubSectionTitle(String text) {
+        JLabel lbl = new JLabel(text);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lbl.setForeground(new Color(41, 128, 185));
+        lbl.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(210, 225, 240)),
+            BorderFactory.createEmptyBorder(10, 0, 5, 0)
+        ));
+        return lbl;
+    }
+
+    private boolean hasVsatScore(DiemThiXetTuyen d) {
+        return (d.getVsatTo() != null && d.getVsatTo().compareTo(BigDecimal.ZERO) > 0)
+                || (d.getVsatVa() != null && d.getVsatVa().compareTo(BigDecimal.ZERO) > 0)
+                || (d.getVsatAnh() != null && d.getVsatAnh().compareTo(BigDecimal.ZERO) > 0)
+                || (d.getVsatLi() != null && d.getVsatLi().compareTo(BigDecimal.ZERO) > 0);
     }
 
     private void addScoreCell(JPanel panel, String label, BigDecimal value) {
         JPanel cell = new JPanel(new BorderLayout());
         cell.setOpaque(true);
-        cell.setBackground(new Color(247, 250, 255));
+        cell.setBackground(new Color(250, 252, 255));
         cell.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(222, 230, 242)),
-                BorderFactory.createEmptyBorder(6, 8, 6, 8)));
+                BorderFactory.createLineBorder(new Color(230, 235, 245)),
+                BorderFactory.createEmptyBorder(6, 10, 6, 10)));
 
         JLabel lblKey = new JLabel(label);
-        lblKey.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        lblKey.setForeground(new Color(52, 73, 94));
+        lblKey.setFont(new Font("Segoe UI", Font.BOLD, 10));
+        lblKey.setForeground(new Color(100, 110, 120));
 
         JLabel lblValue = new JLabel(formatBigDecimal(value), JLabel.CENTER);
         lblValue.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        lblValue.setForeground(new Color(31, 97, 141));
+        lblValue.setForeground(new Color(41, 128, 185));
 
         cell.add(lblKey, BorderLayout.NORTH);
         cell.add(lblValue, BorderLayout.CENTER);
+        
+        cell.setPreferredSize(new Dimension(130, 45));
         panel.add(cell);
     }
+
 
     private JPanel wrapSection(String sectionTitle, JComponent innerComponent, Color background) {
         JPanel wrapper = new JPanel(new BorderLayout(0, 8));
