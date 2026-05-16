@@ -594,7 +594,7 @@ public class ThiSinhGUI extends JPanel {
             body.add(createSubSectionTitle("3. Nhóm điểm Đánh giá năng lực (ĐGNL)"));
             JPanel gridDgnl = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
             gridDgnl.setOpaque(false);
-            addScoreCell(gridDgnl, "ĐGNL (NL1)", d.getNl1());
+            addScoreCell(gridDgnl, "ĐGNL (NL1)", d.getNl1Thang30());
             body.add(gridDgnl);
             body.add(Box.createVerticalStrut(10));
         }

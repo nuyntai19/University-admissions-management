@@ -2,6 +2,8 @@ package vn.edu.sgu.phanmemtuyensinh.dal.entity;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import vn.edu.sgu.phanmemtuyensinh.bus.BangQuyDoiBUS;
 
 @Entity
 @Table(name = "xt_diemthixettuyen", uniqueConstraints = @UniqueConstraint(columnNames = {"cccd", "d_phuongthuc"}))
@@ -183,6 +185,21 @@ public class DiemThiXetTuyen {
 
     public BigDecimal getNl1() { return nl1; }
     public void setNl1(BigDecimal nl1) { this.nl1 = nl1; }
+
+    public BigDecimal getNl1Thang30() {
+        if (nl1 == null) return null;
+        try {
+            BangQuyDoiBUS bqdBus = new BangQuyDoiBUS();
+            // Use CHUNG fallback; a more specific toHop can be used when available
+            BigDecimal converted = bqdBus.quyDoiNoiSuy("ĐGNL", "CHUNG", null, nl1);
+            if (converted != null) return converted.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros();
+        } catch (Exception ignored) {}
+
+        // Fallback legacy heuristic
+        BigDecimal maxScale30 = new BigDecimal("30");
+        if (nl1.compareTo(maxScale30) <= 0) return nl1;
+        return nl1.divide(new BigDecimal("40"), 2, RoundingMode.HALF_UP).stripTrailingZeros();
+    }
 
     public BigDecimal getNk1() { return nk1; }
     public void setNk1(BigDecimal nk1) { this.nk1 = nk1; }

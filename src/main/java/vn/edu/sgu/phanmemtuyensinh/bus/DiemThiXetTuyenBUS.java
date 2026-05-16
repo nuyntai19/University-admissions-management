@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.math.RoundingMode;
 
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.openxml4j.opc.PackageAccess;
@@ -252,9 +253,15 @@ public class DiemThiXetTuyenBUS {
                 ok = dao.add(record.diem);
             } else {
                 DiemThiXetTuyen existing = existingDiemMap.get(cccd);
-                if (existing != null && isDiemChanged(existing, record.diem)) {
-                    record.diem.setIdDiemThi(existing.getIdDiemThi());
-                    ok = dao.update(record.diem);
+                if (existing != null) {
+                    DiemThiXetTuyen merged = mergeImportData(existing, record.diem);
+                    if (isDiemChanged(existing, merged)) {
+                        merged.setIdDiemThi(existing.getIdDiemThi());
+                        ok = dao.update(merged);
+                    } else {
+                        skipped++;
+                        continue;
+                    }
                 } else {
                     skipped++;
                     continue;
@@ -340,6 +347,58 @@ public class DiemThiXetTuyenBUS {
         return d1.compareTo(d2) == 0;
     }
 
+    private DiemThiXetTuyen mergeImportData(DiemThiXetTuyen existing, DiemThiXetTuyen incoming) {
+        DiemThiXetTuyen merged = new DiemThiXetTuyen();
+        merged.setIdDiemThi(existing.getIdDiemThi());
+        merged.setCccd(existing.getCccd());
+        merged.setSoBaoDanh(isBlank(safe(incoming.getSoBaoDanh())) ? existing.getSoBaoDanh() : incoming.getSoBaoDanh());
+        merged.setPhuongThuc(isBlank(safe(incoming.getPhuongThuc())) ? existing.getPhuongThuc() : incoming.getPhuongThuc());
+
+        merged.setTo(maxDecimal(existing.getTo(), incoming.getTo()));
+        merged.setVa(maxDecimal(existing.getVa(), incoming.getVa()));
+        merged.setLi(maxDecimal(existing.getLi(), incoming.getLi()));
+        merged.setHo(maxDecimal(existing.getHo(), incoming.getHo()));
+        merged.setSi(maxDecimal(existing.getSi(), incoming.getSi()));
+        merged.setSu(maxDecimal(existing.getSu(), incoming.getSu()));
+        merged.setDi(maxDecimal(existing.getDi(), incoming.getDi()));
+        merged.setGdcd(maxDecimal(existing.getGdcd(), incoming.getGdcd()));
+        merged.setN1Thi(maxDecimal(existing.getN1Thi(), incoming.getN1Thi()));
+        merged.setN1Cc(maxDecimal(existing.getN1Cc(), incoming.getN1Cc()));
+        merged.setCncn(maxDecimal(existing.getCncn(), incoming.getCncn()));
+        merged.setCnnn(maxDecimal(existing.getCnnn(), incoming.getCnnn()));
+        merged.setTi(maxDecimal(existing.getTi(), incoming.getTi()));
+        merged.setKtpl(maxDecimal(existing.getKtpl(), incoming.getKtpl()));
+        merged.setNl1(maxDecimal(existing.getNl1(), incoming.getNl1()));
+        merged.setNk1(maxDecimal(existing.getNk1(), incoming.getNk1()));
+        merged.setNk2(maxDecimal(existing.getNk2(), incoming.getNk2()));
+        merged.setNk3(maxDecimal(existing.getNk3(), incoming.getNk3()));
+        merged.setNk4(maxDecimal(existing.getNk4(), incoming.getNk4()));
+        merged.setNk5(maxDecimal(existing.getNk5(), incoming.getNk5()));
+        merged.setNk6(maxDecimal(existing.getNk6(), incoming.getNk6()));
+        merged.setNk7(maxDecimal(existing.getNk7(), incoming.getNk7()));
+        merged.setNk8(maxDecimal(existing.getNk8(), incoming.getNk8()));
+        merged.setNk9(maxDecimal(existing.getNk9(), incoming.getNk9()));
+        merged.setNk10(maxDecimal(existing.getNk10(), incoming.getNk10()));
+        merged.setDiemXetTotNghiep(maxDecimal(existing.getDiemXetTotNghiep(), incoming.getDiemXetTotNghiep()));
+
+        merged.setVsatTo(maxDecimal(existing.getVsatTo(), incoming.getVsatTo()));
+        merged.setVsatVa(maxDecimal(existing.getVsatVa(), incoming.getVsatVa()));
+        merged.setVsatAnh(maxDecimal(existing.getVsatAnh(), incoming.getVsatAnh()));
+        merged.setVsatLi(maxDecimal(existing.getVsatLi(), incoming.getVsatLi()));
+        merged.setVsatHo(maxDecimal(existing.getVsatHo(), incoming.getVsatHo()));
+        merged.setVsatSi(maxDecimal(existing.getVsatSi(), incoming.getVsatSi()));
+        merged.setVsatSu(maxDecimal(existing.getVsatSu(), incoming.getVsatSu()));
+        merged.setVsatDi(maxDecimal(existing.getVsatDi(), incoming.getVsatDi()));
+
+        return merged;
+    }
+
+    private BigDecimal maxDecimal(BigDecimal a, BigDecimal b) {
+        if (a == null) return b;
+        if (b == null) return a;
+        return a.compareTo(b) >= 0 ? a : b;
+    }
+
     private List<ImportRecord> importFromExcel(String filePath) throws IOException {
         List<ImportRecord> result = new ArrayList<>();
         DataFormatter formatter = new DataFormatter();
@@ -394,7 +453,8 @@ public class DiemThiXetTuyenBUS {
                         DiemThiXetTuyen d = new DiemThiXetTuyen();
                         d.setCccd(cccd);
                         d.setSoBaoDanh(safe(getCellStr(headerMap, currentRowData, "sobaodanh", "sbd", "mathisinh")));
-                        String pt = safe(getCellStr(headerMap, currentRowData, "dphuongthuc", "phuongthuc", "ptxt"));
+                        String pt = safe(getCellStr(headerMap, currentRowData,
+                                "dphuongthuc", "phuongthuc", "ptxt", "chuongtrinhhoc", "mamonthi", "tenmonthi"));
 
                         d.setTo(parseDecimal(getCellStr(headerMap, currentRowData, "to", "toan")));
                         d.setVa(parseDecimal(getCellStr(headerMap, currentRowData, "va", "van", "nguvan")));
@@ -410,7 +470,24 @@ public class DiemThiXetTuyenBUS {
                         d.setTi(parseDecimal(getCellStr(headerMap, currentRowData, "ti", "tin", "tinhoc")));
                         d.setGdcd(parseDecimal(getCellStr(headerMap, currentRowData, "gdcd", "giaoduccongdan")));
                         d.setKtpl(parseDecimal(getCellStr(headerMap, currentRowData, "ktpl", "kinhtephapluat")));
-                        d.setNl1(parseDecimal(getCellStr(headerMap, currentRowData, "nl1", "dgnl")));
+                        // Prefer explicit NL1/DGNL column, but also support DIEM + THANGDIEM format
+                        String nlRaw = getCellStr(headerMap, currentRowData, "nl1", "dgnl");
+                        BigDecimal nlValue = null;
+                        if (isBlank(nlRaw)) {
+                            String diemStr = getCellStr(headerMap, currentRowData, "diem");
+                            String thangStr = getCellStr(headerMap, currentRowData, "thangdiem");
+                            BigDecimal diem = parseDecimal(diemStr);
+                            BigDecimal thang = parseDecimal(thangStr);
+                            if (diem != null) {
+                                if (thang != null && thang.compareTo(BigDecimal.ZERO) > 0 && thang.compareTo(new BigDecimal("1200")) != 0) {
+                                    nlValue = diem.multiply(new BigDecimal("1200")).divide(thang, 10, RoundingMode.HALF_UP);
+                                } else {
+                                    nlValue = diem;
+                                }
+                            }
+                        }
+                        if (nlValue == null) nlValue = parseDecimal(nlRaw);
+                        d.setNl1(nlValue);
                         d.setNk1(parseDecimal(getCellStr(headerMap, currentRowData, "nk1")));
                         d.setNk2(parseDecimal(getCellStr(headerMap, currentRowData, "nk2")));
                         d.setNk3(parseDecimal(getCellStr(headerMap, currentRowData, "nk3")));
@@ -497,7 +574,8 @@ public class DiemThiXetTuyenBUS {
 
         d.setCccd(readHeaderCell(row, headerMap, formatter, "cccd", "cancuoc", "cmnd", "maso"));
         d.setSoBaoDanh(readHeaderCell(row, headerMap, formatter, "sobaodanh", "sbd", "mathisinh"));
-        String pt = readHeaderCell(row, headerMap, formatter, "dphuongthuc", "phuongthuc", "ptxt", "chuongtrinhhoc");
+        String pt = readHeaderCell(row, headerMap, formatter,
+                "dphuongthuc", "phuongthuc", "ptxt", "chuongtrinhhoc", "mamonthi", "tenmonthi");
 
         if (isBlank(safe(d.getCccd()))) {
             d.setCccd(readCell(row, 1, formatter));
@@ -520,7 +598,24 @@ public class DiemThiXetTuyenBUS {
         d.setTi(parseDecimal(readHeaderCell(row, headerMap, formatter, "ti", "tin", "tinhoc")));
         d.setGdcd(parseDecimal(readHeaderCell(row, headerMap, formatter, "gdcd", "giaoduccongdan")));
         d.setKtpl(parseDecimal(readHeaderCell(row, headerMap, formatter, "ktpl", "kinhtephapluat")));
-        d.setNl1(parseDecimal(readHeaderCell(row, headerMap, formatter, "nl1", "dgnl")));
+        // Prefer explicit NL1/DGNL column, fallback to DIEM+THANGDIEM when present
+        String nlCell = readHeaderCell(row, headerMap, formatter, "nl1", "dgnl");
+        BigDecimal nlVal = null;
+        if (isBlank(nlCell)) {
+            String diemCell = readHeaderCell(row, headerMap, formatter, "diem");
+            String thangCell = readHeaderCell(row, headerMap, formatter, "thangdiem");
+            BigDecimal diem = parseDecimal(diemCell);
+            BigDecimal thang = parseDecimal(thangCell);
+            if (diem != null) {
+                if (thang != null && thang.compareTo(BigDecimal.ZERO) > 0 && thang.compareTo(new BigDecimal("1200")) != 0) {
+                    nlVal = diem.multiply(new BigDecimal("1200")).divide(thang, 10, RoundingMode.HALF_UP);
+                } else {
+                    nlVal = diem;
+                }
+            }
+        }
+        if (nlVal == null) nlVal = parseDecimal(nlCell);
+        d.setNl1(nlVal);
         d.setNk1(parseDecimal(readHeaderCell(row, headerMap, formatter, "nk1")));
         d.setNk2(parseDecimal(readHeaderCell(row, headerMap, formatter, "nk2")));
         d.setNk3(parseDecimal(readHeaderCell(row, headerMap, formatter, "nk3")));
@@ -638,29 +733,67 @@ public class DiemThiXetTuyenBUS {
 
     private void autoDetectPhuongThuc(DiemThiXetTuyen d, String ptStr) {
         if (!isBlank(ptStr)) {
-            d.setPhuongThuc(ptStr.toUpperCase());
+            d.setPhuongThuc(normalizePhuongThucCode(ptStr));
             return;
         }
-        boolean isVsat = false;
+        if (isLikelyDglnRecord(d)) {
+            d.setPhuongThuc("DGNL");
+            return;
+        }
+        if (isLikelyVsatRecord(d)) {
+            d.setPhuongThuc("V-SAT");
+            return;
+        }
+        d.setPhuongThuc("THPT");
+    }
+
+    private String normalizePhuongThucCode(String raw) {
+        if (isBlank(raw)) {
+            return "";
+        }
+        String normalized = normalizeHeader(raw);
+        if (normalized.contains("dgnl") || normalized.contains("dgln") || normalized.contains("danhgianangluc") || normalized.contains("danhgianangluc")) {
+            return "DGNL";
+        }
+        if (normalized.contains("vsat") || normalized.contains("vat")) {
+            return "V-SAT";
+        }
+        if (normalized.contains("thpt") || normalized.contains("thpt")) {
+            return "THPT";
+        }
+        return raw.trim().toUpperCase();
+    }
+
+    private boolean isLikelyDglnRecord(DiemThiXetTuyen d) {
+        return d.getNl1() != null
+                && d.getTo() == null
+                && d.getVa() == null
+                && d.getLi() == null
+                && d.getHo() == null
+                && d.getSi() == null
+                && d.getSu() == null
+                && d.getDi() == null
+                && d.getGdcd() == null
+                && d.getN1Cc() == null
+                && d.getCncn() == null
+                && d.getCnnn() == null
+                && d.getTi() == null
+                && d.getKtpl() == null;
+    }
+
+    private boolean isLikelyVsatRecord(DiemThiXetTuyen d) {
+        if (d.getVsatTo() != null || d.getVsatVa() != null || d.getVsatAnh() != null
+                || d.getVsatLi() != null || d.getVsatHo() != null || d.getVsatSi() != null
+                || d.getVsatSu() != null || d.getVsatDi() != null) {
+            return true;
+        }
         BigDecimal ten = new BigDecimal("10.0");
-        BigDecimal[] scores = {
-            d.getTo(), d.getVa(), d.getLi(), d.getHo(), d.getSi(), d.getSu(), d.getDi(),
-            d.getN1Thi(), d.getN1Cc(), d.getCncn(), d.getCnnn(), d.getTi(), d.getGdcd(),
-            d.getKtpl(), d.getNl1(), d.getNk1(), d.getNk2(), d.getNk3(), d.getNk4(),
-            d.getNk5(), d.getNk6(), d.getNk7(), d.getNk8(), d.getNk9(), d.getNk10()
-        };
-        for (BigDecimal score : scores) {
+        for (BigDecimal score : new BigDecimal[]{d.getTo(), d.getVa(), d.getLi(), d.getHo(), d.getSi(), d.getSu(), d.getDi(), d.getN1Thi()}) {
             if (score != null && score.compareTo(ten) > 0) {
-                isVsat = true;
-                break;
+                return true;
             }
         }
-        
-        if (isVsat) {
-            d.setPhuongThuc("V-SAT");
-        } else {
-            d.setPhuongThuc("THPT");
-        }
+        return false;
     }
 
     private boolean isNullOrZero(BigDecimal value) {
