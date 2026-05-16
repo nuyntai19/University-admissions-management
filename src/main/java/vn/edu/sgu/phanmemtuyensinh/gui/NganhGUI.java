@@ -1,4 +1,4 @@
-package vn.edu.sgu.phanmemtuyensinh.gui;
+﻿package vn.edu.sgu.phanmemtuyensinh.gui;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -8,7 +8,10 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.io.File;
 import java.math.BigDecimal;
+import java.text.Normalizer;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import javax.swing.BorderFactory;
@@ -129,17 +132,16 @@ public class NganhGUI extends JPanel {
                 ? bus.getAll()
                 : bus.searchByKeyword(currentKeyword);
         Map<String, Long> soNguyenVongByMaNganh = bus.countNguyenVongByMaNganh();
-        Map<String, Long> soNvByPhuongThuc = bus.countNguyenVongByPhuongThuc();
+        Map<String, Long> soNvByPhuongThuc = normalizeCountByPhuongThuc(bus.countNguyenVongByPhuongThuc());
 
         for (Nganh n : list) {
             String ma = n.getMaNganh();
             long total  = soNguyenVongByMaNganh.getOrDefault(ma, 0L);
-            long tt     = soNvByPhuongThuc.getOrDefault(ma + "|TUY\u1ec4N TH\u1eb8NG", 0L);   // "Tuy\u1ec3n th\u1eb3ng" -> toUpperCase
-            long dgnl   = soNvByPhuongThuc.getOrDefault(ma + "|\u0110GNL", 0L)
-                        + soNvByPhuongThuc.getOrDefault(ma + "|DGNL", 0L);
-            long thpt   = soNvByPhuongThuc.getOrDefault(ma + "|THPT", 0L);
-            long vsat   = soNvByPhuongThuc.getOrDefault(ma + "|V-SAT", 0L)
-                        + soNvByPhuongThuc.getOrDefault(ma + "|VSAT", 0L);
+            String maKey = normalizeKey(ma);
+            long tt     = soNvByPhuongThuc.getOrDefault(maKey + "|TUYENTHANG", 0L);
+            long dgnl   = soNvByPhuongThuc.getOrDefault(maKey + "|DGNL", 0L);
+            long thpt   = soNvByPhuongThuc.getOrDefault(maKey + "|THPT", 0L);
+            long vsat   = soNvByPhuongThuc.getOrDefault(maKey + "|VSAT", 0L);
             tableModel.addRow(new Object[]{
                     n.getIdNganh(),
                     n.getMaNganh(),
@@ -155,6 +157,49 @@ public class NganhGUI extends JPanel {
                     vsat
             });
         }
+    }
+
+    private Map<String, Long> normalizeCountByPhuongThuc(Map<String, Long> source) {
+        Map<String, Long> result = new HashMap<>();
+        if (source == null || source.isEmpty()) {
+            return result;
+        }
+
+        for (Map.Entry<String, Long> entry : source.entrySet()) {
+            String key = entry.getKey();
+            if (key == null || key.isBlank()) {
+                continue;
+            }
+
+            int pipe = key.indexOf('|');
+            String ma = pipe >= 0 ? key.substring(0, pipe) : key;
+            String pt = pipe >= 0 ? key.substring(pipe + 1) : "";
+
+            String maKey = normalizeKey(ma);
+            String ptKey = normalizePhuongThucKey(pt);
+            String mergedKey = maKey + "|" + ptKey;
+            long current = result.getOrDefault(mergedKey, 0L);
+            result.put(mergedKey, current + (entry.getValue() == null ? 0L : entry.getValue()));
+        }
+
+        return result;
+    }
+
+    private String normalizePhuongThucKey(String value) {
+        String key = normalizeKey(value);
+        if (key.contains("TUYENTHANG")) return "TUYENTHANG";
+        if (key.contains("DGNL") || key.contains("DANHGIANANGLUC")) return "DGNL";
+        if (key.contains("VSAT")) return "VSAT";
+        if (key.contains("THPT")) return "THPT";
+        return key;
+    }
+
+    private String normalizeKey(String value) {
+        if (value == null) return "";
+        String normalized = Normalizer.normalize(value.trim().toUpperCase(Locale.ROOT), Normalizer.Form.NFD);
+        normalized = normalized.replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+        normalized = normalized.replace("Đ", "D");
+        return normalized.replaceAll("[^A-Z0-9]", "");
     }
 
     private void themNganh() {

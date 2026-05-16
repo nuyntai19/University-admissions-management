@@ -241,7 +241,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
     private void buildTable() {
         String[] columns;
         if ("DGNL".equals(currentMode)) {
-            columns = new String[]{"STT", "ID", "CCCD", "Số Báo Danh", "Điểm ĐGNL (30)"};
+            columns = new String[]{"STT", "ID", "CCCD", "Số Báo Danh", "Điểm ĐGNL gốc", "Điểm ĐGNL (30)"};
         } else if ("V-SAT".equals(currentMode)) {
             columns = new String[]{"STT", "ID", "CCCD", "S\u1ed1 B\u00e1o Danh", "To\u00e1n", "V\u0103n", "Ti\u1ebfng Anh", "V\u1eadt l\u00fd", "H\u00f3a h\u1ecdc", "Sinh h\u1ecdc", "L\u1ecbch s\u1eed", "\u0110\u1ecba l\u00fd"};
         } else {
@@ -287,7 +287,9 @@ public class DiemThiXetTuyenGUI extends JPanel {
         
         for (int i = 4; i < table.getColumnCount(); i++) {
             // Increase width for the last column in THPT mode
-            if ("THPT".equals(currentMode) && i == 14) {
+            if ("DGNL".equals(currentMode)) {
+                table.getColumnModel().getColumn(i).setPreferredWidth(110);
+            } else if ("THPT".equals(currentMode) && i == 14) {
                 table.getColumnModel().getColumn(i).setPreferredWidth(130);
             } else {
                 table.getColumnModel().getColumn(i).setPreferredWidth(85);
@@ -377,7 +379,9 @@ public class DiemThiXetTuyenGUI extends JPanel {
         int stt = (currentPage - 1) * PAGE_SIZE + 1;
         for (DiemThiXetTuyen d : list) {
             if ("DGNL".equals(currentMode)) {
-                tableModel.addRow(new Object[]{ stt++, d.getIdDiemThi(), d.getCccd(), d.getSoBaoDanh(), d.getNl1Thang30() });
+                tableModel.addRow(new Object[]{
+                    stt++, d.getIdDiemThi(), d.getCccd(), d.getSoBaoDanh(), d.getNl1(), d.getNl1Thang30()
+                });
             } else if ("V-SAT".equals(currentMode)) {
                 tableModel.addRow(new Object[]{ 
                     stt++, d.getIdDiemThi(), d.getCccd(), d.getSoBaoDanh(),
