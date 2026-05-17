@@ -11,7 +11,13 @@ import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import javax.swing.BorderFactory;
@@ -26,10 +32,12 @@ import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.table.JTableHeader;
 import javax.swing.JTextField;
 import javax.swing.SwingWorker;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableColumnModel;
 import javax.swing.DefaultListModel;
 import javax.swing.JList;
 import javax.swing.JPopupMenu;
@@ -51,14 +59,17 @@ import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
 
+import vn.edu.sgu.phanmemtuyensinh.bus.BangQuyDoiBUS;
 import vn.edu.sgu.phanmemtuyensinh.bus.DiemThiXetTuyenBUS;
 import vn.edu.sgu.phanmemtuyensinh.bus.ThiSinhBUS;
+import vn.edu.sgu.phanmemtuyensinh.dal.entity.BangQuyDoi;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.DiemThiXetTuyen;
 import vn.edu.sgu.phanmemtuyensinh.dal.entity.ThiSinh;
 
 public class DiemThiXetTuyenGUI extends JPanel {
 
     private static final int PAGE_SIZE = 20;
+    private static final int VSAT_SUB_COL_WIDTH = 70;
     private static final String[] EXPORT_HEADERS = {
             "ID", "CCCD", "Số Báo Danh", "Phương Thức",
             "TO", "LI", "HO", "SI", "SU", "DI", "VA", "GDCD",
@@ -68,6 +79,8 @@ public class DiemThiXetTuyenGUI extends JPanel {
     };
 
     private final DiemThiXetTuyenBUS bus = new DiemThiXetTuyenBUS();
+    private final BangQuyDoiBUS bqdBus = new BangQuyDoiBUS();
+    private Map<String, List<BangQuyDoi>> bqdCache;
 
     private JTextField txtTimKiem;
     private JButton btnThem;
@@ -83,6 +96,7 @@ public class DiemThiXetTuyenGUI extends JPanel {
     private JLabel lblThongTinTrang;
     private JTable table;
     private DefaultTableModel tableModel;
+    private JScrollPane tableScroll;
 
     private int currentId = -1;
     private int currentPage = 1;
@@ -241,9 +255,19 @@ public class DiemThiXetTuyenGUI extends JPanel {
     private void buildTable() {
         String[] columns;
         if ("DGNL".equals(currentMode)) {
-            columns = new String[]{"STT", "ID", "CCCD", "Số Báo Danh", "Điểm ĐGNL gốc", "Điểm ĐGNL (30)"};
+            columns = new String[]{"STT", "ID", "CCCD", "Số Báo Danh", "Điểm ĐGNL gốc"};
         } else if ("V-SAT".equals(currentMode)) {
-            columns = new String[]{"STT", "ID", "CCCD", "S\u1ed1 B\u00e1o Danh", "To\u00e1n", "V\u0103n", "Ti\u1ebfng Anh", "V\u1eadt l\u00fd", "H\u00f3a h\u1ecdc", "Sinh h\u1ecdc", "L\u1ecbch s\u1eed", "\u0110\u1ecba l\u00fd"};
+            columns = new String[]{
+                "STT", "ID", "CCCD", "S\u1ed1 B\u00e1o Danh",
+                "G\u1ed1c", "Thang 10",
+                "G\u1ed1c", "Thang 10",
+                "G\u1ed1c", "Thang 10",
+                "G\u1ed1c", "Thang 10",
+                "G\u1ed1c", "Thang 10",
+                "G\u1ed1c", "Thang 10",
+                "G\u1ed1c", "Thang 10",
+                "G\u1ed1c", "Thang 10"
+            };
         } else {
             // THPT
             columns = new String[]{
@@ -263,14 +287,13 @@ public class DiemThiXetTuyenGUI extends JPanel {
             table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
             
             // Blue header style
-            table.getTableHeader().setBackground(new Color(13, 110, 253));
-            table.getTableHeader().setForeground(Color.WHITE);
-            table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
-            table.getTableHeader().setPreferredSize(new Dimension(0, 40));
+            applyHeaderStyle(40);
             
-            JScrollPane scrollPane = new JScrollPane(table);
-            scrollPane.setBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)));
-            add(scrollPane, BorderLayout.CENTER);
+            tableScroll = new JScrollPane(table);
+            tableScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
+            tableScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+            tableScroll.setBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)));
+            add(tableScroll, BorderLayout.CENTER);
         } else {
             table.setModel(tableModel);
         }
@@ -285,10 +308,13 @@ public class DiemThiXetTuyenGUI extends JPanel {
         table.getColumnModel().getColumn(2).setPreferredWidth(140); // CCCD
         table.getColumnModel().getColumn(3).setPreferredWidth(110); // SBD
         
+        int vsatSubWidth = VSAT_SUB_COL_WIDTH;
         for (int i = 4; i < table.getColumnCount(); i++) {
             // Increase width for the last column in THPT mode
             if ("DGNL".equals(currentMode)) {
                 table.getColumnModel().getColumn(i).setPreferredWidth(110);
+            } else if ("V-SAT".equals(currentMode)) {
+                table.getColumnModel().getColumn(i).setPreferredWidth(vsatSubWidth);
             } else if ("THPT".equals(currentMode) && i == 14) {
                 table.getColumnModel().getColumn(i).setPreferredWidth(130);
             } else {
@@ -309,7 +335,99 @@ public class DiemThiXetTuyenGUI extends JPanel {
                 }
             });
         }
-        table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+
+        if ("V-SAT".equals(currentMode)) {
+            applyVsatHeader();
+            applyHeaderStyle(100);
+            table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+            updateTablePreferredWidth();
+        } else {
+            table.setTableHeader(new JTableHeader(table.getColumnModel()));
+            applyHeaderStyle(40);
+            table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+            // Reset preferred size để JTable tự co giãn theo viewport (không kéo scrollbar xa)
+            table.setPreferredSize(null);
+            int viewportHeight = PAGE_SIZE * table.getRowHeight();
+            table.setPreferredScrollableViewportSize(new Dimension(
+                table.getPreferredSize().width, viewportHeight));
+        }
+
+        if (tableScroll != null) {
+            tableScroll.setColumnHeaderView(table.getTableHeader());
+            tableScroll.getColumnHeader().revalidate();
+            tableScroll.getColumnHeader().repaint();
+        }
+    }
+
+    private void updateTablePreferredWidth() {
+        int totalWidth = 0;
+        for (int i = 0; i < table.getColumnCount(); i++) {
+            totalWidth += table.getColumnModel().getColumn(i).getPreferredWidth();
+        }
+        // Set preferred scrollable viewport size cho V-SAT (nhiều cột cần horizontal scroll).
+        // Height dựa trên PAGE_SIZE để viewport chỉ vừa đủ cho dữ liệu thực tế.
+        int viewportHeight = PAGE_SIZE * table.getRowHeight();
+        table.setPreferredScrollableViewportSize(new Dimension(totalWidth, viewportHeight));
+        // Set preferred size chỉ cho width (để horizontal scroll hoạt động),
+        // nhưng KHÔNG set height lớn để tránh scrollbar dọc kéo xa.
+        table.setPreferredSize(new Dimension(totalWidth, table.getRowCount() * table.getRowHeight()));
+    }
+
+    private void applyVsatHeader() {
+        TableColumnModel cm = table.getColumnModel();
+
+        ColumnGroup gToan = new ColumnGroup("To\u00e1n");
+        gToan.add(cm.getColumn(4));
+        gToan.add(cm.getColumn(5));
+
+        ColumnGroup gVan = new ColumnGroup("V\u0103n");
+        gVan.add(cm.getColumn(6));
+        gVan.add(cm.getColumn(7));
+
+        ColumnGroup gAnh = new ColumnGroup("Ti\u1ebfng Anh");
+        gAnh.add(cm.getColumn(8));
+        gAnh.add(cm.getColumn(9));
+
+        ColumnGroup gLy = new ColumnGroup("V\u1eadt l\u00fd");
+        gLy.add(cm.getColumn(10));
+        gLy.add(cm.getColumn(11));
+
+        ColumnGroup gHoa = new ColumnGroup("H\u00f3a h\u1ecdc");
+        gHoa.add(cm.getColumn(12));
+        gHoa.add(cm.getColumn(13));
+
+        ColumnGroup gSinh = new ColumnGroup("Sinh h\u1ecdc");
+        gSinh.add(cm.getColumn(14));
+        gSinh.add(cm.getColumn(15));
+
+        ColumnGroup gSu = new ColumnGroup("L\u1ecbch s\u1eed");
+        gSu.add(cm.getColumn(16));
+        gSu.add(cm.getColumn(17));
+
+        ColumnGroup gDia = new ColumnGroup("\u0110\u1ecba l\u00fd");
+        gDia.add(cm.getColumn(18));
+        gDia.add(cm.getColumn(19));
+
+        GroupableTableHeader header = new GroupableTableHeader(cm);
+        header.addColumnGroup(gToan);
+        header.addColumnGroup(gVan);
+        header.addColumnGroup(gAnh);
+        header.addColumnGroup(gLy);
+        header.addColumnGroup(gHoa);
+        header.addColumnGroup(gSinh);
+        header.addColumnGroup(gSu);
+        header.addColumnGroup(gDia);
+        table.setTableHeader(header);
+    }
+
+    private void applyHeaderStyle(int height) {
+        JTableHeader header = table.getTableHeader();
+        header.setBackground(new Color(13, 110, 253));
+        header.setForeground(Color.WHITE);
+        header.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        header.setPreferredSize(new Dimension(table.getPreferredSize().width, height));
+        header.revalidate();
+        header.repaint();
     }
 
     private void buildBottom() {
@@ -367,25 +485,43 @@ public class DiemThiXetTuyenGUI extends JPanel {
     private void loadPage() {
         tableModel.setRowCount(0);
 
+        int pageSize = getPageSize();
+
         List<DiemThiXetTuyen> list;
         if (currentKeyword == null || currentKeyword.isBlank()) {
             totalItems = bus.countAll();
-            list = bus.getPageWithSort(currentPage, PAGE_SIZE, currentSortOrder);
+            list = bus.getPageWithSort(currentPage, pageSize, currentSortOrder);
         } else {
             totalItems = bus.countByKeyword(currentKeyword);
-            list = bus.searchByKeyword(currentKeyword, currentPage, PAGE_SIZE);
+            list = bus.searchByKeyword(currentKeyword, currentPage, pageSize);
         }
 
-        int stt = (currentPage - 1) * PAGE_SIZE + 1;
+        int stt = (currentPage - 1) * pageSize + 1;
         for (DiemThiXetTuyen d : list) {
             if ("DGNL".equals(currentMode)) {
                 tableModel.addRow(new Object[]{
-                    stt++, d.getIdDiemThi(), d.getCccd(), d.getSoBaoDanh(), d.getNl1(), d.getNl1Thang30()
+                    stt++, d.getIdDiemThi(), d.getCccd(), d.getSoBaoDanh(), d.getNl1()
                 });
             } else if ("V-SAT".equals(currentMode)) {
-                tableModel.addRow(new Object[]{ 
+                BigDecimal toGoc = d.getVsatTo();
+                BigDecimal vaGoc = d.getVsatVa();
+                BigDecimal anhGoc = d.getVsatAnh();
+                BigDecimal liGoc = d.getVsatLi();
+                BigDecimal hoGoc = d.getVsatHo();
+                BigDecimal siGoc = d.getVsatSi();
+                BigDecimal suGoc = d.getVsatSu();
+                BigDecimal diGoc = d.getVsatDi();
+
+                tableModel.addRow(new Object[]{
                     stt++, d.getIdDiemThi(), d.getCccd(), d.getSoBaoDanh(),
-                    d.getVsatTo(), d.getVsatVa(), d.getVsatAnh(), d.getVsatLi(), d.getVsatHo(), d.getVsatSi(), d.getVsatSu(), d.getVsatDi()
+                    toGoc, quyDoiVsatMon("TO", toGoc),
+                    vaGoc, quyDoiVsatMon("VA", vaGoc),
+                    anhGoc, quyDoiVsatMon("N1", anhGoc),
+                    liGoc, quyDoiVsatMon("LI", liGoc),
+                    hoGoc, quyDoiVsatMon("HO", hoGoc),
+                    siGoc, quyDoiVsatMon("SI", siGoc),
+                    suGoc, quyDoiVsatMon("SU", suGoc),
+                    diGoc, quyDoiVsatMon("DI", diGoc)
                 });
             } else {
                 tableModel.addRow(new Object[]{
@@ -402,6 +538,9 @@ public class DiemThiXetTuyenGUI extends JPanel {
             return;
         }
 
+        // Cập nhật kích thước bảng theo số dòng thực tế để scrollbar dọc không kéo xa
+        updateScrollableViewport();
+
         updatePagingInfo();
     }
 
@@ -409,7 +548,15 @@ public class DiemThiXetTuyenGUI extends JPanel {
         if (totalItems <= 0) {
             return 1;
         }
-        return (int) Math.ceil((double) totalItems / PAGE_SIZE);
+        int pageSize = getPageSize();
+        return (int) Math.ceil((double) totalItems / pageSize);
+    }
+
+    private int getPageSize() {
+        // Luôn dùng PAGE_SIZE cố định (20 hàng/trang) cho tất cả các tab (THPT, DGNL, V-SAT).
+        // Tính động từ viewport height không ổn định vì setPreferredSize / setAutoResizeMode
+        // của JTable làm thay đổi kích thước viewport sau mỗi lần đổi tab.
+        return PAGE_SIZE;
     }
 
     private void updatePagingInfo() {
@@ -417,6 +564,100 @@ public class DiemThiXetTuyenGUI extends JPanel {
         lblThongTinTrang.setText("Trang " + currentPage + "/" + totalPages + " (" + totalItems + " dòng)");
         btnTrangTruoc.setEnabled(currentPage > 1);
         btnTrangSau.setEnabled(currentPage < totalPages);
+    }
+
+    /**
+     * Cập nhật kích thước viewport của JScrollPane dựa trên số dòng thực tế,
+     * để thanh scrollbar dọc chỉ hiển thị đúng phạm vi dữ liệu.
+     */
+    private void updateScrollableViewport() {
+        int actualRows = table.getRowCount();
+        int height = Math.max(actualRows, 1) * table.getRowHeight();
+        if ("V-SAT".equals(currentMode)) {
+            // V-SAT: giữ width để horizontal scroll hoạt động
+            int totalWidth = 0;
+            for (int i = 0; i < table.getColumnCount(); i++) {
+                totalWidth += table.getColumnModel().getColumn(i).getPreferredWidth();
+            }
+            table.setPreferredSize(new Dimension(totalWidth, height));
+            table.setPreferredScrollableViewportSize(new Dimension(totalWidth, height));
+        } else {
+            // THPT / DGNL: reset preferred size, chỉ set viewport height
+            table.setPreferredSize(null);
+            table.setPreferredScrollableViewportSize(new Dimension(
+                table.getPreferredSize().width, height));
+        }
+        table.revalidate();
+        if (tableScroll != null) {
+            tableScroll.revalidate();
+            tableScroll.repaint();
+        }
+    }
+
+    private String quyDoiVsatMon(String monCode, BigDecimal rawScore) {
+        if (rawScore == null) {
+            return null;
+        }
+        if (rawScore.compareTo(BigDecimal.ZERO) == 0) {
+            return "0";
+        }
+        BigDecimal converted = bqdBus.quyDoiNoiSuyCached("V-SAT", null, monCode, rawScore, getBqdCache());
+        if (converted == null) {
+            // Điểm nằm ngoài tất cả khoảng bách phân vị → dùng khoảng cuối (d cao nhất)
+            Map<String, List<BangQuyDoi>> cache = getBqdCache();
+            String ptKey = normKey("V-SAT");
+            String mKey = normKey(monCode);
+            String key = ptKey + "_" + mKey;
+            List<BangQuyDoi> subList = cache.get(key);
+            if ((subList == null || subList.isEmpty()) && "N1".equals(mKey)) {
+                subList = cache.get(ptKey + "_N1_THI");
+            }
+            if (subList != null && !subList.isEmpty()) {
+                // Tìm khoảng có b lớn nhất
+                BangQuyDoi lastInterval = null;
+                for (BangQuyDoi bqd : subList) {
+                    if (lastInterval == null || bqd.getDDiemB().compareTo(lastInterval.getDDiemB()) > 0) {
+                        lastInterval = bqd;
+                    }
+                }
+                if (lastInterval != null) {
+                    return formatScore(lastInterval.getDDiemD());
+                }
+            }
+            return null;
+        }
+        return formatScore(converted);
+    }
+
+    private String formatScore(BigDecimal value) {
+        if (value == null) return null;
+        BigDecimal scaled = value.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros();
+        return scaled.toPlainString();
+    }
+
+    private Map<String, List<BangQuyDoi>> getBqdCache() {
+        if (bqdCache != null) {
+            return bqdCache;
+        }
+        List<BangQuyDoi> allBqd = bqdBus.getAll();
+        Map<String, List<BangQuyDoi>> bqdMap = new HashMap<>();
+        for (BangQuyDoi b : allBqd) {
+            String pt = normKey(b.getDPhuongThuc());
+            String th = normKey(b.getDToHop());
+            String mon = normKey(b.getDMon());
+            String key = pt + (th.isEmpty() ? "" : "_" + th) + (mon.isEmpty() ? "" : "_" + mon);
+            bqdMap.computeIfAbsent(key, k -> new ArrayList<>()).add(b);
+        }
+        bqdCache = bqdMap;
+        return bqdCache;
+    }
+
+    private String normKey(String s) {
+        if (s == null) return "";
+        String normalized = Normalizer.normalize(s.trim().toUpperCase(Locale.ROOT), Normalizer.Form.NFD);
+        return normalized.replaceAll("\\p{InCombiningDiacriticalMarks}+", "")
+                         .replace("Đ", "D")
+                         .replace("-", "");
     }
 
     private void timKiem() {

@@ -16,4 +16,7 @@ public interface BangQuyDoiRepository extends JpaRepository<BangQuyDoi, Integer>
 
     @Query("SELECT b FROM BangQuyDoi b WHERE b.dPhuongThuc = :pt AND b.dToHop = :th")
     List<BangQuyDoi> findByPhuongThucAndToHop(@Param("pt") String phuongThuc, @Param("th") String toHop);
+
+    @Query("SELECT b FROM BangQuyDoi b WHERE b.dPhuongThuc LIKE :ptPattern AND b.dToHop = :th")
+    List<BangQuyDoi> findByPhuongThucLikeAndToHop(@Param("ptPattern") String ptPattern, @Param("th") String toHop);
 }

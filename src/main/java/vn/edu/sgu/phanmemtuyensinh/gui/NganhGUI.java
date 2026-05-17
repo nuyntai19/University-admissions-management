@@ -1,4 +1,4 @@
-﻿package vn.edu.sgu.phanmemtuyensinh.gui;
+package vn.edu.sgu.phanmemtuyensinh.gui;
 
 import java.awt.BorderLayout;
 import java.awt.Color;

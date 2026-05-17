@@ -422,9 +422,10 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         pnlChiTiet.setBackground(Color.WHITE);
         pnlChiTiet.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        JPanel pnlFilter = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
+        JPanel pnlFilter = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         pnlFilter.setOpaque(false);
         
+        // --- Combobox lọc ngành ---
         java.util.Set<String> nganhSet = new java.util.TreeSet<>();
         for (Object[] row : chiTiet) {
             nganhSet.add(row[0] + " - " + row[1]);
@@ -433,7 +434,31 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         JComboBox<String> cboNganh = new JComboBox<>();
         cboNganh.addItem("--- Tất cả ngành ---");
         for (String nganh : nganhSet) cboNganh.addItem(nganh);
-        cboNganh.setPreferredSize(new Dimension(300, 32));
+        cboNganh.setPreferredSize(new Dimension(280, 32));
+
+        // --- Combobox sắp xếp Điểm XT ---
+        JComboBox<String> cboSortDiemXT = new JComboBox<>(new String[]{
+            "--- Sắp xếp Điểm XT ---", "Điểm XT: Cao → Thấp", "Điểm XT: Thấp → Cao"
+        });
+        cboSortDiemXT.setPreferredSize(new Dimension(200, 32));
+
+        // --- Combobox lọc Tổ hợp môn ---
+        java.util.Set<String> toHopSet = new java.util.TreeSet<>();
+        for (Object[] row : chiTiet) {
+            if (row.length > 5 && row[5] != null && !row[5].toString().trim().isEmpty()) {
+                toHopSet.add(row[5].toString().trim());
+            }
+        }
+        JComboBox<String> cboToHop = new JComboBox<>();
+        cboToHop.addItem("--- Tất cả tổ hợp ---");
+        for (String th : toHopSet) cboToHop.addItem(th);
+        cboToHop.setPreferredSize(new Dimension(180, 32));
+
+        // --- Combobox lọc Phương thức ---
+        JComboBox<String> cboPhuongThuc = new JComboBox<>(new String[]{
+            "--- Tất cả phương thức ---", "THPT", "ĐGNL", "V-SAT", "Tuyển thẳng"
+        });
+        cboPhuongThuc.setPreferredSize(new Dimension(190, 32));
 
         JButton btnExport = new JButton("Xuất Excel");
         btnExport.setBackground(new Color(33, 115, 70));
@@ -441,20 +466,92 @@ public class NguyenVongXetTuyenGUI extends JPanel {
         btnExport.setFocusPainted(false);
         btnExport.setPreferredSize(new Dimension(120, 32));
 
-        pnlFilter.add(new JLabel("Tìm kiếm ngành:"));
         pnlFilter.add(cboNganh);
+        pnlFilter.add(cboToHop);
+        pnlFilter.add(cboPhuongThuc);
+        pnlFilter.add(cboSortDiemXT);
         pnlFilter.add(btnExport);
 
         JTable tblChiTiet = createChiTietTable(chiTiet);
         tblChiTiet.setRowHeight(32);
         javax.swing.table.TableRowSorter<DefaultTableModel> sorter = new javax.swing.table.TableRowSorter<>((DefaultTableModel) tblChiTiet.getModel());
+        // Đặt Comparator cho cột Điểm XT (index 9) để so sánh số thay vì chuỗi
+        sorter.setComparator(9, (Object o1, Object o2) -> {
+            double d1 = toDouble(o1);
+            double d2 = toDouble(o2);
+            return Double.compare(d1, d2);
+        });
         tblChiTiet.setRowSorter(sorter);
+
+        // --- Hàm cập nhật bộ lọc kết hợp (ngành + tổ hợp + phương thức) ---
+        Runnable applyFilters = () -> {
+            final String selNganh = (String) cboNganh.getSelectedItem();
+            final String selToHop = (String) cboToHop.getSelectedItem();
+            final String selPhuongThuc = (String) cboPhuongThuc.getSelectedItem();
+
+            sorter.setRowFilter(new javax.swing.RowFilter<DefaultTableModel, Object>() {
+                @Override
+                public boolean include(Entry<? extends DefaultTableModel, ? extends Object> entry) {
+                    if (selNganh != null && !selNganh.startsWith("---")) {
+                        String maNganh = selNganh.split(" - ")[0].trim();
+                        String rowMaNganh = entry.getStringValue(0);
+                        if (rowMaNganh == null || !rowMaNganh.trim().equals(maNganh)) {
+                            return false;
+                        }
+                    }
+
+                    if (selToHop != null && !selToHop.startsWith("---")) {
+                        String rowToHop = entry.getStringValue(5);
+                        if (rowToHop == null || !rowToHop.trim().equals(selToHop.trim())) {
+                            return false;
+                        }
+                    }
+
+                    if (selPhuongThuc != null && !selPhuongThuc.startsWith("---")) {
+                        String rowPhuongThuc = entry.getStringValue(4);
+                        String normalizedRow = bus.normalizePhuongThuc(rowPhuongThuc);
+                        String normalizedSelected = bus.normalizePhuongThuc(selPhuongThuc);
+                        if (!normalizedSelected.equals(normalizedRow)) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+            });
+        };
         
         cboNganh.addItemListener(e -> {
             if (e.getStateChange() == java.awt.event.ItemEvent.SELECTED) {
-                String s = e.getItem().toString();
-                if (s.startsWith("---")) sorter.setRowFilter(null);
-                else sorter.setRowFilter(javax.swing.RowFilter.regexFilter("^" + java.util.regex.Pattern.quote(s.split(" - ")[0]) + "$", 0));
+                applyFilters.run();
+            }
+        });
+
+        cboToHop.addItemListener(e -> {
+            if (e.getStateChange() == java.awt.event.ItemEvent.SELECTED) {
+                applyFilters.run();
+            }
+        });
+
+        cboPhuongThuc.addItemListener(e -> {
+            if (e.getStateChange() == java.awt.event.ItemEvent.SELECTED) {
+                applyFilters.run();
+            }
+        });
+
+        // --- Xử lý sắp xếp Điểm XT ---
+        cboSortDiemXT.addItemListener(e -> {
+            if (e.getStateChange() == java.awt.event.ItemEvent.SELECTED) {
+                String sel = (String) cboSortDiemXT.getSelectedItem();
+                if (sel != null && sel.contains("Cao → Thấp")) {
+                    sorter.setSortKeys(java.util.List.of(
+                        new javax.swing.RowSorter.SortKey(9, javax.swing.SortOrder.DESCENDING)));
+                } else if (sel != null && sel.contains("Thấp → Cao")) {
+                    sorter.setSortKeys(java.util.List.of(
+                        new javax.swing.RowSorter.SortKey(9, javax.swing.SortOrder.ASCENDING)));
+                } else {
+                    sorter.setSortKeys(null);
+                }
             }
         });
         
@@ -631,6 +728,19 @@ public class NguyenVongXetTuyenGUI extends JPanel {
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Lỗi khi xuất Excel: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
+        }
+    }
+
+    /**
+     * Chuyển Object thành double an toàn (dùng cho comparator sắp xếp điểm).
+     */
+    private double toDouble(Object obj) {
+        if (obj == null) return 0.0;
+        if (obj instanceof Number) return ((Number) obj).doubleValue();
+        try {
+            return Double.parseDouble(obj.toString().trim());
+        } catch (NumberFormatException e) {
+            return 0.0;
         }
     }
 }

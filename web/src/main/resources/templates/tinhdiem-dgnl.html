@@ -71,55 +71,151 @@
         <div th:if="${hasResult}" class="card">
             <div class="card-title" style="color:#c0392b;">
                 Tính quy đổi điểm xét tuyển DGNL: <span th:text="${nganh.tenNganh}"></span>
+                (<span th:text="${nganh.maNganh}"></span>)
             </div>
             <p class="card-subtitle">
                 Tổ hợp gốc quy đổi theo ngành: <span class="badge badge-info" th:text="${toHopGoc}"></span>,
                 <span th:text="${isDiemSanFallback ? 'Ngưỡng đầu vào (Điểm sàn):' : 'Điểm trúng tuyển (Điểm chuẩn):'}"></span>
-                <span class="badge badge-warning" th:text="${nguong != null ? nguong : 'Chưa có'}"></span>
+                <span class="badge badge-warning" th:text="${nganh.diemTrungTuyen != null ? nganh.diemTrungTuyen : (nganh.diemSan != null ? nganh.diemSan : 'Chưa có')}"></span>
                 <br>
                 <span th:if="${isDiemSanFallback}" style="color: #e74c3c; font-size: 13px; font-weight: 600; margin-top: 5px; display: inline-block;">
                     ⚠ Cảnh báo: Chưa có điểm chuẩn chính thức, hệ thống đang dùng tạm điểm sàn để tính kết quả đạt/không đạt.
                 </span>
             </p>
-            <p><a th:href="@{/tinhdiem/dgnl}">← Quay lại</a></p>
 
-            <table class="result-table">
-                <thead>
-                    <tr><th>Nội dung</th><th>Chi tiết điểm</th></tr>
-                </thead>
-                <tbody>
+            <!-- Thông tin chung -->
+            <table class="result-table" style="margin-bottom:16px;">
+                <tr>
+                    <td class="label-col">Điểm thi ĐGNL</td>
+                    <td class="value-col" th:text="${diemThi}"></td>
+                </tr>
+                <tr>
+                    <td class="label-col">Khu vực ưu tiên</td>
+                    <td class="value-col" th:text="${khuVuc != null && khuVuc != '' ? khuVuc : 'Không có'}"></td>
+                </tr>
+                <tr>
+                    <td class="label-col">Đối tượng ưu tiên</td>
+                    <td class="value-col" th:text="${doiTuong != null && doiTuong != '' ? 'Đối tượng ' + doiTuong : 'Không'}"></td>
+                </tr>
+                <tr>
+                    <td class="label-col">Điểm cộng (≤3)</td>
+                    <td class="value-col" th:text="${diemCong}"></td>
+                </tr>
+                <tr>
+                    <td class="label-col">MĐUT (Điểm ưu tiên gốc)</td>
+                    <td class="value-col" th:text="${mDut}"></td>
+                </tr>
+            </table>
+
+            <!-- Filter & Sort UI -->
+            <div class="result-filter-bar" style="display:flex; gap:16px; margin-bottom:16px; background:#f8f9fa; padding:12px; border-radius:6px; align-items:center; border: 1px solid #e0e0e0; flex-wrap: wrap;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <label for="filterStatus" style="margin:0; font-weight:600; color:#34495e;">Trạng thái:</label>
+                    <select id="filterStatus" onchange="applyFilters()" style="padding:6px; border-radius:4px; border:1px solid #ccc; outline:none;">
+                        <option value="all">Tất cả</option>
+                        <option value="dat">Đạt</option>
+                        <option value="khongdat">Không Đạt</option>
+                    </select>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <label for="sortScore" style="margin:0; font-weight:600; color:#34495e;">Sắp xếp điểm:</label>
+                    <select id="sortScore" onchange="applyFilters()" style="padding:6px; border-radius:4px; border:1px solid #ccc; outline:none;">
+                        <option value="default">Mặc định</option>
+                        <option value="desc">Giảm dần (Cao nhất xếp trước)</option>
+                        <option value="asc">Tăng dần (Thấp nhất xếp trước)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Từng tổ hợp -->
+            <div id="resultsWrapper">
+                <div th:each="r, stat : ${results}" class="tohop-section"
+                     th:classappend="${r.best ? 'is-best' : ''}"
+                     th:attr="data-score=${r.diemXetTuyen}, data-status=${r.ketQua == 'Đạt' ? 'dat' : 'khongdat'}, data-index=${stat.index}">
+                <div class="tohop-header">
+                    <h4>
+                        <span th:text="${stat.count}"></span>)
+                        Tổ hợp <span th:text="${r.maToHop}"></span>
+                        – <span th:text="${r.tenToHop}"></span>
+                    </h4>
+                    <span th:if="${r.best}" class="badge badge-best">✅ Điểm cao nhất</span>
+                </div>
+
+                <table class="result-table">
+                    <!-- ĐTHXT (điểm quy đổi ĐGNL thang 30) -->
                     <tr>
-                        <td class="label-col">Điểm thi ĐGNL</td>
-                        <td class="value-col" th:text="${diemThi}"></td>
+                        <td class="label-col">Điểm ĐGNL quy đổi thang 30 (ĐTHXT)</td>
+                        <td class="value-col"><strong th:text="${r.dthxt}"></strong></td>
                     </tr>
+                    <!-- Độ lệch -->
                     <tr>
-                        <td class="label-col">Công thức quy đổi về thang 30 (THXT gốc: <span th:text="${toHopGoc}"></span>)</td>
-                        <td class="value-col" th:text="${congThuc}"></td>
+                        <td class="label-col">Độ lệch với TH Gốc (<span th:text="${r.toHopGoc}"></span>)</td>
+                        <td class="value-col" th:text="${r.doLech}"></td>
                     </tr>
+                    <!-- ĐTHGXT -->
                     <tr>
-                        <td class="label-col">Điểm thi quy đổi</td>
-                        <td class="value-col" th:text="${diemQuyDoi}"></td>
+                        <td class="label-col">ĐTHGXT = ĐTHXT - Độ lệch</td>
+                        <td class="value-col" th:text="${r.dthgxt}"></td>
                     </tr>
+                    <!-- Điểm cộng -->
                     <tr>
                         <td class="label-col">Điểm cộng</td>
-                        <td class="value-col" th:text="${diemCong}"></td>
+                        <td class="value-col" th:text="${r.diemCong}"></td>
                     </tr>
+                    <!-- Điểm ưu tiên -->
                     <tr>
-                        <td class="label-col">Điểm ưu tiên quy đổi</td>
-                        <td class="value-col" th:text="${dut}"></td>
+                        <td class="label-col">Điểm ưu tiên quy đổi (ĐUT)</td>
+                        <td class="value-col" th:text="${r.dut}"></td>
                     </tr>
+                    <!-- ĐXT -->
                     <tr class="highlight-row">
-                        <td class="label-col">Điểm xét tuyển = điểm thi quy đổi + điểm cộng + điểm ưu tiên quy đổi</td>
+                        <td class="label-col">Điểm xét tuyển (ĐXT) = ĐTHGXT + ĐC + ĐUT</td>
                         <td class="value-col">
-                            <span class="dxt-value" th:text="${dxt}"></span>
+                            <span class="dxt-value" th:text="${r.diemXetTuyen}"></span>
                             &nbsp;→&nbsp;
-                            <span class="badge" th:classappend="${ketQua == 'Đạt' ? 'badge-success' : 'badge-danger'}" th:text="${ketQua}"></span>
+                            <span class="badge"
+                                  th:classappend="${r.ketQua == 'Đạt' ? 'badge-success' : (r.ketQua == 'Không đạt' ? 'badge-danger' : 'badge-warning')}"
+                                  th:text="${r.ketQua}"></span>
                         </td>
                     </tr>
-                </tbody>
-            </table>
+                </table>
+            </div>
+            </div>
         </div>
     </div>
+
+    <script th:if="${hasResult}">
+    function applyFilters() {
+        const filter = document.getElementById('filterStatus').value;
+        const sort = document.getElementById('sortScore').value;
+        const wrapper = document.getElementById('resultsWrapper');
+        if (!wrapper) return;
+        
+        const cards = Array.from(wrapper.querySelectorAll('.tohop-section'));
+        
+        // Sort
+        cards.sort((a, b) => {
+            if (sort === 'default') {
+                return parseInt(a.getAttribute('data-index')) - parseInt(b.getAttribute('data-index'));
+            }
+            const scoreA = parseFloat(a.getAttribute('data-score')) || 0;
+            const scoreB = parseFloat(b.getAttribute('data-score')) || 0;
+            if (sort === 'desc') return scoreB - scoreA;
+            return scoreA - scoreB;
+        });
+        
+        // Apply sort & filter
+        cards.forEach(card => {
+            wrapper.appendChild(card);
+            const status = card.getAttribute('data-status');
+            if (filter === 'all' || filter === status) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+    </script>
 
     <div class="footer">© 2026 Đại học Sài Gòn - Hệ thống tra cứu xét tuyển</div>
 </body>

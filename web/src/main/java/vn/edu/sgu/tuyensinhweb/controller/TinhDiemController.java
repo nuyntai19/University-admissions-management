@@ -54,41 +54,70 @@ public class TinhDiemController {
 
         String toHopGoc = nganh.getToHopGoc() != null ? nganh.getToHopGoc() : "D01";
 
-        // Quy đổi ĐGNL → thang 30
-        BangQuyDoi interval = tinhDiemSvc.findInterval("ĐGNL", toHopGoc, diemThi);
-        BigDecimal diemQuyDoi = tinhDiemSvc.quyDoiDGNL(toHopGoc, diemThi);
-
-        // Công thức hiển thị
-        String congThuc = "";
-        if (interval != null) {
-            congThuc = String.format("%s + ( %s - %s ) / ( %s - %s ) * ( %s - %s )",
-                interval.getDDiemC().toPlainString(), diemThi.toPlainString(),
-                interval.getDDiemA().toPlainString(), interval.getDDiemB().toPlainString(),
-                interval.getDDiemA().toPlainString(), interval.getDDiemD().toPlainString(),
-                interval.getDDiemC().toPlainString());
-        }
-
-        // ĐUT
+        // MĐUT
         BigDecimal mDut = tinhDiemSvc.tinhMDUT(khuVuc, doiTuong);
-        BigDecimal dut = tinhDiemSvc.tinhDUT(diemQuyDoi, diemCong, mDut);
 
-        // ĐXT
-        BigDecimal dxt = diemQuyDoi.add(diemCong).add(dut);
-        if (dxt.compareTo(bd("30")) > 0) dxt = bd("30");
+        // Lấy tất cả tổ hợp của ngành
+        List<NganhToHop> toHops = nganhToHopRepo.findByMaNganh(maNganh);
 
-        // Kết quả
-        String ketQua = "Chưa có ngưỡng";
-        BigDecimal nguong = nganh.getDiemTrungTuyen();
-        boolean isDiemSanFallback = false;
-        
-        if (nguong == null) {
-            nguong = nganh.getDiemSan();
-            isDiemSanFallback = true;
+        List<ToHopResult> results = new ArrayList<>();
+        BigDecimal maxDxt = bd("-1");
+        int bestIdx = -1;
+
+        for (int i = 0; i < toHops.size(); i++) {
+            NganhToHop nth = toHops.get(i);
+            ToHopResult tr = new ToHopResult();
+            tr.setMaToHop(nth.getMaToHop());
+            tr.setTenToHop(nth.getTenToHop() != null ? nth.getTenToHop() : nth.getMaToHop());
+            tr.setToHopGoc(toHopGoc);
+
+            // Quy đổi ĐGNL → thang 30: thử tổ hợp cụ thể trước, rồi fallback toHopGoc
+            BigDecimal diemQuyDoi = tinhDiemSvc.quyDoiDGNL(nth.getMaToHop(), diemThi);
+            if (diemQuyDoi.compareTo(BigDecimal.ZERO) == 0 && !nth.getMaToHop().equals(toHopGoc)) {
+                diemQuyDoi = tinhDiemSvc.quyDoiDGNL(toHopGoc, diemThi);
+            }
+
+            // ĐTHXT = điểm quy đổi ĐGNL (thang 30)
+            tr.setDthxt(diemQuyDoi);
+
+            // Độ lệch
+            BigDecimal doLech = nth.getDoLech() != null ? nth.getDoLech() : tinhDiemSvc.getDoLech(toHopGoc, nth.getMaToHop());
+            tr.setDoLech(doLech);
+
+            // ĐTHGXT = ĐTHXT - độ lệch
+            BigDecimal dthgxt = diemQuyDoi.subtract(doLech);
+            tr.setDthgxt(dthgxt);
+
+            tr.setDiemCong(diemCong);
+
+            // ĐUT
+            BigDecimal dut = tinhDiemSvc.tinhDUT(dthgxt, diemCong, mDut);
+            tr.setDut(dut);
+
+            // ĐXT
+            BigDecimal dxt = dthgxt.add(diemCong).add(dut).setScale(2, RoundingMode.HALF_UP);
+            if (dxt.compareTo(bd("30")) > 0) dxt = bd("30");
+            tr.setDiemXetTuyen(dxt);
+
+            // Ngưỡng
+            BigDecimal nguong = nganh.getDiemTrungTuyen();
+            if (nguong == null) {
+                nguong = nganh.getDiemSan();
+            }
+            tr.setNguongDauVao(nguong);
+            if (nguong != null) {
+                tr.setKetQua(dxt.compareTo(nguong) >= 0 ? "Đạt" : "Không đạt");
+            } else {
+                tr.setKetQua("Chưa có ngưỡng");
+            }
+
+            results.add(tr);
+            if (dxt.compareTo(maxDxt) > 0) { maxDxt = dxt; bestIdx = i; }
         }
 
-        if (nguong != null) {
-            ketQua = dxt.compareTo(nguong) >= 0 ? "Đạt" : "Không đạt";
-        }
+        if (bestIdx >= 0) results.get(bestIdx).setBest(true);
+
+        boolean isDiemSanFallback = nganh.getDiemTrungTuyen() == null && nganh.getDiemSan() != null;
 
         model.addAttribute("nganhList", nganhRepo.findAllByOrderByMaNganhAsc());
         model.addAttribute("nganh", nganh);
@@ -97,14 +126,9 @@ public class TinhDiemController {
         model.addAttribute("khuVuc", khuVuc);
         model.addAttribute("doiTuong", doiTuong);
         model.addAttribute("toHopGoc", toHopGoc);
-        model.addAttribute("congThuc", congThuc);
-        model.addAttribute("diemQuyDoi", diemQuyDoi);
         model.addAttribute("mDut", mDut);
-        model.addAttribute("dut", dut);
-        model.addAttribute("dxt", dxt);
-        model.addAttribute("nguong", nguong);
-        model.addAttribute("isDiemSanFallback", isDiemSanFallback && nguong != null);
-        model.addAttribute("ketQua", ketQua);
+        model.addAttribute("results", results);
+        model.addAttribute("isDiemSanFallback", isDiemSanFallback);
         model.addAttribute("hasResult", true);
 
         return "tinhdiem-dgnl";
@@ -248,13 +272,21 @@ public class TinhDiemController {
         } else {
             BangQuyDoi interval = tinhDiemSvc.findInterval("V-SAT", mc, diemGoc);
             if (interval != null) {
-                BigDecimal qd = tinhDiemSvc.noiSuy(diemGoc, interval.getDDiemA(), interval.getDDiemB(), interval.getDDiemC(), interval.getDDiemD());
+                BigDecimal qd;
+                if (diemGoc.compareTo(interval.getDDiemB()) > 0) {
+                    // Điểm vượt khoảng cao nhất → dùng giá trị d của khoảng cuối
+                    qd = interval.getDDiemD();
+                    md.setCongThuc(String.format("Điểm %s > %s (khoảng cao nhất) → %s",
+                        diemGoc.toPlainString(), interval.getDDiemB().toPlainString(), qd.toPlainString()));
+                } else {
+                    qd = tinhDiemSvc.noiSuy(diemGoc, interval.getDDiemA(), interval.getDDiemB(), interval.getDDiemC(), interval.getDDiemD());
+                    md.setCongThuc(String.format("%s + ( %s - %s ) / ( %s - %s ) * ( %s - %s ) = %s",
+                        interval.getDDiemC().toPlainString(), diemGoc.toPlainString(),
+                        interval.getDDiemA().toPlainString(), interval.getDDiemB().toPlainString(),
+                        interval.getDDiemA().toPlainString(), interval.getDDiemD().toPlainString(),
+                        interval.getDDiemC().toPlainString(), qd.toPlainString()));
+                }
                 md.setDiemQuyDoi(qd);
-                md.setCongThuc(String.format("%s + ( %s - %s ) / ( %s - %s ) * ( %s - %s ) = %s",
-                    interval.getDDiemC().toPlainString(), diemGoc.toPlainString(),
-                    interval.getDDiemA().toPlainString(), interval.getDDiemB().toPlainString(),
-                    interval.getDDiemA().toPlainString(), interval.getDDiemD().toPlainString(),
-                    interval.getDDiemC().toPlainString(), qd.toPlainString()));
             } else {
                 md.setDiemQuyDoi(BigDecimal.ZERO);
                 md.setLoi("Điểm nhập vào không nằm trong phân vị nào = 0");
