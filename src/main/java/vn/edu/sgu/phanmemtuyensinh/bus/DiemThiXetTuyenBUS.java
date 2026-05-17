@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.regex.Pattern;
 import java.math.RoundingMode;
 
@@ -453,8 +454,8 @@ public class DiemThiXetTuyenBUS {
                         DiemThiXetTuyen d = new DiemThiXetTuyen();
                         d.setCccd(cccd);
                         d.setSoBaoDanh(safe(getCellStr(headerMap, currentRowData, "sobaodanh", "sbd", "mathisinh")));
-                        String pt = safe(getCellStr(headerMap, currentRowData,
-                                "dphuongthuc", "phuongthuc", "ptxt", "chuongtrinhhoc", "mamonthi", "tenmonthi"));
+                                String pt = safe(getCellStr(headerMap, currentRowData,
+                                    "dphuongthuc", "phuongthuc", "ptxt"));
 
                         d.setTo(parseDecimal(getCellStr(headerMap, currentRowData, "to", "toan")));
                         d.setVa(parseDecimal(getCellStr(headerMap, currentRowData, "va", "van", "nguvan")));
@@ -470,10 +471,10 @@ public class DiemThiXetTuyenBUS {
                         d.setTi(parseDecimal(getCellStr(headerMap, currentRowData, "ti", "tin", "tinhoc")));
                         d.setGdcd(parseDecimal(getCellStr(headerMap, currentRowData, "gdcd", "giaoduccongdan")));
                         d.setKtpl(parseDecimal(getCellStr(headerMap, currentRowData, "ktpl", "kinhtephapluat")));
-                        // Prefer explicit NL1/DGNL column, but also support DIEM + THANGDIEM format
+                        // Prefer explicit NL1/DGNL column, but only use DIEM+THANGDIEM when that format is present
                         String nlRaw = getCellStr(headerMap, currentRowData, "nl1", "dgnl");
                         BigDecimal nlValue = null;
-                        if (isBlank(nlRaw)) {
+                        if (isBlank(nlRaw) && headerMap.containsKey("thangdiem")) {
                             String diemStr = getCellStr(headerMap, currentRowData, "diem");
                             String thangStr = getCellStr(headerMap, currentRowData, "thangdiem");
                             BigDecimal diem = parseDecimal(diemStr);
@@ -500,6 +501,34 @@ public class DiemThiXetTuyenBUS {
                         d.setNk10(parseDecimal(getCellStr(headerMap, currentRowData, "nk10")));
                         d.setDiemXetTotNghiep(parseDecimal(getCellStr(headerMap, currentRowData, "diemxettotnghiep", "diemxettn")));
 
+                        // Support explicit VSAT columns only; do not treat THPT score fields as VSAT
+                        d.setVsatTo(parseDecimal(getCellStr(headerMap, currentRowData,
+                            "vsat_to", "vsatto", "to_vs", "toan_vs")));
+                        d.setVsatVa(parseDecimal(getCellStr(headerMap, currentRowData,
+                            "vsat_va", "vsatva", "va_vs", "van_vs")));
+                        d.setVsatAnh(parseDecimal(getCellStr(headerMap, currentRowData,
+                            "vsat_anh", "vsatanh", "anh_vs")));
+                        d.setVsatLi(parseDecimal(getCellStr(headerMap, currentRowData,
+                            "vsat_li", "vsatli", "li_vs", "ly_vs")));
+                        d.setVsatHo(parseDecimal(getCellStr(headerMap, currentRowData,
+                            "vsat_ho", "vsatho", "ho_vs")));
+                        d.setVsatSi(parseDecimal(getCellStr(headerMap, currentRowData,
+                            "vsat_si", "vsatsi", "si_vs", "sinh_vs")));
+                        d.setVsatSu(parseDecimal(getCellStr(headerMap, currentRowData,
+                            "vsat_su", "vsatsu", "su_vs")));
+                        d.setVsatDi(parseDecimal(getCellStr(headerMap, currentRowData,
+                            "vsat_di", "vsatdi", "di_vs", "dia_vs")));
+
+                        // If file is in (one row per subject) format, pick up subject code/name and score
+                        BigDecimal subjectScore = parseDecimal(getCellStr(headerMap, currentRowData,
+                            "diem", "score"));
+                        String subjectCode = getCellStr(headerMap, currentRowData,
+                            "mamonthi", "monthi", "mamon", "mon");
+                        String subjectName = getCellStr(headerMap, currentRowData,
+                            "tenmonthi", "tenmon", "monhoc", "subjectname", "name");
+                        assignVsatScore(d, subjectCode, subjectScore);
+                        assignVsatScore(d, subjectName, subjectScore);
+
                         autoDetectPhuongThuc(d, pt);
 
                         result.add(new ImportRecord(rowNum + 1, d));
@@ -525,7 +554,7 @@ public class DiemThiXetTuyenBUS {
             throw new IOException("Lỗi đọc file Excel: " + e.getMessage(), e);
         }
 
-        return result;
+        return groupImportRecords(result);
     }
 
     /** Tìm giá trị ô theo tên cột (hỗ trợ nhiều alias) */
@@ -575,7 +604,7 @@ public class DiemThiXetTuyenBUS {
         d.setCccd(readHeaderCell(row, headerMap, formatter, "cccd", "cancuoc", "cmnd", "maso"));
         d.setSoBaoDanh(readHeaderCell(row, headerMap, formatter, "sobaodanh", "sbd", "mathisinh"));
         String pt = readHeaderCell(row, headerMap, formatter,
-                "dphuongthuc", "phuongthuc", "ptxt", "chuongtrinhhoc", "mamonthi", "tenmonthi");
+            "dphuongthuc", "phuongthuc", "ptxt");
 
         if (isBlank(safe(d.getCccd()))) {
             d.setCccd(readCell(row, 1, formatter));
@@ -695,6 +724,78 @@ public class DiemThiXetTuyenBUS {
         autoDetectPhuongThuc(d, "");
 
         return d;
+    }
+
+    private List<ImportRecord> groupImportRecords(List<ImportRecord> rows) {
+        Map<String, ImportRecord> map = new LinkedHashMap<>();
+        for (ImportRecord r : rows) {
+            String cccd = safe(r.getDiem().getCccd());
+            if (cccd.isEmpty()) continue;
+            ImportRecord existing = map.get(cccd);
+            if (existing == null) {
+                map.put(cccd, r);
+            } else {
+                DiemThiXetTuyen merged = mergeImportedRow(existing.getDiem(), r.getDiem());
+                existing.setDiem(merged);
+                if (r.getLineNo() < existing.getLineNo()) existing.setLineNo(r.getLineNo());
+            }
+        }
+        return new ArrayList<>(map.values());
+    }
+
+    private DiemThiXetTuyen mergeImportedRow(DiemThiXetTuyen existing, DiemThiXetTuyen incoming) {
+        if (existing == null) return incoming;
+        if (incoming == null) return existing;
+        DiemThiXetTuyen merged = existing;
+        merged.setTo(maxDecimal(existing.getTo(), incoming.getTo()));
+        merged.setVa(maxDecimal(existing.getVa(), incoming.getVa()));
+        merged.setLi(maxDecimal(existing.getLi(), incoming.getLi()));
+        merged.setHo(maxDecimal(existing.getHo(), incoming.getHo()));
+        merged.setSi(maxDecimal(existing.getSi(), incoming.getSi()));
+        merged.setSu(maxDecimal(existing.getSu(), incoming.getSu()));
+        merged.setDi(maxDecimal(existing.getDi(), incoming.getDi()));
+        merged.setNl1(maxDecimal(existing.getNl1(), incoming.getNl1()));
+        merged.setN1Thi(maxDecimal(existing.getN1Thi(), incoming.getN1Thi()));
+        merged.setVsatTo(maxDecimal(existing.getVsatTo(), incoming.getVsatTo()));
+        merged.setVsatVa(maxDecimal(existing.getVsatVa(), incoming.getVsatVa()));
+        merged.setVsatAnh(maxDecimal(existing.getVsatAnh(), incoming.getVsatAnh()));
+        merged.setVsatLi(maxDecimal(existing.getVsatLi(), incoming.getVsatLi()));
+        merged.setVsatHo(maxDecimal(existing.getVsatHo(), incoming.getVsatHo()));
+        merged.setVsatSi(maxDecimal(existing.getVsatSi(), incoming.getVsatSi()));
+        merged.setVsatSu(maxDecimal(existing.getVsatSu(), incoming.getVsatSu()));
+        merged.setVsatDi(maxDecimal(existing.getVsatDi(), incoming.getVsatDi()));
+        return merged;
+    }
+
+    private void assignVsatScore(DiemThiXetTuyen d, String subjectTag, BigDecimal score) {
+        if (score == null) return;
+        if (isBlank(subjectTag)) return;
+        String s = normalizeHeader(subjectTag).toLowerCase();
+
+        // Recognize DGNL / NL1 rows and assign them correctly
+        if (s.contains("dgnl") || s.contains("dgln") || s.contains("nl1")
+                || s.contains("danhgianangluc") || s.contains("nangluc")) {
+            d.setNl1(score);
+            return;
+        }
+
+        if (s.contains("toan") || s.equals("to")) {
+            d.setVsatTo(score);
+        } else if (s.contains("nguvan") || s.equals("van")) {
+            d.setVsatVa(score);
+        } else if ((s.contains("anh") || s.contains("english")) && !s.contains("nganh")) {
+            d.setVsatAnh(score);
+        } else if (s.contains("vatly") || s.equals("li") || s.equals("ly")) {
+            d.setVsatLi(score);
+        } else if (s.contains("hoa") && !s.contains("hoanh")) {
+            d.setVsatHo(score);
+        } else if (s.contains("sinh") || s.equals("si")) {
+            d.setVsatSi(score);
+        } else if (s.equals("su")) {
+            d.setVsatSu(score);
+        } else if (s.contains("dia") || s.equals("di")) {
+            d.setVsatDi(score);
+        }
     }
 
     private boolean validateDiemThi(DiemThiXetTuyen diem, boolean checkDuplicate) {
@@ -940,12 +1041,18 @@ public class DiemThiXetTuyenBUS {
     }
 
     private static class ImportRecord {
-        private final int lineNo;
-        private final DiemThiXetTuyen diem;
+        private int lineNo;
+        private DiemThiXetTuyen diem;
 
         private ImportRecord(int lineNo, DiemThiXetTuyen diem) {
             this.lineNo = lineNo;
             this.diem = diem;
         }
+
+        public DiemThiXetTuyen getDiem() { return diem; }
+        public void setDiem(DiemThiXetTuyen diem) { this.diem = diem; }
+
+        public int getLineNo() { return lineNo; }
+        public void setLineNo(int lineNo) { this.lineNo = lineNo; }
     }
 }
